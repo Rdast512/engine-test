@@ -4,17 +4,12 @@
 #include <VkBootstrap.h>
 #include <iostream>
 #include <stdexcept>
-#include <algorithm>
 #include <vector>
 #include <cstring>
 #include <cstdlib>
 #include <cstdint>
-#include <limits>
 #include <optional>
-#include <set>
 #include <fstream>
-#include <VkBootstrap.h>
-
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;

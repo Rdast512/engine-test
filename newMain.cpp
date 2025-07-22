@@ -4,7 +4,12 @@
 #include <fstream>
 #include <stdexcept>
 #include <cstdlib>
-#include "VkBootstrap.h"
+#include <VkBootstrap.h>
+#include <optional>
+#include <vector>
+#include <cstring>
+
+// /usr/local/bin:/usr/bin:/usr/local/sbin:/var/lib/flatpak/exports/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl:/home/rdast/.local/share/JetBrains/Toolbox/scripts
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -103,25 +108,43 @@ private:
     vkb::Swapchain vkb_swapchain;
 
     void initWindow() {
-        if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-            throw std::runtime_error("SDL could not initialize!");
+        std::cout << "Initializing SDL..." << std::endl;
+        if (SDL_Vulkan_LoadLibrary(nullptr) < 0) {
+            throw std::runtime_error("Could not load Vulkan library: " + std::string(SDL_GetError()));
         }
+
+
+        if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+            throw std::runtime_error("SDL could not initialize: " + std::string(SDL_GetError()));
+        }
+
+        const char* videoDriver = SDL_GetCurrentVideoDriver();
+        if (!videoDriver) {
+            throw std::runtime_error("No video driver available: " + std::string(SDL_GetError()));
+        }
+        std::cout << "Using video driver: " << videoDriver << std::endl;
+
         SDL_PropertiesID properties = SDL_CreateProperties();
         if (!properties) {
-            throw std::runtime_error("Failed to create SDL properties");
+            throw std::runtime_error("Failed to create SDL properties: " + std::string(SDL_GetError()));
         }
 
         SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN, true);
-        SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "My Window");
+        SDL_SetStringProperty(properties, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "Vulkan Triangle");
         SDL_SetBooleanProperty(properties, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
-        SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, 640);
-        SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, 480);
+        SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, WIDTH);
+        SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, HEIGHT);
+
+
 
         window = SDL_CreateWindowWithProperties(properties);
         if (!window) {
-            throw std::runtime_error("Failed to create window");
+            SDL_DestroyProperties(properties);
+            throw std::runtime_error("Failed to create window: " + std::string(SDL_GetError()));
         }
         SDL_DestroyProperties(properties);
+
+        std::cout << "Window created successfully" << std::endl;
     }
 
 
@@ -209,11 +232,18 @@ private:
         vkb::PhysicalDeviceSelector selector(vkb_instance);
         VkPhysicalDeviceFeatures features{};
         features.depthClamp = VK_TRUE;
+
+    #ifdef __linux__
+        auto phys_ret = selector.set_surface(surface)
+                                .set_required_features(features)
+                                .select();
+    #else
         auto phys_ret = selector.set_surface(surface)
                                 .set_required_features(features)
                                 .require_dedicated_transfer_queue()
                                 .add_required_extensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME})
                                 .select();
+    #endif
         if (!phys_ret) {
             throw std::runtime_error("Failed to select Physical Device: " + phys_ret.error().message());
         }
@@ -361,6 +391,7 @@ private:
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkb::destroy_instance(vkb_instance);
 
+        SDL_Vulkan_UnloadLibrary();
         SDL_DestroyWindow(window);
         SDL_Quit();
     }
