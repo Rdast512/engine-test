@@ -1,28 +1,30 @@
-// No direct #version equivalent needed in Slang
+struct UniformBufferObject {
+    float4x4 model;
+    float4x4 view;
+    float4x4 proj;
+};
+
+struct VSInput {
+    float3 inPosition : POSITION;
+    float3 inColor : COLOR0;
+    float2 inTexCoord : TEXCOORD0;
+};
 
 struct VSOutput {
     float4 position : SV_Position;
-    float3 color : COLOR0;
+    float3 fragColor : COLOR0;
+    float2 fragTexCoord : TEXCOORD0;
 };
 
-static const float2 positions[3] = {
-    float2(0.5, -0.5),
-    float2(0.5,  0.5),
-    float2(-0.5, 0.5)
-};
-
-static const float3 colors[3] = {
-    float3(1.0, 0.0, 0.0),
-    float3(0.0, 1.0, 0.0),
-    float3(0.0, 0.0, 1.0)
-};
+[[vk::binding(0, 0)]]
+ConstantBuffer<UniformBufferObject> ubo;
 
 [shader("vertex")]
-VSOutput main(uint vertexID : SV_VertexID)
+VSOutput main(VSInput input)
 {
-
     VSOutput output;
-    output.position = float4(positions[vertexID], 0.0, 1.0);
-    output.color = colors[vertexID];
+    output.position = mul(mul(mul(ubo.proj, ubo.view), ubo.model), float4(input.inPosition, 1.0));
+    output.fragColor = input.inColor;
+    output.fragTexCoord = input.inTexCoord;
     return output;
 }

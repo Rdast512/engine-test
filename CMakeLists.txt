@@ -2,9 +2,14 @@ cmake_minimum_required(VERSION 3.29)
 project(engine)
 
 
+set(CMAKE_EXPERIMENTAL_CXX_MODULES ON CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED OFF)
 message(STATUS "CMAKE_Version: ${CMAKE_VERSION}")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+set(CMAKE_CXX_SCAN_FOR_MODULES ON)
+
 if(WIN32)
     set(Vulkan_DIR "C:/VulkanSDK/1.4.313.1")
     set(ENV{VULKAN_SDK} "C:/VulkanSDK/1.4.313.1")
@@ -13,24 +18,60 @@ elseif(UNIX AND NOT APPLE)
     #    set(Vulkan_DIR "/usr/include/vulkan")
     #    set(ENV{VULKAN_SDK} "/usr")
     # Alternative paths if Vulkan SDK is installed in different locations
-    set(Vulkan_DIR "/home/rdast/VulkanSDK/1.4.321.1/x86_64")
-    set(ENV{VULKAN_SDK} "/home/rdast/VulkanSDK/1.4.321.1/x86_64")
-    list(APPEND CMAKE_PREFIX_PATH "/home/rdast/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic")
-    list(APPEND CMAKE_PREFIX_PATH "/home/rdast/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic/share")
+    set(Vulkan_DIR "$ENV{HOME}/VulkanSDK/1.4.321.1/x86_64")
+    set(ENV{VULKAN_SDK} "$ENV{HOME}/VulkanSDK/1.4.321.1/x86_64")
+    list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic")
+    list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic/share")
 
-    include_directories("/home/rdast/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic/include")
+    include_directories("$ENV{HOME}/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic/include")
 
 endif()
-#list(APPEND CMAKE_PREFIX_PATH "C:/VulkanSDK/1.4.313.1")
 
+
+add_subdirectory(ThirdParty)
+
+set(CMAKE_VERBOSE_MAKEFILE OFF)
 find_package(Vulkan REQUIRED)
 find_package(vk-bootstrap REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED COMPONENTS filesystem log system)
 find_package(SDL3 REQUIRED CONFIG REQUIRED)
 
+add_library(VulkanCppModule)
+add_library(Vulkan::cppm ALIAS VulkanCppModule)
+target_compile_definitions(VulkanCppModule PUBLIC
+        VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
+        VULKAN_HPP_NO_STRUCT_CONSTRUCTORS=1
+)
 
+target_include_directories(VulkanCppModule
+        PRIVATE
+        "${Vulkan_INCLUDE_DIR}"
+)
+target_link_libraries(VulkanCppModule
+        PUBLIC
+        Vulkan::Vulkan
+)
+
+set_target_properties(VulkanCppModule PROPERTIES CXX_STANDARD 23)
+
+target_sources(VulkanCppModule
+        PUBLIC
+        FILE_SET cxx_modules TYPE CXX_MODULES
+        BASE_DIRS
+        "${Vulkan_INCLUDE_DIR}"
+        FILES
+        "${Vulkan_INCLUDE_DIR}/vulkan/vulkan.cppm"
+)
+
+# Add the vulkan.cppm file directly as a source file
+target_sources(VulkanCppModule
+        PRIVATE
+        "${Vulkan_INCLUDE_DIR}/vulkan/vulkan.cppm"
+)
+
+set(VK_BOOTSTRAP_WERROR	ON CACHE BOOL "Enable warnings as errors for vk-bootstrap")
 message(STATUS "Vulkan_INCLUDE_DIR: ${Vulkan_INCLUDE_DIR}")
 message(STATUS "Vulkan_INCLUDE_DIRS: ${Vulkan_INCLUDE_DIRS}")
 message(STATUS "Vulkan_LIBRARIES: ${Vulkan_LIBRARIES}")
@@ -43,21 +84,24 @@ message(STATUS "SDL3_LIBRARIES: ${SDL3_LIBRARIES}")
 message(STATUS "vk-bootstrap_INCLUDE_DIRS: ${vk-bootstrap_INCLUDE_DIRS}")
 message(STATUS "vk-bootstrap_LIBRARIES: ${vk-bootstrap_LIBRARIES}")
 message(STATUS "${CMAKE_DL_LIBS}")
-
+message(STATUS "CMake is using C++ compiler: ${CMAKE_CXX_COMPILER}")
+message(STATUS "Compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
 message(${CMAKE_SOURCE_DIR})
 
+add_executable(engine newVersion.cpp)
 
 
-add_executable(engine newMain.cpp)
-
-
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_RUNTIME OFF)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
 
 file(GLOB SLANG_SHADERS "${CMAKE_SOURCE_DIR}/shaders/*.slang")
 
-# Set the appropriate slangc executable based on platform
+
 if(WIN32)
-    set(SLANGC_EXECUTABLE "ThirdParty/Slang/bin/slangc.exe")
+    set(SLANGC_EXECUTABLE "ThirdParty/Slang-win/bin/slangc.exe")
 else()
     set(SLANGC_EXECUTABLE "ThirdParty/Slang-linux/bin/slangc")
 endif()
@@ -92,17 +136,22 @@ add_custom_target(Shaders ALL
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_DL_LIBS} ${Vulkan_INCLUDE_DIRS} ${GLFW_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${SDL3_INCLUDE_DIRS})
 target_link_libraries(engine PUBLIC
-        Boost::boost
-        Vulkan::Vulkan
+        Boost::filesystem
+        Boost::log
+        Boost::system
         glfw
         glm::glm
         SDL3::SDL3
 )
+
 target_link_libraries(engine PRIVATE
         vk-bootstrap::vk-bootstrap
         vk-bootstrap::vk-bootstrap-compiler-warnings
         ${CMAKE_DL_LIBS}
+        Vulkan::cppm
+        # vulkan_module
 )
-#set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb -Wall -Wextra -Wpedantic -fpermissive")
-set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -ggdb -O3 -Wall -Wextra -Wpedantic")
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+#set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -ggdb -O3 -Wall -Wextra -Wpedantic")
 add_dependencies(engine Shaders)

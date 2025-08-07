@@ -1,10 +1,16 @@
 struct PSInput {
-    float4 position : SV_Position;   // Required for pixel shader input
-    float3 color : COLOR;           // Matches the vertex shader output
+    float4 position : SV_Position;
+    float3 fragColor : COLOR0;
+    float2 fragTexCoord : TEXCOORD0;
 };
 
-[shader("pixel")]
+[[vk::binding(1, 0)]]
+Texture2D<float4> texSampler;
+[[vk::binding(1, 0)]]
+SamplerState texSamplerState;
+
+[shader("fragment")]
 float4 main(PSInput input) : SV_Target
 {
-    return float4(input.color, 1.0);
+    return texSampler.Sample(texSamplerState, input.fragTexCoord);
 }
