@@ -1,0 +1,32 @@
+#pragma once
+#include "Utils.h"
+#include "ResourceManager.h"
+
+class TextureManager {
+public:
+    TextureManager(
+        const vk::raii::PhysicalDevice& physicalDevice,
+        const vk::raii::Device& device,
+        ResourceManager* resourceManager
+    );
+    ~TextureManager() = default;
+
+    void createTextureImage();
+    void createTextureImageView();
+    void createTextureSampler();
+    const vk::raii::Sampler& getTextureSampler() const { return textureSampler; }
+    const vk::raii::ImageView& getTextureImageView() const { return textureImageView; }
+
+private: // Changed to private as they are implementation details
+    const vk::raii::PhysicalDevice& physicalDevice;
+    const vk::raii::Device& device;
+    ResourceManager* resourceManager; // Keep a pointer to the manager
+
+    vk::raii::Sampler textureSampler = nullptr;
+    uint32_t mipLevels = 0;
+    vk::raii::Image textureImage = nullptr;
+    vk::raii::DeviceMemory textureImageMemory = nullptr;
+    vk::raii::ImageView textureImageView = nullptr;
+};
+
+New-Item -ItemType SymbolicLink -Path "D:\repos\engine-test\compile_commands.json" -Target "D:\repos\engine-test\build_vscode\main\compile_commands.json"

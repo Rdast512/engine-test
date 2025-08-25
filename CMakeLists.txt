@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.29)
 project(engine)
 
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_EXPERIMENTAL_CXX_MODULES ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_CXX_STANDARD 23)
@@ -27,7 +27,6 @@ elseif(UNIX AND NOT APPLE)
 
 endif()
 
-
 add_subdirectory(ThirdParty)
 
 set(CMAKE_VERBOSE_MAKEFILE OFF)
@@ -37,7 +36,6 @@ find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem log system)
 find_package(SDL3 REQUIRED CONFIG REQUIRED)
-
 add_library(VulkanCppModule)
 add_library(Vulkan::cppm ALIAS VulkanCppModule)
 target_compile_definitions(VulkanCppModule PUBLIC
@@ -88,7 +86,56 @@ message(STATUS "CMake is using C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
 message(${CMAKE_SOURCE_DIR})
 
-add_executable(engine newVersion.cpp)
+# future project structure
+#src/engine.cpp
+#src/engine.h
+#src/renderer.cpp
+#src/renderer.h
+#src/scene.cpp
+#src/scene.h
+#src/camera.cpp
+#src/camera.h
+#src/input.cpp
+#src/input.h
+#src/shader.cpp
+#src/shader.h
+#src/model.cpp
+#src/model.h
+#src/texture.cpp
+#src/texture.h
+#src/material.cpp
+#src/material.h
+
+
+
+add_executable(engine
+#        newVersion.cpp
+        src/core/main.cpp
+        src/core/Application.cpp
+        src/core/Application.h
+        src/graphics/VulkanContext.cpp
+        src/graphics/VulkanContext.h
+        src/graphics/SwapChain.cpp
+        src/graphics/SwapChain.h
+        src/resources/ResourceManager.cpp
+        src/resources/ResourceManager.h
+        src/resources/TextureManager.cpp
+        src/resources/TextureManager.h
+        src/resources/AssetsLoader.cpp
+        src/resources/AssetsLoader.h
+        src/graphics/DescriptorManager.cpp
+        src/graphics/DescriptorManager.h
+        src/graphics/Pipeline.cpp
+        src/graphics/Pipeline.h
+        src/graphics/Renderer.cpp
+        src/graphics/Renderer.h
+        src/core/Utils.cpp
+        src/core/Utils.h
+        ThirdParty/termcolor.hpp
+        ThirdParty/tiny_obj_loader.h
+        ThirdParty/vk_mem_alloc.h
+        ThirdParty/implementations.cpp
+)
 
 
 set(Boost_USE_STATIC_LIBS OFF)
@@ -97,7 +144,7 @@ set(Boost_USE_STATIC_RUNTIME OFF)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
 
-file(GLOB SLANG_SHADERS "${CMAKE_SOURCE_DIR}/shaders/*.slang")
+file(GLOB SLANG_SHADERS "${CMAKE_SOURCE_DIR}/shaders/shader.slang")
 
 
 if(WIN32)
@@ -109,14 +156,19 @@ endif()
 set(COMPILED_SHADERS)
 foreach(SLANG ${SLANG_SHADERS})
     get_filename_component(NAME_WE ${SLANG} NAME_WE)
-    set(SPV_OUT "${CMAKE_SOURCE_DIR}/cmake-build-debug/shaders/${NAME_WE}.spv")
+#     set(SPV_OUT "${CMAKE_SOURCE_DIR}/cmake-build-debug/shaders/${NAME_WE}.spv")
+    set(SPV_OUT "${CMAKE_SOURCE_DIR}/build_vscode/main/shaders/${NAME_WE}.spv")
 
     add_custom_command(
             OUTPUT      ${SPV_OUT}
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
             COMMAND     ${SLANGC_EXECUTABLE}
             shaders/${NAME_WE}.slang
-            -target spirv -o ${SPV_OUT}
+            -target spirv
+            -profile spirv_1_6
+            -fvk-use-entrypoint-name
+            -entry vertMain -entry fragMain
+            -o ${SPV_OUT}
             DEPENDS     shaders/${NAME_WE}.slang
             COMMENT     "Compiling shader ${NAME_WE}.slang → ${NAME_WE}.spv"
     )
@@ -142,6 +194,7 @@ target_link_libraries(engine PUBLIC
         glfw
         glm::glm
         SDL3::SDL3
+
 )
 
 target_link_libraries(engine PRIVATE
@@ -152,6 +205,9 @@ target_link_libraries(engine PRIVATE
         # vulkan_module
 )
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-#set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -ggdb -O3 -Wall -Wextra -Wpedantic")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} \
+-Wall -Wextra -Wpedantic -ggdb -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC \
+ -O0 -m64 -march=native -mtune=native -mavx -mavx2 -flto -fno-plt -fdevirtualize -ffast-math -pthread")
+set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -ffast-math \
+    -funroll-loops -finline-functions -fprefetch-loop-arrays -m64 -march=native -mtune=native -mavx -mavx2")
 add_dependencies(engine Shaders)

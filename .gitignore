@@ -7,3 +7,5 @@
 /out/build
 /oldidea
 /ThirdParty/Slang-win
+/build_vscode
+/.cache

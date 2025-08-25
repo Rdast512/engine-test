@@ -1,0 +1,16 @@
+---
+CompileFlags:
+  CompilationDatabase: D:/repos/engine-test/build_vscode/main
+  Add:
+    - --target=x86_64-w64-mingw32
+    - -D__MINGW32__
+    - -D__MINGW64__
+  Remove:
+    - -fmodules-ts
+    - -fmodule-mapper=*
+    - -fdeps-format=*
+    - -fmodule-file=*
+    # - --precompile
+    # - -Werror
+    # - -Wall
+    # - -Wextra
