@@ -1,4 +1,5 @@
 #pragma once
+#include <xmmintrin.h>
 #define VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE 1
 #include <cstdlib>
 #include <string>
@@ -73,6 +74,8 @@ static std::vector<char> readFile(const std::string &filename) {
 
     return buffer;
 }
+
+
 
 namespace std {
     template<>

@@ -2,8 +2,6 @@
 #include "src/resources/ResourceManager.h"
 
 // TDOD move resources like Texture data to its own texture class
-// TODO recreate swapchain should use functions from SwapChain class and
-// resourceManager class and difined in this file
 // TODO add functions to ownership
 // TODO rewrite sync functions to async (like for ones what fill up command
 // buffers)

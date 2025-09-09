@@ -1,5 +1,6 @@
 
 #include "ResourceManager.h"
+#include <cstdio>
 
 
 ResourceManager::ResourceManager(
@@ -306,7 +307,7 @@ void ResourceManager::copyBufferToImage(const vk::raii::Buffer &buffer, vk::raii
     // transferQueue.submit(submitInfo, nullptr);
     // transferQueue.waitIdle();
 }
-
+// ...existing code...
 void ResourceManager::generateMipmaps(vk::raii::Image &image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight,
                          uint32_t mipLevels) {
         // Check for blit support
@@ -322,10 +323,12 @@ void ResourceManager::generateMipmaps(vk::raii::Image &image, vk::Format imageFo
         int32_t mipHeight = texHeight;
 
         for (uint32_t i = 1; i < mipLevels; i++) {
-            // Transition the previous mip level (i-1) from DST to SRC
-            vk::ImageMemoryBarrier barrier_to_src = {
-                .srcAccessMask = vk::AccessFlagBits::eTransferWrite,
-                .dstAccessMask = vk::AccessFlagBits::eTransferRead,
+            // Transition the previous mip level (i-1) from DST to SRC using ImageMemoryBarrier2
+            vk::ImageMemoryBarrier2 barrier_to_src = {
+                .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+                .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+                .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+                .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
                 .oldLayout = vk::ImageLayout::eTransferDstOptimal,
                 .newLayout = vk::ImageLayout::eTransferSrcOptimal,
                 .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
@@ -333,7 +336,11 @@ void ResourceManager::generateMipmaps(vk::raii::Image &image, vk::Format imageFo
                 .image = *image,
                 .subresourceRange = { vk::ImageAspectFlagBits::eColor, i - 1, 1, 0, 1 }
             };
-            graphicsCmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, barrier_to_src);
+            vk::DependencyInfo depInfoToSrc{
+                .imageMemoryBarrierCount = 1,
+                .pImageMemoryBarriers = &barrier_to_src
+            };
+            graphicsCmd.pipelineBarrier2(depInfoToSrc);
 
             // Create and set up the blit structure
             vk::ImageBlit blit{};
@@ -352,24 +359,31 @@ void ResourceManager::generateMipmaps(vk::raii::Image &image, vk::Format imageFo
             if (mipHeight > 1) mipHeight /= 2;
         }
 
-        // Transition the last mip level from DST to SRC to unify layouts
-        vk::ImageMemoryBarrier barrier_last = {
-            .srcAccessMask = vk::AccessFlagBits::eTransferWrite,
-            .dstAccessMask = vk::AccessFlagBits::eTransferRead,
+        // Transition the last mip level from DST to SRC to unify layouts (ImageMemoryBarrier2)
+        vk::ImageMemoryBarrier2 barrier_last = {
+            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
             .oldLayout = vk::ImageLayout::eTransferDstOptimal,
             .newLayout = vk::ImageLayout::eTransferSrcOptimal,
             .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
             .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
             .image = *image,
-            .subresourceRange = { vk::ImageAspectFlagBits::eColor, mipLevels-1, 1, 0, 1 }
+            .subresourceRange = { vk::ImageAspectFlagBits::eColor, mipLevels - 1, 1, 0, 1 }
         };
-        graphicsCmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
-                                    vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, barrier_last);
+        vk::DependencyInfo depInfoLast{
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &barrier_last
+        };
+        graphicsCmd.pipelineBarrier2(depInfoLast);
 
-        // Final transition: all mip levels to shader read-only
-        vk::ImageMemoryBarrier final_barrier = {
-            .srcAccessMask = vk::AccessFlagBits::eTransferRead,
-            .dstAccessMask = vk::AccessFlagBits::eShaderRead,
+        // Final transition: all mip levels to shader read-only (ImageMemoryBarrier2)
+        vk::ImageMemoryBarrier2 final_barrier = {
+            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferRead,
+            .dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+            .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
             .oldLayout = vk::ImageLayout::eTransferSrcOptimal,
             .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
@@ -377,9 +391,11 @@ void ResourceManager::generateMipmaps(vk::raii::Image &image, vk::Format imageFo
             .image = *image,
             .subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, mipLevels, 0, 1 }
         };
-
-        graphicsCmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
-                                    vk::PipelineStageFlagBits::eFragmentShader, {}, {}, {}, final_barrier);
+        vk::DependencyInfo depInfoFinal{
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &final_barrier
+        };
+        graphicsCmd.pipelineBarrier2(depInfoFinal);
 
         endCommandBuffer(graphicsCmd, graphicsQueue);
     }
