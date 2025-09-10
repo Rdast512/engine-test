@@ -27,8 +27,16 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #define VMA_VULKAN_VERSION 1004000 // Corrected for Vulkan 1.4
+#if defined(__linux__)
+#include <vk_mem_alloc.h>
+#else
 #include <vma/vk_mem_alloc.h>
+#endif
+#if defined(__linux__)
+#include <stb_image.h>
+#else
 #include <stb/stb_image.h>
+#endif
 #include "../../ThirdParty/tiny_obj_loader.h"
 
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -36,8 +44,8 @@ constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 constexpr uint64_t FenceTimeout = 100000000;
-const std::string MODEL_PATH = "../../models/room.obj";
-const std::string TEXTURE_PATH = "../../textures/viking_room.png";
+const std::string MODEL_PATH = "../models/room.obj";
+const std::string TEXTURE_PATH = "../textures/viking_room.png";
 
 struct Vertex {
     glm::vec3 pos;
