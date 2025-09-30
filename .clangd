@@ -1,7 +1,7 @@
 ---
 CompileFlags:
-  CompilationDatabase: D:/repos/engine-test/build_vscode/main
   Add:
+    - --driver-mode=g++
     - --target=x86_64-w64-mingw32
     - -D__MINGW32__
     - -D__MINGW64__

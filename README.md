@@ -77,3 +77,5 @@ Update your `clangd` configuration (e.g., VS Code `clangd.arguments`) to include
 ```
 
 Switch the path when using a different preset.
+
+The repo ships with a `.clangd` file that targets the Windows clang preset and MSYS2 LLVM binaries. If you build with a different preset (e.g., release or Linux), update `CompilationDatabase` and `--query-driver` accordingly so clangd matches the toolchain it will see from CMake.
