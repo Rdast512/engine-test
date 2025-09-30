@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.29)
 project(engine)
 
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_EXPERIMENTAL_CXX_MODULES ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF)
@@ -157,7 +158,7 @@ set(COMPILED_SHADERS)
 foreach(SLANG ${SLANG_SHADERS})
     get_filename_component(NAME_WE ${SLANG} NAME_WE)
 #     set(SPV_OUT "${CMAKE_SOURCE_DIR}/cmake-build-debug/shaders/${NAME_WE}.spv")
-    set(SPV_OUT "${CMAKE_SOURCE_DIR}/build_vscode/main/shaders/${NAME_WE}.spv")
+    set(SPV_OUT "${CMAKE_SOURCE_DIR}/build/shaders/${NAME_WE}.spv")
 
     add_custom_command(
             OUTPUT      ${SPV_OUT}
@@ -205,9 +206,8 @@ target_link_libraries(engine PRIVATE
         # vulkan_module
 )
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} \
--Wall -Wextra -Wpedantic -ggdb -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC \
- -O0 -m64 -march=native -mtune=native -mavx -mavx2 -flto -fno-plt -fdevirtualize -ffast-math -pthread")
-set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -ffast-math \
-    -funroll-loops -finline-functions -fprefetch-loop-arrays -m64 -march=native -mtune=native -mavx -mavx2")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC \
+ -Og -m64 -march=native -mtune=native -flto -fno-plt -pthread")
+set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto \
+    -funroll-loops -finline-functions -fprefetch-loop-arrays -m64 -march=native -mtune=native")
 add_dependencies(engine Shaders)

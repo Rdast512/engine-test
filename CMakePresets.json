@@ -2,17 +2,15 @@
     "version": 8,
     "configurePresets": [
         {
-            "name": "main",
-            "displayName": "GCC 15.1.0 x86_64-w64-mingw32 (mingw64)",
-            "description": "Using compilers: C = C:\\msys64\\mingw64\\bin\\gcc.exe, CXX = C:\\msys64\\mingw64\\bin\\g++.exe",
+            "name": "engine",
+            "displayName": "Custom configure preset",
+            "description": "Sets Ninja generator, build and install directory",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build_vscode/${presetName}",
+            "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-                "CMAKE_C_COMPILER": "C:/msys64/mingw64/bin/gcc.exe",
-                "CMAKE_CXX_COMPILER": "C:/msys64/mingw64/bin/g++.exe",
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "1"
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
         }
     ]

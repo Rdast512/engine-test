@@ -1,7 +1,7 @@
 #include "Application.h"
-#include "src/resources/ResourceManager.h"
+#include "../resources/ResourceManager.h"
 
-// TDOD move resources like Texture data to its own texture class
+// TODO move resources like Texture data to its own texture class
 // TODO add functions to ownership
 // TODO rewrite sync functions to async (like for ones what fill up command
 // buffers)
