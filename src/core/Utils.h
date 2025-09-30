@@ -20,6 +20,7 @@
 #include "../../ThirdParty/termcolor.hpp"
 #include <fstream>
 #include <chrono>
+#include <filesystem>
 #define GLM_ENABLE_EXPERIMENTAL
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -44,8 +45,19 @@ constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 constexpr uint64_t FenceTimeout = 100000000;
-const std::string MODEL_PATH = "../models/room.obj";
-const std::string TEXTURE_PATH = "../textures/viking_room.png";
+
+#ifndef ENGINE_SHADER_DIR
+#define ENGINE_SHADER_DIR "./shaders"
+#endif
+#ifndef ENGINE_MODELS_DIR
+#define ENGINE_MODELS_DIR "./models"
+#endif
+#ifndef ENGINE_TEXTURES_DIR
+#define ENGINE_TEXTURES_DIR "./textures"
+#endif
+
+inline const std::filesystem::path MODEL_PATH = std::filesystem::path(ENGINE_MODELS_DIR) / "room.obj";
+inline const std::filesystem::path TEXTURE_PATH = std::filesystem::path(ENGINE_TEXTURES_DIR) / "viking_room.png";
 
 struct Vertex {
     glm::vec3 pos;

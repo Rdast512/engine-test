@@ -15,7 +15,9 @@ void AssetsLoader::loadModel() {
     std::string warn, err;
     std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, MODEL_PATH.c_str())) {
+    const auto modelPath = MODEL_PATH.string();
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, modelPath.c_str())) {
         throw std::runtime_error(err);
     }
     for (const auto &shape: shapes) {
@@ -42,6 +44,6 @@ void AssetsLoader::loadModel() {
             indices.push_back(uniqueVertices[vertex]);
         }
     }
-    std::cout << termcolor::green << "Model loaded: " << MODEL_PATH << ", vertices: " << vertices.size() <<
+    std::cout << termcolor::green << "Model loaded: " << modelPath << ", vertices: " << vertices.size() <<
          ", indices: " << indices.size() << std::endl;
 }

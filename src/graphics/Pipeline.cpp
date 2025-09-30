@@ -1,4 +1,9 @@
 #include "Pipeline.h"
+#include <filesystem>
+
+#ifndef ENGINE_SHADER_DIR
+#define ENGINE_SHADER_DIR "./shaders"
+#endif
 
 Pipeline::Pipeline(ResourceManager *resourceManager,
                    const vk::raii::Device &device,
@@ -18,7 +23,9 @@ void Pipeline::init() {
 }
 
     void Pipeline::createGraphicsPipeline() {
-        vk::raii::ShaderModule shaderModule = resourceManager->createShaderModule(readFile("shaders/shader.spv"));
+        const auto shaderDir = std::filesystem::path(ENGINE_SHADER_DIR);
+        const auto shaderPath = (shaderDir / "shader.spv").string();
+        vk::raii::ShaderModule shaderModule = resourceManager->createShaderModule(readFile(shaderPath));
         auto bindingDescription = Vertex::getBindingDescription();
         auto attributeDescriptions = Vertex::getAttributeDescriptions();
         vk::PipelineShaderStageCreateInfo vertShaderStageInfo{
@@ -36,7 +43,6 @@ void Pipeline::init() {
         };
 
 
-        vk::ClearValue clearDepth = vk::ClearDepthStencilValue(1.0f, 0);
         vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
             .vertexBindingDescriptionCount = 1, .pVertexBindingDescriptions = &bindingDescription,
             .vertexAttributeDescriptionCount = attributeDescriptions.size(),
@@ -47,11 +53,17 @@ void Pipeline::init() {
             .pDynamicStates = dynamicStates.data()
         };
         vk::PipelineInputAssemblyStateCreateInfo inputAssembly{.topology = vk::PrimitiveTopology::eTriangleList};
-        vk::Viewport{
+        const vk::Viewport viewport{
             0.0f, 0.0f, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height), 0.0f,
             1.0f
         };
-        vk::PipelineViewportStateCreateInfo viewportState{.viewportCount = 1, .scissorCount = 1};
+        const vk::Rect2D scissor{vk::Offset2D{0, 0}, vk::Extent2D{swapChainExtent.width, swapChainExtent.height}};
+        vk::PipelineViewportStateCreateInfo viewportState{
+            .viewportCount = 1,
+            .pViewports = &viewport,
+            .scissorCount = 1,
+            .pScissors = &scissor
+        };
         vk::PipelineRasterizationStateCreateInfo rasterizer{
             .depthClampEnable = vk::False, .rasterizerDiscardEnable = vk::False,
             .polygonMode = vk::PolygonMode::eFill, .cullMode = vk::CullModeFlagBits::eBack,

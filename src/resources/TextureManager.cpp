@@ -51,11 +51,12 @@ void TextureManager::createTextureImageView() {
 
     void TextureManager::createTextureImage() {
         int texWidth, texHeight, texChannels;
-        stbi_uc *pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        const auto texturePath = TEXTURE_PATH.string();
+        stbi_uc *pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         vk::DeviceSize imageSize = texWidth * texHeight * 4;
 
         if (!pixels) {
-            throw std::runtime_error("failed to load texture image!");
+            throw std::runtime_error("failed to load texture image: " + texturePath);
         }
 
         // Calculate mip levels
@@ -83,8 +84,10 @@ void TextureManager::createTextureImageView() {
                     vk::MemoryPropertyFlagBits::eDeviceLocal,
                     textureImage, textureImageMemory);
 
-        auto &graphicsCmd = commandBuffers[0];
-        graphicsCmd.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    auto &graphicsCmd = commandBuffers[0];
+    vk::CommandBufferBeginInfo beginInfo{};
+    beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    graphicsCmd.begin(beginInfo);
         // Transition the entire image to be a transfer destination
         // This prepares all mip levels to be written to.
         resourceManager->transitionImageLayout(&graphicsCmd, *textureImage, mipLevels,

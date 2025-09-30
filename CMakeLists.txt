@@ -1,32 +1,44 @@
 cmake_minimum_required(VERSION 3.29)
 project(engine)
 
+if(POLICY CMP0167)
+        cmake_policy(SET CMP0167 OLD)
+endif()
+
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_EXPERIMENTAL_CXX_MODULES ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED OFF)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 message(STATUS "CMAKE_Version: ${CMAKE_VERSION}")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 
-if(WIN32)
-    set(Vulkan_DIR "C:/VulkanSDK/1.4.313.1")
-    set(ENV{VULKAN_SDK} "C:/VulkanSDK/1.4.313.1")
-elseif(UNIX AND NOT APPLE)
-    # Linux configuration
-    #    set(Vulkan_DIR "/usr/include/vulkan")
-    #    set(ENV{VULKAN_SDK} "/usr")
-    # Alternative paths if Vulkan SDK is installed in different locations
-    set(Vulkan_DIR "$ENV{HOME}/VulkanSDK/1.4.321.1/x86_64")
-    set(ENV{VULKAN_SDK} "$ENV{HOME}/VulkanSDK/1.4.321.1/x86_64")
-    list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic")
-    list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic/share")
-
-    include_directories("$ENV{HOME}/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic/include")
-
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        message(FATAL_ERROR "This project targets Clang or GCC toolchains. Please configure CMake with clang or gcc.")
 endif()
+
+if(NOT DEFINED ENV{VULKAN_SDK})
+        message(FATAL_ERROR "Environment variable VULKAN_SDK must point to your Vulkan SDK root.")
+endif()
+
+set(VULKAN_SDK_ROOT "$ENV{VULKAN_SDK}")
+
+if(UNIX AND NOT APPLE)
+        set(_default_vcpkg "$ENV{HOME}/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic")
+        if(EXISTS "${_default_vcpkg}")
+                list(APPEND CMAKE_PREFIX_PATH "${_default_vcpkg}" "${_default_vcpkg}/share")
+                include_directories("${_default_vcpkg}/include")
+        endif()
+endif()
+
+list(APPEND CMAKE_PREFIX_PATH
+                "${VULKAN_SDK_ROOT}"
+                "${VULKAN_SDK_ROOT}/lib/cmake"
+                "${VULKAN_SDK_ROOT}/Lib/cmake"
+                "${VULKAN_SDK_ROOT}/lib/cmake/Vulkan"
+                "${VULKAN_SDK_ROOT}/Lib/cmake/Vulkan")
 
 add_subdirectory(ThirdParty)
 
@@ -158,7 +170,7 @@ set(COMPILED_SHADERS)
 foreach(SLANG ${SLANG_SHADERS})
     get_filename_component(NAME_WE ${SLANG} NAME_WE)
 #     set(SPV_OUT "${CMAKE_SOURCE_DIR}/cmake-build-debug/shaders/${NAME_WE}.spv")
-    set(SPV_OUT "${CMAKE_SOURCE_DIR}/build/shaders/${NAME_WE}.spv")
+        set(SPV_OUT "${CMAKE_BINARY_DIR}/shaders/${NAME_WE}.spv")
 
     add_custom_command(
             OUTPUT      ${SPV_OUT}
@@ -206,8 +218,21 @@ target_link_libraries(engine PRIVATE
         # vulkan_module
 )
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC \
- -Og -m64 -march=native -mtune=native -flto -fno-plt -pthread")
-set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto \
-    -funroll-loops -finline-functions -fprefetch-loop-arrays -m64 -march=native -mtune=native")
+file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}/shaders" ENGINE_SHADER_DIR_PATH)
+file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/models" ENGINE_MODELS_DIR_PATH)
+file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/textures" ENGINE_TEXTURES_DIR_PATH)
+target_compile_definitions(engine PRIVATE
+        ENGINE_SHADER_DIR="${ENGINE_SHADER_DIR_PATH}"
+        ENGINE_MODELS_DIR="${ENGINE_MODELS_DIR_PATH}"
+        ENGINE_TEXTURES_DIR="${ENGINE_TEXTURES_DIR_PATH}"
+)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC \
+ -Og -m64 -march=native -mtune=native -flto -pthread")
+        set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto \
+        -funroll-loops -finline-functions -fprefetch-loop-arrays -m64 -pthread")
+else()
+        message(FATAL_ERROR "Unsupported compiler: ${CMAKE_CXX_COMPILER_ID}")
+endif()
 add_dependencies(engine Shaders)

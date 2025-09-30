@@ -1,17 +1,104 @@
 {
     "version": 8,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 29,
+        "patch": 0
+    },
     "configurePresets": [
         {
-            "name": "engine",
-            "displayName": "Custom configure preset",
-            "description": "Sets Ninja generator, build and install directory",
+            "name": "base",
+            "hidden": true,
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
+        },
+        {
+            "name": "debug",
+            "hidden": true,
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "release",
+            "hidden": true,
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "windows-clang-debug",
+            "displayName": "Windows | Clang | Debug",
+            "inherits": "debug",
+            "binaryDir": "${sourceDir}/build/windows-clang-debug",
+            "installDir": "${sourceDir}/install/windows-clang-debug",
+            "toolchainFile": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows-clang-release",
+            "displayName": "Windows | Clang | Release",
+            "inherits": "release",
+            "binaryDir": "${sourceDir}/build/windows-clang-release",
+            "installDir": "${sourceDir}/install/windows-clang-release",
+            "toolchainFile": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "linux-clang-debug",
+            "displayName": "Linux | Clang | Debug",
+            "inherits": "debug",
+            "binaryDir": "${sourceDir}/build/linux-clang-debug",
+            "installDir": "${sourceDir}/install/linux-clang-debug",
+            "toolchainFile": "${sourceDir}/cmake/toolchains/clang-linux.cmake",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "linux-clang-release",
+            "displayName": "Linux | Clang | Release",
+            "inherits": "release",
+            "binaryDir": "${sourceDir}/build/linux-clang-release",
+            "installDir": "${sourceDir}/install/linux-clang-release",
+            "toolchainFile": "${sourceDir}/cmake/toolchains/clang-linux.cmake",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "windows-clang-debug",
+            "configurePreset": "windows-clang-debug"
+        },
+        {
+            "name": "windows-clang-release",
+            "configurePreset": "windows-clang-release"
+        },
+        {
+            "name": "linux-clang-debug",
+            "configurePreset": "linux-clang-debug"
+        },
+        {
+            "name": "linux-clang-release",
+            "configurePreset": "linux-clang-release"
         }
     ]
 }

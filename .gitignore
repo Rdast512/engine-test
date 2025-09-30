@@ -3,6 +3,8 @@
 /cmake-build-release/.cmake
 /cmake-build-release
 /build
+/compile_commands.json
+/CMakeUserPresets.json
 /ThirdParty/Slang-linux/
 /out/build
 /oldidea
