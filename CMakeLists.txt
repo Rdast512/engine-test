@@ -199,7 +199,14 @@ add_custom_target(Shaders ALL
 #set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 #set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_DL_LIBS} ${Vulkan_INCLUDE_DIRS} ${GLFW_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${SDL3_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} PUBLIC 
+    ${CMAKE_SOURCE_DIR}/ThirdParty
+    ${CMAKE_DL_LIBS} 
+    ${Vulkan_INCLUDE_DIRS} 
+    ${GLFW_INCLUDE_DIRS} 
+    ${Boost_INCLUDE_DIRS} 
+    ${SDL3_INCLUDE_DIRS}
+)
 target_link_libraries(engine PUBLIC
         Boost::filesystem
         Boost::log

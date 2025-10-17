@@ -1,5 +1,8 @@
 # YourProject/ThirdParty/CMakeLists.txt
 
+# vcpkg is already bootstrapped and configured via cmake/bootstrap-vcpkg.cmake
+# Packages are installed automatically via manifest mode (vcpkg.json in project root)
+
 # --- Slang Dependency Configuration ---
 # This is where you specify the tag you want.
 # Check the Slang GitHub releases page for available tags.

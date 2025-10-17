@@ -10,8 +10,12 @@
             "name": "base",
             "hidden": true,
             "generator": "Ninja",
+            "environment": {
+                "VCPKG_ROOT": "${sourceDir}/ThirdParty/vcpkg"
+            },
             "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/ThirdParty/vcpkg/scripts/buildsystems/vcpkg.cmake"
             }
         },
         {
@@ -36,7 +40,9 @@
             "inherits": "debug",
             "binaryDir": "${sourceDir}/build/windows-clang-debug",
             "installDir": "${sourceDir}/install/windows-clang-debug",
-            "toolchainFile": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
+            "cacheVariables": {
+                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake"
+            },
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
@@ -49,7 +55,9 @@
             "inherits": "release",
             "binaryDir": "${sourceDir}/build/windows-clang-release",
             "installDir": "${sourceDir}/install/windows-clang-release",
-            "toolchainFile": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
+            "cacheVariables": {
+                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake"
+            },
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
@@ -62,7 +70,9 @@
             "inherits": "debug",
             "binaryDir": "${sourceDir}/build/linux-clang-debug",
             "installDir": "${sourceDir}/install/linux-clang-debug",
-            "toolchainFile": "${sourceDir}/cmake/toolchains/clang-linux.cmake",
+            "cacheVariables": {
+                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake"
+            },
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
@@ -75,7 +85,9 @@
             "inherits": "release",
             "binaryDir": "${sourceDir}/build/linux-clang-release",
             "installDir": "${sourceDir}/install/linux-clang-release",
-            "toolchainFile": "${sourceDir}/cmake/toolchains/clang-linux.cmake",
+            "cacheVariables": {
+                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake"
+            },
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",

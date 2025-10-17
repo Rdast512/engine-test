@@ -1,16 +1,15 @@
 ---
 CompileFlags:
-  Add:
-    - --driver-mode=g++
-    - --target=x86_64-w64-mingw32
-    - -D__MINGW32__
-    - -D__MINGW64__
+  CompilationDatabase: build/linux-clang-debug
   Remove:
     - -fmodules-ts
     - -fmodule-mapper=*
     - -fdeps-format=*
     - -fmodule-file=*
-    # - --precompile
-    # - -Werror
-    # - -Wall
-    # - -Wextra
+    - --precompile
+    - -march=native
+    - -mtune=native
+
+Diagnostics:
+  UnusedIncludes: None
+  MissingIncludes: None

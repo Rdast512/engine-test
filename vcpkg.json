@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "engine-test",
+  "version": "0.1.0",
+  "dependencies": [
+    "glfw3",
+    "glm",
+    {
+      "name": "boost-filesystem",
+      "default-features": false
+    },
+    {
+      "name": "boost-log",
+      "default-features": false
+    },
+    {
+      "name": "boost-system",
+      "default-features": false
+    },
+    {
+      "name": "sdl3",
+      "features": ["x11", "wayland", "vulkan"]
+    },
+    "vk-bootstrap",
+    "stb"
+  ],
+  "builtin-baseline": "f787b11768c36bba4ea3be80fbbdeb2af6895bb6"
+}

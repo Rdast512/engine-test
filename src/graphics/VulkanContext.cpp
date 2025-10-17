@@ -301,4 +301,5 @@ void VulkanContext::createLogicalDevice() {
     if (graphicsIndex != presentIndex) {
         queueFamilyIndices.push_back(presentIndex);
     }
+
 }
