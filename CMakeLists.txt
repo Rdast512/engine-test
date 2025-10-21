@@ -1,4 +1,55 @@
 cmake_minimum_required(VERSION 3.29)
+
+# Auto-bootstrap vcpkg if it doesn't exist (before project())
+set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/vcpkg")
+if(NOT EXISTS "${VCPKG_ROOT}/vcpkg${CMAKE_EXECUTABLE_SUFFIX}")
+    message(STATUS "vcpkg not found at ${VCPKG_ROOT}")
+    message(STATUS "Cloning and bootstrapping vcpkg (this may take a few minutes)...")
+    
+    find_package(Git QUIET)
+    if(NOT GIT_FOUND)
+        message(FATAL_ERROR "Git is required to download vcpkg. Please install git and try again.")
+    endif()
+    
+    # Clone vcpkg
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} clone https://github.com/Microsoft/vcpkg.git "${VCPKG_ROOT}"
+        RESULT_VARIABLE git_result
+        OUTPUT_VARIABLE git_output
+        ERROR_VARIABLE git_error
+    )
+    
+    if(NOT git_result EQUAL 0)
+        message(FATAL_ERROR "Failed to clone vcpkg: ${git_error}")
+    endif()
+    
+    message(STATUS "vcpkg cloned successfully")
+    
+    # Bootstrap vcpkg
+    if(WIN32)
+        set(BOOTSTRAP_SCRIPT "${VCPKG_ROOT}/bootstrap-vcpkg.bat")
+    else()
+        set(BOOTSTRAP_SCRIPT "${VCPKG_ROOT}/bootstrap-vcpkg.sh")
+    endif()
+    
+    message(STATUS "Bootstrapping vcpkg...")
+    execute_process(
+        COMMAND ${BOOTSTRAP_SCRIPT}
+        WORKING_DIRECTORY "${VCPKG_ROOT}"
+        RESULT_VARIABLE bootstrap_result
+        OUTPUT_VARIABLE bootstrap_output
+        ERROR_VARIABLE bootstrap_error
+    )
+    
+    if(NOT bootstrap_result EQUAL 0)
+        message(FATAL_ERROR "Failed to bootstrap vcpkg: ${bootstrap_error}")
+    endif()
+    
+    message(STATUS "vcpkg successfully bootstrapped!")
+    message(STATUS "Please re-run cmake to continue configuration")
+    message(FATAL_ERROR "vcpkg was just installed. Re-run cmake to use it.")
+endif()
+
 project(engine)
 
 if(POLICY CMP0167)

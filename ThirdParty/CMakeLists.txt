@@ -1,6 +1,6 @@
 # YourProject/ThirdParty/CMakeLists.txt
 
-# vcpkg is already bootstrapped and configured via cmake/bootstrap-vcpkg.cmake
+# vcpkg is automatically bootstrapped by the main CMakeLists.txt if it doesn't exist
 # Packages are installed automatically via manifest mode (vcpkg.json in project root)
 
 # --- Slang Dependency Configuration ---

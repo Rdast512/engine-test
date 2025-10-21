@@ -1,6 +1,10 @@
-# Bootstrap vcpkg if it doesn't exist
-# This should be included BEFORE project() command
+# NOTE: This file is now integrated directly into the main CMakeLists.txt
+# It is kept here for reference only.
+# 
+# The vcpkg bootstrap logic has been moved to CMakeLists.txt (before project())
+# to ensure it runs automatically on first configuration.
 
+# Original bootstrap logic (now in CMakeLists.txt):
 set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/vcpkg")
 
 if(NOT EXISTS "${VCPKG_ROOT}/vcpkg${CMAKE_EXECUTABLE_SUFFIX}")
