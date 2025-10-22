@@ -5,7 +5,7 @@
 #if defined(__linux__)
 #include <stb_image.h>
 #else
-#include <stb/stb_image.h>
+#include <stb_image.h>
 #endif
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "../ThirdParty/tiny_obj_loader.h"

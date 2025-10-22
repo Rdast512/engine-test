@@ -22,7 +22,6 @@
 #include <chrono>
 #include <filesystem>
 #define GLM_ENABLE_EXPERIMENTAL
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/gtx/hash.hpp>
 #include <glm/glm.hpp>
@@ -36,7 +35,7 @@
 #if defined(__linux__)
 #include <stb_image.h>
 #else
-#include <stb/stb_image.h>
+#include <stb_image.h>
 #endif
 #include "../../ThirdParty/tiny_obj_loader.h"
 

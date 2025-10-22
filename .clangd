@@ -1,6 +1,37 @@
----
+# This top-level block provides global settings for clangd.
+# We specify that we want to use a compilation database.
 CompileFlags:
-  CompilationDatabase: build/linux-clang-debug
+  # The compilation database is the source of truth for how files are built.
+  # Clangd will search for 'compile_commands.json' in this directory
+  # relative to the project root. We will override this for each platform.
+  CompilationDatabase: .
+
+---
+
+# Configuration for Windows
+If:
+  # This condition applies the following settings if the file path
+  # matches the typical Windows path format (e.g., C:/...).
+  PathMatch: '^[A-Za-z]:/.*'
+
+CompileFlags:
+  # Point to the compilation database generated in the Windows build directory.
+  CompilationDatabase: build/windows-clang-debug
+  # Flags to add to the compile commands for better IntelliSense.
+  Add:
+    # We are replacing the standard library includes, so disable the default.
+    - -nostdinc++
+    # Add the path to the LLVM libc++ headers.
+    # Note: Using environment variables or absolute paths may be more robust.
+    - -isystem
+    - C:/Program Files/LLVM/include/c++/v1
+    # Add the path to the Clang-specific headers.
+    - -isystem
+    - C:/Program Files/LLVM/lib/clang/18/include
+    # Add the path to the vcpkg installed headers for the Windows target.
+    - -isystem
+    - build/windows-clang-debug/vcpkg_installed/x64-windows/include
+  # Flags to remove from the compile commands to avoid issues with clangd.
   Remove:
     - -fmodules-ts
     - -fmodule-mapper=*
@@ -10,6 +41,26 @@ CompileFlags:
     - -march=native
     - -mtune=native
 
-Diagnostics:
-  UnusedIncludes: None
-  MissingIncludes: None
+---
+
+# Configuration for Linux
+If:
+  # This condition applies the following settings for absolute paths on Linux.
+  PathMatch: '^/.*'
+
+CompileFlags:
+  # Point to the compilation database generated in the Linux build directory.
+  CompilationDatabase: build/linux-clang-debug
+  # Add the path to the vcpkg installed headers for the Linux target.
+  Add:
+    - -isystem
+    - build/linux-clang-debug/vcpkg_installed/x64-linux/include
+  # Flags to remove from the compile commands.
+  Remove:
+    - -fmodules-ts
+    - -fmodule-mapper=*
+    - -fdeps-format=*
+    - -fmodule-file=*
+    - --precompile
+    - -march=native
+    - -mtune=native

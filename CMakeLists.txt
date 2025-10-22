@@ -2,7 +2,12 @@ cmake_minimum_required(VERSION 3.29)
 
 # Auto-bootstrap vcpkg if it doesn't exist (before project())
 set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/vcpkg")
-if(NOT EXISTS "${VCPKG_ROOT}/vcpkg${CMAKE_EXECUTABLE_SUFFIX}")
+if(WIN32)
+        set(_VCPKG_EXECUTABLE "${VCPKG_ROOT}/vcpkg.exe")
+else()
+        set(_VCPKG_EXECUTABLE "${VCPKG_ROOT}/vcpkg")
+endif()
+if(NOT EXISTS "${_VCPKG_EXECUTABLE}")
     message(STATUS "vcpkg not found at ${VCPKG_ROOT}")
     message(STATUS "Cloning and bootstrapping vcpkg (this may take a few minutes)...")
     
@@ -50,7 +55,28 @@ if(NOT EXISTS "${VCPKG_ROOT}/vcpkg${CMAKE_EXECUTABLE_SUFFIX}")
     message(FATAL_ERROR "vcpkg was just installed. Re-run cmake to use it.")
 endif()
 
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+        set(_vcpkg_toolchain "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+        if(EXISTS "${_vcpkg_toolchain}")
+                set(CMAKE_TOOLCHAIN_FILE "${_vcpkg_toolchain}" CACHE STRING "" FORCE)
+                message(STATUS "Using vcpkg toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
+        else()
+                message(WARNING "vcpkg toolchain file not found at ${_vcpkg_toolchain}. Manifest dependencies may be unavailable.")
+        endif()
+else()
+        message(STATUS "CMAKE_TOOLCHAIN_FILE preset to: ${CMAKE_TOOLCHAIN_FILE}")
+endif()
+
 project(engine)
+
+if(EXISTS "${VCPKG_ROOT}/installed")
+        file(GLOB _vcpkg_triplet_prefixes LIST_DIRECTORIES true "${VCPKG_ROOT}/installed/*")
+        foreach(_vcpkg_prefix IN LISTS _vcpkg_triplet_prefixes)
+                if(IS_DIRECTORY "${_vcpkg_prefix}")
+                        list(APPEND CMAKE_PREFIX_PATH "${_vcpkg_prefix}" "${_vcpkg_prefix}/share")
+                endif()
+        endforeach()
+endif()
 
 if(POLICY CMP0167)
         cmake_policy(SET CMP0167 OLD)
@@ -59,12 +85,27 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_EXPERIMENTAL_CXX_MODULES ON CACHE BOOL "" FORCE)
+set(CMAKE_EXPERIMENTAL_CXX_MODULE_DYNDEP ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 message(STATUS "CMAKE_Version: ${CMAKE_VERSION}")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 set(CMAKE_CXX_SCAN_FOR_MODULES ON)
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        foreach(_flag_var CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO CMAKE_C_FLAGS_MINSIZEREL
+                         CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS_MINSIZEREL)
+                if(DEFINED ${_flag_var})
+                        string(REPLACE "/W4" "" ${_flag_var} "${${_flag_var}}")
+                        string(REPLACE "/W3" "" ${_flag_var} "${${_flag_var}}")
+                        string(REPLACE "/W2" "" ${_flag_var} "${${_flag_var}}")
+                        string(REPLACE "/W1" "" ${_flag_var} "${${_flag_var}}")
+                        string(REPLACE "/WX" "" ${_flag_var} "${${_flag_var}}")
+                        set(${_flag_var} "${${_flag_var}}" CACHE STRING "" FORCE)
+                endif()
+        endforeach()
+endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
         message(FATAL_ERROR "This project targets Clang or GCC toolchains. Please configure CMake with clang or gcc.")
@@ -95,11 +136,11 @@ add_subdirectory(ThirdParty)
 
 set(CMAKE_VERBOSE_MAKEFILE OFF)
 find_package(Vulkan REQUIRED)
-find_package(vk-bootstrap REQUIRED)
-find_package(glfw3 REQUIRED)
-find_package(glm REQUIRED)
+find_package(vk-bootstrap CONFIG REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem log system)
-find_package(SDL3 REQUIRED CONFIG REQUIRED)
+find_package(SDL3 CONFIG REQUIRED)
 add_library(VulkanCppModule)
 add_library(Vulkan::cppm ALIAS VulkanCppModule)
 target_compile_definitions(VulkanCppModule PUBLIC
@@ -134,18 +175,12 @@ target_sources(VulkanCppModule
 )
 
 set(VK_BOOTSTRAP_WERROR	ON CACHE BOOL "Enable warnings as errors for vk-bootstrap")
-message(STATUS "Vulkan_INCLUDE_DIR: ${Vulkan_INCLUDE_DIR}")
-message(STATUS "Vulkan_INCLUDE_DIRS: ${Vulkan_INCLUDE_DIRS}")
-message(STATUS "Vulkan_LIBRARIES: ${Vulkan_LIBRARIES}")
-message(STATUS "GLFW_INCLUDE_DIRS: ${GLFW_INCLUDE_DIRS}")
-message(STATUS "GLFW_LIBRARIES: ${GLFW_LIBRARIES}")
-message(STATUS "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
-message(STATUS "Boost_LIBRARIES: ${Boost_LIBRARIES}")
-message(STATUS "SDL3_INCLUDE_DIRS: ${SDL3_INCLUDE_DIRS}")
-message(STATUS "SDL3_LIBRARIES: ${SDL3_LIBRARIES}")
-message(STATUS "vk-bootstrap_INCLUDE_DIRS: ${vk-bootstrap_INCLUDE_DIRS}")
-message(STATUS "vk-bootstrap_LIBRARIES: ${vk-bootstrap_LIBRARIES}")
-message(STATUS "${CMAKE_DL_LIBS}")
+if(DEFINED Vulkan_INCLUDE_DIRS)
+        message(STATUS "Vulkan_INCLUDE_DIRS: ${Vulkan_INCLUDE_DIRS}")
+endif()
+if(DEFINED Vulkan_LIBRARIES)
+        message(STATUS "Vulkan_LIBRARIES: ${Vulkan_LIBRARIES}")
+endif()
 message(STATUS "CMake is using C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
 message(${CMAKE_SOURCE_DIR})
@@ -250,14 +285,9 @@ add_custom_target(Shaders ALL
 #set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 #set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-target_include_directories(${PROJECT_NAME} PUBLIC 
-    ${CMAKE_SOURCE_DIR}/ThirdParty
-    ${CMAKE_DL_LIBS} 
-    ${Vulkan_INCLUDE_DIRS} 
-    ${GLFW_INCLUDE_DIRS} 
-    ${Boost_INCLUDE_DIRS} 
-    ${SDL3_INCLUDE_DIRS}
-)
+if(Vulkan_INCLUDE_DIRS)
+        target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
+endif()
 target_link_libraries(engine PUBLIC
         Boost::filesystem
         Boost::log
@@ -265,12 +295,27 @@ target_link_libraries(engine PUBLIC
         glfw
         glm::glm
         SDL3::SDL3
+        ThirdParty::headers
 
 )
 
+set(VK_BOOTSTRAP_TARGETS)
+if(TARGET VkBootstrap::VkBootstrap)
+        list(APPEND VK_BOOTSTRAP_TARGETS VkBootstrap::VkBootstrap)
+endif()
+if(TARGET vk-bootstrap::vk-bootstrap)
+        list(APPEND VK_BOOTSTRAP_TARGETS vk-bootstrap::vk-bootstrap)
+endif()
+if(TARGET vk-bootstrap::vk-bootstrap-compiler-warnings AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        list(APPEND VK_BOOTSTRAP_TARGETS vk-bootstrap::vk-bootstrap-compiler-warnings)
+endif()
+
+if(NOT VK_BOOTSTRAP_TARGETS)
+        message(FATAL_ERROR "vk-bootstrap CMake target not found. Ensure vk-bootstrap is installed via vcpkg and the toolchain is configured.")
+endif()
+
 target_link_libraries(engine PRIVATE
-        vk-bootstrap::vk-bootstrap
-        vk-bootstrap::vk-bootstrap-compiler-warnings
+        ${VK_BOOTSTRAP_TARGETS}
         ${CMAKE_DL_LIBS}
         Vulkan::cppm
         # vulkan_module

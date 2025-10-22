@@ -61,3 +61,11 @@ if(NOT EXISTS "${SLANG_EXTRACT_DIR}/README.md")
     message(STATUS "Cleaning up temporary download files...")
     file(REMOVE_RECURSE "${SLANG_DOWNLOAD_DIR}")
 endif()
+
+add_library(ThirdPartyHeaders INTERFACE)
+target_include_directories(ThirdPartyHeaders INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vma>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Slang-win/include>
+)
+add_library(ThirdParty::headers ALIAS ThirdPartyHeaders)
