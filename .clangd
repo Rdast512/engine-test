@@ -1,36 +1,26 @@
 # This top-level block provides global settings for clangd.
-# We specify that we want to use a compilation database.
+# Default to Windows compilation database
 CompileFlags:
-  # The compilation database is the source of truth for how files are built.
-  # Clangd will search for 'compile_commands.json' in this directory
-  # relative to the project root. We will override this for each platform.
-  CompilationDatabase: .
+  CompilationDatabase: build/windows-clang-debug
 
 ---
 
 # Configuration for Windows
 If:
   # This condition applies the following settings if the file path
-  # matches the typical Windows path format (e.g., C:/...).
-  PathMatch: '^[A-Za-z]:/.*'
+  # matches the typical Windows path format with backslashes.
+  PathMatch: .*\\\\.*
 
 CompileFlags:
   # Point to the compilation database generated in the Windows build directory.
   CompilationDatabase: build/windows-clang-debug
   # Flags to add to the compile commands for better IntelliSense.
   Add:
-    # We are replacing the standard library includes, so disable the default.
-    - -nostdinc++
-    # Add the path to the LLVM libc++ headers.
-    # Note: Using environment variables or absolute paths may be more robust.
-    - -isystem
-    - C:/Program Files/LLVM/include/c++/v1
-    # Add the path to the Clang-specific headers.
-    - -isystem
-    - C:/Program Files/LLVM/lib/clang/18/include
-    # Add the path to the vcpkg installed headers for the Windows target.
+    # Add the path to the vcpkg installed headers for the Windows target (MSVC ABI).
     - -isystem
     - build/windows-clang-debug/vcpkg_installed/x64-windows/include
+    # Suppress specific clangd diagnostics that are false positives
+    - -Wno-error=default-member-initializer-not-yet-parsed
   # Flags to remove from the compile commands to avoid issues with clangd.
   Remove:
     - -fmodules-ts
@@ -40,6 +30,9 @@ CompileFlags:
     - --precompile
     - -march=native
     - -mtune=native
+    # Remove GCC-specific debug flags (not compatible with MSVC ABI)
+    - -D_GLIBCXX_DEBUG
+    - -D_GLIBCXX_DEBUG_PEDANTIC
 
 ---
 
@@ -55,6 +48,8 @@ CompileFlags:
   Add:
     - -isystem
     - build/linux-clang-debug/vcpkg_installed/x64-linux/include
+    # Suppress specific clangd diagnostics that are false positives
+    - -Wno-error=default-member-initializer-not-yet-parsed
   # Flags to remove from the compile commands.
   Remove:
     - -fmodules-ts

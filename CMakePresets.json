@@ -41,7 +41,8 @@
             "binaryDir": "${sourceDir}/build/windows-clang-debug",
             "installDir": "${sourceDir}/install/windows-clang-debug",
             "cacheVariables": {
-                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake"
+                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
+                "VCPKG_TARGET_TRIPLET": "x64-windows"
             },
             "condition": {
                 "type": "equals",
@@ -56,7 +57,8 @@
             "binaryDir": "${sourceDir}/build/windows-clang-release",
             "installDir": "${sourceDir}/install/windows-clang-release",
             "cacheVariables": {
-                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake"
+                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
+                "VCPKG_TARGET_TRIPLET": "x64-windows"
             },
             "condition": {
                 "type": "equals",
@@ -71,7 +73,8 @@
             "binaryDir": "${sourceDir}/build/linux-clang-debug",
             "installDir": "${sourceDir}/install/linux-clang-debug",
             "cacheVariables": {
-                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake"
+                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
             },
             "condition": {
                 "type": "equals",
@@ -86,7 +89,8 @@
             "binaryDir": "${sourceDir}/build/linux-clang-release",
             "installDir": "${sourceDir}/install/linux-clang-release",
             "cacheVariables": {
-                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake"
+                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
             },
             "condition": {
                 "type": "equals",

@@ -2,7 +2,6 @@
 
 #include <vulkan/vulkan.h>
 #include <string>
-#include <memory>
 
 class VulkanContext; // Forward declaration
 
@@ -54,7 +53,11 @@ public:
     // Create from file (most common usage)
     Texture(VulkanContext& context, 
             const std::string& filePath,
-            const Properties& properties = Properties{.generateMipmaps = true});
+            const Properties& properties);
+    
+    // Create from file with default properties (generates mipmaps by default)
+    Texture(VulkanContext& context, 
+            const std::string& filePath);
     
     // Create from raw pixel data
     Texture(VulkanContext& context,
@@ -106,3 +109,10 @@ private:
     VkImageLayout m_currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     bool m_ownsResources = true; // If false, we don't clean up Vulkan resources
 };
+
+
+Texture::Texture(VulkanContext& context, const std::string& filePath)
+    : Texture(context, filePath, Properties{.generateMipmaps = true})
+{
+    
+}
