@@ -31,7 +31,9 @@ public:
     const vk::raii::Queue& getPresentQueue() const { return presentQueue; }
     const vk::raii::Queue& getTransferQueue() const { return transferQueue; }
     const std::vector<uint32_t>& getQueueFamilyIndices() const { return queueFamilyIndices; }
-    
+
+    vk::SampleCountFlagBits getMaxUsableSampleCount();
+
     uint32_t getTransferIndex() const { return transferIndex; }
     uint32_t getGraphicsIndex() const { return graphicsIndex; }
     uint32_t getPresentIndex() const { return presentIndex; }
@@ -58,7 +60,8 @@ public:
     vk::raii::Queue presentQueue = nullptr;
     vk::raii::Queue transferQueue = nullptr;
     std::vector<uint32_t> queueFamilyIndices;
-
+    
+    vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
     uint32_t transferIndex = 0;
     uint32_t graphicsIndex = 0;
     uint32_t presentIndex = 0;

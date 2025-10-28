@@ -120,6 +120,22 @@ void VulkanContext::createSurface() {
     surface = vk::raii::SurfaceKHR(instance, _surface);
 }
 
+
+vk::SampleCountFlagBits VulkanContext::getMaxUsableSampleCount() {
+    vk::PhysicalDeviceProperties physicalDeviceProperties = physicalDevice.getProperties();
+
+    vk::SampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
+                                  physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+    if (counts & vk::SampleCountFlagBits::e64) { return vk::SampleCountFlagBits::e64; }
+    if (counts & vk::SampleCountFlagBits::e32) { return vk::SampleCountFlagBits::e32; }
+    if (counts & vk::SampleCountFlagBits::e16) { return vk::SampleCountFlagBits::e16; }
+    if (counts & vk::SampleCountFlagBits::e8) { return vk::SampleCountFlagBits::e8; }
+    if (counts & vk::SampleCountFlagBits::e4) { return vk::SampleCountFlagBits::e4; }
+    if (counts & vk::SampleCountFlagBits::e2) { return vk::SampleCountFlagBits::e2; }
+
+    return vk::SampleCountFlagBits::e1;
+}
+
 void VulkanContext::pickPhysicalDevice() {
     auto devices = instance.enumeratePhysicalDevices();
     if (devices.empty()) {
@@ -164,6 +180,7 @@ void VulkanContext::pickPhysicalDevice() {
                                      static_cast<vk::QueueFlags>(0))
                 << " present: " << qfp.queueFamilyProperties.queueCount << std::endl;
     }
+    msaaSamples = getMaxUsableSampleCount();
 }
 
 void VulkanContext::createLogicalDevice() {
