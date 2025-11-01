@@ -1,7 +1,7 @@
 # This top-level block provides global settings for clangd.
-# Default to Windows compilation database
+# Default to Linux compilation database (change as needed)
 CompileFlags:
-  CompilationDatabase: build/windows-clang-debug
+  CompilationDatabase: build/linux-clang-debug
 
 ---
 
