@@ -1,15 +1,7 @@
-# This top-level block provides global settings for clangd.
-# Default to Linux compilation database (change as needed)
-CompileFlags:
-  CompilationDatabase: build/linux-clang-debug
-
----
-
 # Configuration for Windows
+# Matches Windows absolute paths (e.g., C:/... or C:\...)
 If:
-  # This condition applies the following settings if the file path
-  # matches the typical Windows path format with backslashes.
-  PathMatch: .*\\\\.*
+  PathMatch: [A-Za-z]:[/\\].*
 
 CompileFlags:
   # Point to the compilation database generated in the Windows build directory.
