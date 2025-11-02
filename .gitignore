@@ -11,6 +11,7 @@
 /ThirdParty/Slang-win
 /build_vscode
 /.cache
+/.clangd
 
 # vcpkg
 /ThirdParty/vcpkg/
