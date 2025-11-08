@@ -1,5 +1,4 @@
 #pragma once
-#include "../core/Utils.h"
 #include "../resources/ResourceManager.h"
 #include "VulkanContext.h"
 

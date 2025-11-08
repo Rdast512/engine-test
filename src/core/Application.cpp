@@ -159,15 +159,19 @@ void Application::drawFrame() {
 
 void Application::recordCommandBuffer(uint32_t imageIndex) {
     auto &commandBuffers = resourceManager->commandBuffers;
+    auto &transferCommandBuffer = resourceManager->transferCommandBuffer;
     auto indexCount = (resourceManager->indices.size());
     commandBuffers[currentFrame].begin({});
     // Before starting rendering, transition the swapchain image to
     // COLOR_ATTACHMENT_OPTIMAL
+    auto &graphicsQueue = context->graphicsQueue;
+    auto &transferQueue = context->transferQueue;
     resourceManager->transitionImageLayout(
         &commandBuffers[currentFrame], swapChain->swapChainImages[imageIndex],
         1, vk::ImageLayout::eUndefined,
         vk::ImageLayout::eColorAttachmentOptimal,
-        DEFAULT_COLOR_SUBRESOURCE_RANGE, VK_QUEUE_FAMILY_IGNORED,
+        DEFAULT_COLOR_SUBRESOURCE_RANGE, 
+        VK_QUEUE_FAMILY_IGNORED,
         VK_QUEUE_FAMILY_IGNORED,
         vk::PipelineStageFlagBits2::eTopOfPipe,             // srcStage
         vk::PipelineStageFlagBits2::eColorAttachmentOutput, // dstStage

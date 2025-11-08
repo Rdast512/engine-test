@@ -230,8 +230,7 @@ void VulkanContext::createLogicalDevice() {
     transferIndex = static_cast<uint32_t>(queueFamilyProperties.size());
     for (size_t i = 0; i < queueFamilyProperties.size(); i++) {
         if ((queueFamilyProperties[i].queueFlags & vk::QueueFlagBits::eTransfer) &&
-            !(queueFamilyProperties[i].queueFlags & vk::QueueFlagBits::eGraphics) &&
-            !(queueFamilyProperties[i].queueFlags & vk::QueueFlagBits::eCompute)) {
+            !(queueFamilyProperties[i].queueFlags & vk::QueueFlagBits::eGraphics)) {
             transferIndex = static_cast<uint32_t>(i);
             break;
         }

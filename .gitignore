@@ -12,10 +12,7 @@
 /build_vscode
 /.cache
 /.clangd
-
-# vcpkg
 /ThirdParty/vcpkg/
 /ThirdParty/slang_download/
 vcpkg_installed/
-.clangd
-.clangd
+/*.clangd
