@@ -1,82 +1,82 @@
 cmake_minimum_required(VERSION 3.29)
 
-# Auto-bootstrap vcpkg if it doesn't exist (before project())
-set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/vcpkg")
-if(WIN32)
-        set(_VCPKG_EXECUTABLE "${VCPKG_ROOT}/vcpkg.exe")
-else()
-        set(_VCPKG_EXECUTABLE "${VCPKG_ROOT}/vcpkg")
-endif()
-if(NOT EXISTS "${_VCPKG_EXECUTABLE}")
-    message(STATUS "vcpkg not found at ${VCPKG_ROOT}")
-    message(STATUS "Cloning and bootstrapping vcpkg (this may take a few minutes)...")
+# # Auto-bootstrap vcpkg if it doesn't exist (before project())
+# set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/vcpkg")
+# if(WIN32)
+#         set(_VCPKG_EXECUTABLE "${VCPKG_ROOT}/vcpkg.exe")
+# else()
+#         set(_VCPKG_EXECUTABLE "${VCPKG_ROOT}/vcpkg")
+# endif()
+# if(NOT EXISTS "${_VCPKG_EXECUTABLE}")
+#     message(STATUS "vcpkg not found at ${VCPKG_ROOT}")
+#     message(STATUS "Cloning and bootstrapping vcpkg (this may take a few minutes)...")
     
-    find_package(Git QUIET)
-    if(NOT GIT_FOUND)
-        message(FATAL_ERROR "Git is required to download vcpkg. Please install git and try again.")
-    endif()
+#     find_package(Git QUIET)
+#     if(NOT GIT_FOUND)
+#         message(FATAL_ERROR "Git is required to download vcpkg. Please install git and try again.")
+#     endif()
     
-    # Clone vcpkg
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} clone https://github.com/Microsoft/vcpkg.git "${VCPKG_ROOT}"
-        RESULT_VARIABLE git_result
-        OUTPUT_VARIABLE git_output
-        ERROR_VARIABLE git_error
-    )
+#     # Clone vcpkg
+#     execute_process(
+#         COMMAND ${GIT_EXECUTABLE} clone https://github.com/Microsoft/vcpkg.git "${VCPKG_ROOT}"
+#         RESULT_VARIABLE git_result
+#         OUTPUT_VARIABLE git_output
+#         ERROR_VARIABLE git_error
+#     )
     
-    if(NOT git_result EQUAL 0)
-        message(FATAL_ERROR "Failed to clone vcpkg: ${git_error}")
-    endif()
+#     if(NOT git_result EQUAL 0)
+#         message(FATAL_ERROR "Failed to clone vcpkg: ${git_error}")
+#     endif()
     
-    message(STATUS "vcpkg cloned successfully")
+#     message(STATUS "vcpkg cloned successfully")
     
-    # Bootstrap vcpkg
-    if(WIN32)
-        set(BOOTSTRAP_SCRIPT "${VCPKG_ROOT}/bootstrap-vcpkg.bat")
-    else()
-        set(BOOTSTRAP_SCRIPT "${VCPKG_ROOT}/bootstrap-vcpkg.sh")
-    endif()
+#     # Bootstrap vcpkg
+#     if(WIN32)
+#         set(BOOTSTRAP_SCRIPT "${VCPKG_ROOT}/bootstrap-vcpkg.bat")
+#     else()
+#         set(BOOTSTRAP_SCRIPT "${VCPKG_ROOT}/bootstrap-vcpkg.sh")
+#     endif()
     
-    message(STATUS "Bootstrapping vcpkg...")
-    execute_process(
-        COMMAND ${BOOTSTRAP_SCRIPT}
-        WORKING_DIRECTORY "${VCPKG_ROOT}"
-        RESULT_VARIABLE bootstrap_result
-        OUTPUT_VARIABLE bootstrap_output
-        ERROR_VARIABLE bootstrap_error
-    )
+#     message(STATUS "Bootstrapping vcpkg...")
+#     execute_process(
+#         COMMAND ${BOOTSTRAP_SCRIPT}
+#         WORKING_DIRECTORY "${VCPKG_ROOT}"
+#         RESULT_VARIABLE bootstrap_result
+#         OUTPUT_VARIABLE bootstrap_output
+#         ERROR_VARIABLE bootstrap_error
+#     )
     
-    if(NOT bootstrap_result EQUAL 0)
-        message(FATAL_ERROR "Failed to bootstrap vcpkg: ${bootstrap_error}")
-    endif()
+#     if(NOT bootstrap_result EQUAL 0)
+#         message(FATAL_ERROR "Failed to bootstrap vcpkg: ${bootstrap_error}")
+#     endif()
     
-    message(STATUS "vcpkg successfully bootstrapped!")
-    message(STATUS "Please re-run cmake to continue configuration")
-    message(FATAL_ERROR "vcpkg was just installed. Re-run cmake to use it.")
-endif()
+#     message(STATUS "vcpkg successfully bootstrapped!")
+#     message(STATUS "Please re-run cmake to continue configuration")
+#     message(FATAL_ERROR "vcpkg was just installed. Re-run cmake to use it.")
+# endif()
 
-if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-        set(_vcpkg_toolchain "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
-        if(EXISTS "${_vcpkg_toolchain}")
-                set(CMAKE_TOOLCHAIN_FILE "${_vcpkg_toolchain}" CACHE STRING "" FORCE)
-                message(STATUS "Using vcpkg toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
-        else()
-                message(WARNING "vcpkg toolchain file not found at ${_vcpkg_toolchain}. Manifest dependencies may be unavailable.")
-        endif()
-else()
-        message(STATUS "CMAKE_TOOLCHAIN_FILE preset to: ${CMAKE_TOOLCHAIN_FILE}")
-endif()
+# if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+#         set(_vcpkg_toolchain "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+#         if(EXISTS "${_vcpkg_toolchain}")
+#                 set(CMAKE_TOOLCHAIN_FILE "${_vcpkg_toolchain}" CACHE STRING "" FORCE)
+#                 message(STATUS "Using vcpkg toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
+#         else()
+#                 message(WARNING "vcpkg toolchain file not found at ${_vcpkg_toolchain}. Manifest dependencies may be unavailable.")
+#         endif()
+# else()
+#         message(STATUS "CMAKE_TOOLCHAIN_FILE preset to: ${CMAKE_TOOLCHAIN_FILE}")
+# endif()
 
 project(engine)
 
-if(EXISTS "${VCPKG_ROOT}/installed")
-        file(GLOB _vcpkg_triplet_prefixes LIST_DIRECTORIES true "${VCPKG_ROOT}/installed/*")
-        foreach(_vcpkg_prefix IN LISTS _vcpkg_triplet_prefixes)
-                if(IS_DIRECTORY "${_vcpkg_prefix}")
-                        list(APPEND CMAKE_PREFIX_PATH "${_vcpkg_prefix}" "${_vcpkg_prefix}/share")
-                endif()
-        endforeach()
-endif()
+# if(EXISTS "${VCPKG_ROOT}/installed")
+#         file(GLOB _vcpkg_triplet_prefixes LIST_DIRECTORIES true "${VCPKG_ROOT}/installed/*")
+#         foreach(_vcpkg_prefix IN LISTS _vcpkg_triplet_prefixes)
+#                 if(IS_DIRECTORY "${_vcpkg_prefix}")
+#                         list(APPEND CMAKE_PREFIX_PATH "${_vcpkg_prefix}" "${_vcpkg_prefix}/share")
+#                 endif()
+#         endforeach()
+# endif()
 
 if(POLICY CMP0167)
         cmake_policy(SET CMP0167 OLD)
@@ -285,9 +285,9 @@ add_custom_target(Shaders ALL
 #set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 #set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-if(Vulkan_INCLUDE_DIRS)
-        target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
-endif()
+# if(Vulkan_INCLUDE_DIRS)
+#         target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
+# endif()
 target_link_libraries(engine PUBLIC
         Boost::filesystem
         Boost::log

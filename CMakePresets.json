@@ -15,7 +15,10 @@
             },
             "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/ThirdParty/vcpkg/scripts/buildsystems/vcpkg.cmake"
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "value": "${sourceDir}/ThirdParty/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                    "type": "FILEPATH"
+                }
             }
         },
         {
@@ -41,8 +44,8 @@
             "binaryDir": "${sourceDir}/build/windows-clang-debug",
             "installDir": "${sourceDir}/install/windows-clang-debug",
             "cacheVariables": {
-                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
-                "VCPKG_TARGET_TRIPLET": "x64-windows"
+                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
+                "VCPKG_TARGET_TRIPLET": "x64-windows-clang-msys"
             },
             "condition": {
                 "type": "equals",
@@ -57,8 +60,8 @@
             "binaryDir": "${sourceDir}/build/windows-clang-release",
             "installDir": "${sourceDir}/install/windows-clang-release",
             "cacheVariables": {
-                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
-                "VCPKG_TARGET_TRIPLET": "x64-windows"
+                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
+                "VCPKG_TARGET_TRIPLET": "x64-windows-clang-msys"
             },
             "condition": {
                 "type": "equals",
