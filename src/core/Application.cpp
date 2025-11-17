@@ -56,6 +56,7 @@ void Application::initVulkan() {
     resourceManager->updateSwapChainExtent(swapChain->swapChainExtent);
     resourceManager->setSwapChainImageCount(
         static_cast<uint32_t>(swapChain->swapChainImages.size()));
+    resourceManager->updateSwapChainImageFormat(swapChain->swapChainImageFormat);
     resourceManager->init();
 
     textureManager = std::make_unique<TextureManager>(
@@ -183,11 +184,14 @@ void Application::recordCommandBuffer(uint32_t imageIndex) {
     vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
     vk::ClearValue clearDepth = vk::ClearDepthStencilValue(1.0f, 0);
     vk::RenderingAttachmentInfo colorAttachmentInfo = {
-        .imageView = swapChain->swapChainImageViews[imageIndex],
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eClear,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-        .clearValue = clearColor};
+        .imageView          = resourceManager->colorImageView,
+		    .imageLayout        = vk::ImageLayout::eColorAttachmentOptimal,
+		    .resolveMode        = vk::ResolveModeFlagBits::eAverage,
+		    .resolveImageView   = swapChain->swapChainImageViews[imageIndex],
+		    .resolveImageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+		    .loadOp             = vk::AttachmentLoadOp::eClear,
+		    .storeOp            = vk::AttachmentStoreOp::eStore,
+		    .clearValue         = clearColor};
     vk::RenderingAttachmentInfo depthAttachmentInfo = {
         .imageView = resourceManager->depthImageView,
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,

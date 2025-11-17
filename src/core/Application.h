@@ -1,9 +1,7 @@
 #pragma once
-#include "Utils.h"
 #include "../graphics/SwapChain.h"
 #include "../graphics/VulkanContext.h"
 #include "../resources/ResourceManager.h"
-#include "Utils.h"
 #include "../resources/AssetsLoader.h"
 #include "../graphics/DescriptorManager.h"
 #include "../graphics/Pipeline.h"

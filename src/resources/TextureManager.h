@@ -1,6 +1,6 @@
 #pragma once
-#include "../core/Utils.h"
 #include "ResourceManager.h"
+#include "../graphics/VulkanContext.h"
 
 class TextureManager {
 public:
@@ -29,6 +29,7 @@ public:
     std::vector<vk::raii::CommandBuffer> &transferCommandBuffer;
     const vk::raii::Queue &graphicsQueue;
     const vk::raii::Queue &transferQueue;
+    const VulkanContext* context;
 
 
 

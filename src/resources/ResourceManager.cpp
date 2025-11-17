@@ -1,5 +1,6 @@
 
 #include "ResourceManager.h"
+#include "src/graphics/VulkanContext.h"
 #include <cstdio>
 
 
@@ -16,6 +17,7 @@ ResourceManager::ResourceManager(
 void ResourceManager::init() {
     createCommandPool();
     createCommandBuffers();
+    createColorResources();
     createDepthResources();
     createUniformBuffers();
     createVertexBuffer();
@@ -229,7 +231,14 @@ vk::raii::ImageView ResourceManager::createImageView(vk::raii::Image &image, vk:
     return vk::raii::ImageView(device, viewInfo);
 }
 
-void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling,
+void ResourceManager::createColorResources() {
+    vk::Format colorFormat = swapChainImageFormat;
+
+    createImage(swapChainExtent.width, swapChainExtent.height, 1, context->msaaSamples, colorFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment,  vk::MemoryPropertyFlagBits::eDeviceLocal, colorImage, colorImageMemory);
+    colorImageView = createImageView(colorImage, colorFormat, vk::ImageAspectFlagBits::eColor, 1);
+}
+
+void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits numSamples, vk::Format format, vk::ImageTiling tiling,
                  vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::raii::Image &image,
                  vk::raii::DeviceMemory &imageMemory) {
     // Determine sharing mode based on usage
@@ -249,7 +258,7 @@ void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipL
         .extent = {width, height, 1},
         .mipLevels = mipLevels,
         .arrayLayers = 1,
-        .samples = vk::SampleCountFlagBits::e1,
+        .samples = numSamples,
         .tiling = tiling,
         .usage = usage,
         .sharingMode = sharingMode,
@@ -280,7 +289,7 @@ void ResourceManager::updateSwapChainExtent(const vk::Extent2D newExtent) {
 
 void ResourceManager::createDepthResources() {
     vk::Format depthFormat = findDepthFormat();
-    createImage(swapChainExtent.width, swapChainExtent.height, 1, depthFormat, vk::ImageTiling::eOptimal,
+    createImage(swapChainExtent.width, swapChainExtent.height, 1, context->msaaSamples, depthFormat, vk::ImageTiling::eOptimal,
                 vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal,
                 depthImage, depthImageMemory);
     depthImageView = createImageView(depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth, 1);

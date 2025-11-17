@@ -1,5 +1,6 @@
 #include "Pipeline.h"
 #include <filesystem>
+#include <vulkan/vulkan.hpp>
 
 #ifndef ENGINE_SHADER_DIR
 #define ENGINE_SHADER_DIR "./shaders"
@@ -14,7 +15,7 @@ Pipeline::Pipeline(ResourceManager *resourceManager,
                                                                                swapChainImageFormat(swapChainImageFormat),
                                                                                descriptorSetLayout(descriptorSetLayout),
                                                                                resourceManager(resourceManager) {
-    // ...constructor now only assigns members (no function calls)...
+    context = resourceManager->context;
 }
 
 void Pipeline::init() {
@@ -71,7 +72,7 @@ void Pipeline::init() {
             .depthBiasSlopeFactor = 1.0f, .lineWidth = 1.0f
         };
         vk::PipelineMultisampleStateCreateInfo multisampling{
-            .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = vk::False
+            .rasterizationSamples = context->msaaSamples, .sampleShadingEnable = vk::True,
         };
         vk::PipelineColorBlendAttachmentState colorBlendAttachment;
         colorBlendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR |

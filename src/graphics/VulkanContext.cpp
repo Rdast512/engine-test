@@ -240,10 +240,9 @@ void VulkanContext::createLogicalDevice() {
     vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
         vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
         vk::PhysicalDeviceShaderFloatControls2FeaturesKHR> featureChain = {
-        {.features = {.samplerAnisotropy = true}}, // vk::PhysicalDeviceFeatures2
+        {.features = {.sampleRateShading = true, .samplerAnisotropy = true}}, // vk::PhysicalDeviceFeatures2
         {.shaderDrawParameters = true},
-        {.synchronization2 = true, .dynamicRendering = true, .maintenance4 = true},
-        // vk::PhysicalDeviceVulkan13Features
+        {.synchronization2 = true, .dynamicRendering = true, .maintenance4 = true}, // vk::PhysicalDeviceVulkan13Features
         {.extendedDynamicState = true}, // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
         {.shaderFloatControls2 = true} // vk::PhysicalDeviceShaderFloatControls2FeaturesKHR
     };

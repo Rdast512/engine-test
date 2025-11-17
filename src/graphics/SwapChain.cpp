@@ -93,7 +93,7 @@ void SwapChain::createImageViews() {
     vk::ImageViewCreateInfo imageViewCreateInfo{
         .viewType = vk::ImageViewType::e2D,
         .format = swapChainImageFormat,
-        .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}};
+        .subresourceRange = {vk::ImageAspectFlagBits::eColor,  0, 1, 0, 1}};
     for (auto image : swapChainImages) {
         imageViewCreateInfo.image = image;
         swapChainImageViews.emplace_back(device, imageViewCreateInfo);
@@ -112,5 +112,6 @@ void SwapChain::recreateSwapChain() {
 
     createSwapChain();
     createImageViews();
+    resourceManager->createColorResources();
     resourceManager->createDepthResources();
 }

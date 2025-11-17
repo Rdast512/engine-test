@@ -20,6 +20,7 @@ public:
     const vk::Extent2D& swapChainExtent;
     const vk::Format& swapChainImageFormat;
     const vk::raii::DescriptorSetLayout& descriptorSetLayout;
+    const VulkanContext* context;
 
 
     ResourceManager *resourceManager;

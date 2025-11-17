@@ -2,6 +2,7 @@
 #include "../core/Utils.h"
 #include "../graphics/VulkanContext.h"
 #include "AssetsLoader.h"
+#include <vulkan/vulkan_enums.hpp>
 
 // Command pools and buffers (rendering operations)
 // Synchronization objects (semaphores, fences)
@@ -27,6 +28,7 @@ public:
     void createVertexBuffer();
     void createIndexBuffer();
     void createUniformBuffers();
+    void createColorResources();
     void setSwapChainImageCount(uint32_t count){ swapChainImageCount = count; createSyncObjects(); };
     void updateUniformBuffer(uint32_t currentImage);
     void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
@@ -34,7 +36,7 @@ public:
     [[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char> &code) const;
     const std::vector<vk::raii::Buffer>& getUniformBuffers() const { return uniformBuffers; }    // std::vector<void *> getUniformBuffersMapped() const { return uniformBuffersMapped; }
     vk::Extent2D getSwapChainExtent() const { return swapChainExtent; }
-    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling,
+    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits samples, vk::Format format, vk::ImageTiling tiling,
                         vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::raii::Image &image,
                         vk::raii::DeviceMemory &imageMemory);
     vk::raii::ImageView createImageView(vk::raii::Image &image, vk::Format format, vk::ImageAspectFlags aspectFlags
@@ -65,6 +67,7 @@ public:
     );
     static void endCommandBuffer(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Queue &queue);
     void updateSwapChainExtent(vk::Extent2D newExtent);
+    void updateSwapChainImageFormat(vk::Format newFormat) { swapChainImageFormat = newFormat; }
 
     const VulkanContext *context;
     const vk::raii::PhysicalDevice& physicalDevice;
@@ -78,6 +81,8 @@ public:
     const std::vector<Vertex>& vertices;
     const std::vector<uint32_t>& indices;
     uint32_t swapChainImageCount;
+    vk::Format swapChainImageFormat;
+    
 
     std::vector<vk::raii::Semaphore> presentCompleteSemaphore;
     std::vector<vk::raii::Semaphore> renderFinishedSemaphore;
@@ -98,7 +103,10 @@ public:
     std::vector<vk::raii::Buffer> uniformBuffers;
     std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
     std::vector<void *> uniformBuffersMapped;
-
+    vk::raii::Image colorImage = nullptr;
+    vk::raii::DeviceMemory colorImageMemory = nullptr;
+    vk::raii::ImageView colorImageView = nullptr;
+    
 private:
 
 
