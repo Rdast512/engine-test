@@ -2,10 +2,6 @@
 
 CompileFlags:
   CompilationDatabase: build/windows-clang-debug
-  Add:
-    - -isystem
-    - build/windows-clang-debug/vcpkg_installed/x64-windows/include
-    - -Wno-error=default-member-initializer-not-yet-parsed
   Remove:
     - -fmodules-ts
     - -fmodule-mapper=*
@@ -16,3 +12,6 @@ CompileFlags:
     - -mtune=native
     - -D_GLIBCXX_DEBUG
     - -D_GLIBCXX_DEBUG_PEDANTIC
+Index:
+  Background: Build
+  StandardLibrary: Yes
