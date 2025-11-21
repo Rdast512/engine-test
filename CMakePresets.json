@@ -75,9 +75,14 @@
             "inherits": "debug",
             "binaryDir": "${sourceDir}/build/linux-clang-debug",
             "installDir": "${sourceDir}/install/linux-clang-debug",
+            "environment": {
+                "CC": "clang",
+                "CXX": "clang++"
+            },
+
             "cacheVariables": {
                 "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
-                "VCPKG_TARGET_TRIPLET": "x64-linux-clang"
+                "VCPKG_TARGET_TRIPLET": "x64-linux-clang-my"
             },
             "condition": {
                 "type": "equals",
@@ -91,9 +96,13 @@
             "inherits": "release",
             "binaryDir": "${sourceDir}/build/linux-clang-release",
             "installDir": "${sourceDir}/install/linux-clang-release",
+            "environment": {
+                "CC": "clang",
+                "CXX": "clang++"
+            },
             "cacheVariables": {
                 "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
-                "VCPKG_TARGET_TRIPLET": "x64-linux-clang"
+                "VCPKG_TARGET_TRIPLET": "x64-linux-clang-my"
             },
             "condition": {
                 "type": "equals",
