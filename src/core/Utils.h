@@ -27,11 +27,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #define VMA_VULKAN_VERSION 1004000 // Corrected for Vulkan 1.4
-#if defined(__linux__)
 #include <vma/vk_mem_alloc.h>
-#else
-#include <vma/vk_mem_alloc.h>
-#endif
 #if defined(__linux__)
 #include <stb_image.h>
 #else

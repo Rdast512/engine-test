@@ -1,75 +1,46 @@
 {
     "version": 8,
-    "cmakeMinimumRequired": {
-        "major": 3,
-        "minor": 29,
-        "patch": 0
-    },
+    "cmakeMinimumRequired": { "major": 3, "minor": 29, "patch": 0 },
     "configurePresets": [
         {
             "name": "base",
             "hidden": true,
             "generator": "Ninja",
-            "environment": {
-                "VCPKG_ROOT": "${sourceDir}/ThirdParty/vcpkg"
-            },
             "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_TOOLCHAIN_FILE": {
-                    "value": "${sourceDir}/ThirdParty/vcpkg/scripts/buildsystems/vcpkg.cmake",
-                    "type": "FILEPATH"
-                }
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
         },
         {
             "name": "debug",
             "hidden": true,
             "inherits": "base",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
         },
         {
             "name": "release",
             "hidden": true,
             "inherits": "base",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
-            }
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
         },
         {
             "name": "windows-clang-debug",
-            "displayName": "Windows | Clang | Debug",
+            "displayName": "Windows (MSYS2) | Clang | Debug",
             "inherits": "debug",
             "binaryDir": "${sourceDir}/build/windows-clang-debug",
-            "installDir": "${sourceDir}/install/windows-clang-debug",
             "cacheVariables": {
-                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
-                "VCPKG_TARGET_TRIPLET": "x64-windows-clang-msys",
-                "VCPKG_INSTALL_OPTIONS": "--allow-unsupported"
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake"
             },
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Windows"
-            }
+            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
         },
         {
             "name": "windows-clang-release",
-            "displayName": "Windows | Clang | Release",
+            "displayName": "Windows (MSYS2) | Clang | Release",
             "inherits": "release",
             "binaryDir": "${sourceDir}/build/windows-clang-release",
-            "installDir": "${sourceDir}/install/windows-clang-release",
             "cacheVariables": {
-                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
-                "VCPKG_TARGET_TRIPLET": "x64-windows-clang-msys",
-                "VCPKG_INSTALL_OPTIONS": "--allow-unsupported"
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake"
             },
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Windows"
-            }
+            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
         },
         {
             "name": "linux-clang-debug",
@@ -77,19 +48,10 @@
             "inherits": "debug",
             "binaryDir": "${sourceDir}/build/linux-clang-debug",
             "installDir": "${sourceDir}/install/linux-clang-debug",
-            "environment": {
-                "CC": "clang",
-                "CXX": "clang++"
-            },
             "cacheVariables": {
-                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
-                "VCPKG_TARGET_TRIPLET": "x64-linux-clang-my"
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake"
             },
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Linux"
-            }
+            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
         },
         {
             "name": "linux-clang-release",
@@ -97,37 +59,16 @@
             "inherits": "release",
             "binaryDir": "${sourceDir}/build/linux-clang-release",
             "installDir": "${sourceDir}/install/linux-clang-release",
-            "environment": {
-                "CC": "clang",
-                "CXX": "clang++"
-            },
             "cacheVariables": {
-                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
-                "VCPKG_TARGET_TRIPLET": "x64-linux-clang-my"
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake"
             },
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Linux"
-            }
+            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
         }
     ],
     "buildPresets": [
-        {
-            "name": "windows-clang-debug",
-            "configurePreset": "windows-clang-debug"
-        },
-        {
-            "name": "windows-clang-release",
-            "configurePreset": "windows-clang-release"
-        },
-        {
-            "name": "linux-clang-debug",
-            "configurePreset": "linux-clang-debug"
-        },
-        {
-            "name": "linux-clang-release",
-            "configurePreset": "linux-clang-release"
-        }
+        { "name": "windows-clang-debug", "configurePreset": "windows-clang-debug" },
+        { "name": "windows-clang-release", "configurePreset": "windows-clang-release" },
+        { "name": "linux-clang-debug", "configurePreset": "linux-clang-debug" },
+        { "name": "linux-clang-release", "configurePreset": "linux-clang-release" }
     ]
 }
