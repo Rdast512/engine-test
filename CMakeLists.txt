@@ -40,13 +40,17 @@ endif()
 
 set(VULKAN_SDK_ROOT "$ENV{VULKAN_SDK}")
 
-if(UNIX AND NOT APPLE)
-        set(_default_vcpkg "$ENV{HOME}/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic")
-        if(EXISTS "${_default_vcpkg}")
-                list(APPEND CMAKE_PREFIX_PATH "${_default_vcpkg}" "${_default_vcpkg}/share")
-                include_directories("${_default_vcpkg}/include")
-        endif()
-endif()
+# if(UNIX AND NOT APPLE)
+#         set(_default_vcpkg "$ENV{HOME}/.vcpkg-clion/vcpkg/installed/x64-linux-dynamic")
+#         if(EXISTS "${_default_vcpkg}")
+#                 list(APPEND CMAKE_PREFIX_PATH "${_default_vcpkg}" "${_default_vcpkg}/share")
+#                 include_directories("${_default_vcpkg}/include")
+#         endif()
+# endif()
+
+
+set(Vulkan_INCLUDE_DIR "${VULKAN_SDK_ROOT}/include" CACHE PATH "Vulkan Include Path" FORCE)
+
 
 list(APPEND CMAKE_PREFIX_PATH
                 "${VULKAN_SDK_ROOT}"
@@ -58,12 +62,31 @@ list(APPEND CMAKE_PREFIX_PATH
 add_subdirectory(ThirdParty)
 
 set(CMAKE_VERBOSE_MAKEFILE OFF)
+find_library(Vulkan_LIBRARY
+    NAMES vulkan libvulkan
+    PATHS "${VULKAN_SDK_ROOT}/lib"
+    NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
+)
 find_package(Vulkan REQUIRED)
 find_package(vk-bootstrap CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem log system)
 find_package(SDL3 CONFIG REQUIRED)
+
+# --- DEBUG INFO: Print found paths ---
+message(STATUS "-------------------------------------------------------------")
+message(STATUS "Dependency Paths:")
+message(STATUS "  Vulkan SDK Root:    ${VULKAN_SDK_ROOT}")
+message(STATUS "  Vulkan Include:     ${Vulkan_INCLUDE_DIR}")
+message(STATUS "  Vulkan Library:     ${Vulkan_LIBRARY}")
+message(STATUS "  SDL3_DIR:           ${SDL3_DIR}")
+message(STATUS "  vk-bootstrap_DIR:   ${vk-bootstrap_DIR}")
+message(STATUS "  glm_DIR:            ${glm_DIR}")
+message(STATUS "  Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
+message(STATUS "-------------------------------------------------------------")
+
 add_library(VulkanCppModule)
 
 # Fix for Linux/Clang "declaration does not declare anything" error in vulkan.cppm
@@ -78,6 +101,7 @@ target_compile_definitions(VulkanCppModule PUBLIC
 )
 
 target_include_directories(VulkanCppModule
+        BEFORE  # <--- IMPORTANT: This forces SDK headers to check first, preventing shadowing
         PRIVATE
         "${Vulkan_INCLUDE_DIR}"
 )
