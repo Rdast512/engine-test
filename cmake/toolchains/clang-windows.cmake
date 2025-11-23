@@ -4,10 +4,14 @@ set(MSYS2_ROOT "C:/msys64")
 set(CMAKE_C_COMPILER   "${MSYS2_ROOT}/clang64/bin/clang.exe")
 set(CMAKE_CXX_COMPILER "${MSYS2_ROOT}/clang64/bin/clang++.exe")
 set(CMAKE_RC_COMPILER  "${MSYS2_ROOT}/clang64/bin/windres.exe")
+set(CMAKE_AR           "${MSYS2_ROOT}/clang64/bin/llvm-ar.exe")
+set(CMAKE_RANLIB       "${MSYS2_ROOT}/clang64/bin/llvm-ranlib.exe")
+set(CMAKE_NM           "${MSYS2_ROOT}/clang64/bin/llvm-nm.exe")
 
 # Set the build system using its full path.
 set(CMAKE_MAKE_PROGRAM "${MSYS2_ROOT}/clang64/bin/ninja.exe")
-
+set(COMMON_FLAGS "-Wall -Wextra -Wpedantic -Wshadow -m64 -DBOOST_THREAD_USE_WIN32")
+set(COMMON_CXX_FLAGS "-pthread") # Needed for std::thread on MinGW
 
 
 # set(COMMON_FLAGS "-Wall -Wextra -Wshadow -m64")

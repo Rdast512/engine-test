@@ -45,7 +45,8 @@
             "installDir": "${sourceDir}/install/windows-clang-debug",
             "cacheVariables": {
                 "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
-                "VCPKG_TARGET_TRIPLET": "x64-windows-clang-msys"
+                "VCPKG_TARGET_TRIPLET": "x64-windows-clang-msys",
+                "VCPKG_INSTALL_OPTIONS": "--allow-unsupported"
             },
             "condition": {
                 "type": "equals",
@@ -61,7 +62,8 @@
             "installDir": "${sourceDir}/install/windows-clang-release",
             "cacheVariables": {
                 "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
-                "VCPKG_TARGET_TRIPLET": "x64-windows-clang-msys"
+                "VCPKG_TARGET_TRIPLET": "x64-windows-clang-msys",
+                "VCPKG_INSTALL_OPTIONS": "--allow-unsupported"
             },
             "condition": {
                 "type": "equals",
@@ -79,7 +81,6 @@
                 "CC": "clang",
                 "CXX": "clang++"
             },
-
             "cacheVariables": {
                 "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
                 "VCPKG_TARGET_TRIPLET": "x64-linux-clang-my"

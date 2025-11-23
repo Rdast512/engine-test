@@ -169,9 +169,9 @@ add_executable(engine
 )
 
 
-set(Boost_USE_STATIC_LIBS OFF)
-set(Boost_USE_MULTITHREADED ON)
-set(Boost_USE_STATIC_RUNTIME OFF)
+# set(Boost_USE_STATIC_LIBS OFF)
+# set(Boost_USE_MULTITHREADED ON)
+# set(Boost_USE_STATIC_RUNTIME OFF)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
 
