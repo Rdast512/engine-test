@@ -1,5 +1,5 @@
 #pragma once
-#include "../core/Utils.h"
+#include "../core/RenderTypes.h"
 #include "../graphics/VulkanContext.h"
 #include "AssetsLoader.h"
 #include <vulkan/vulkan_enums.hpp>

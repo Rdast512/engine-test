@@ -1,5 +1,6 @@
 #pragma once
-#include "../core/Utils.h"
+#include "../core/RenderTypes.h"
+#include <vector>
 
 
 class DescriptorManager {

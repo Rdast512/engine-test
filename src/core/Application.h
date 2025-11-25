@@ -1,13 +1,12 @@
 #pragma once
 #include "../graphics/SwapChain.h"
 #include "../graphics/VulkanContext.h"
-#include "../resources/ResourceManager.h"
-#include "../resources/AssetsLoader.h"
 #include "../graphics/DescriptorManager.h"
 #include "../graphics/Pipeline.h"
 #include "../resources/TextureManager.h"
 
 // Todo pointer to smart pointers
+
 
 
 class Application {

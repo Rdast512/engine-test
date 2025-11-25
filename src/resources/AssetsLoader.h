@@ -1,5 +1,6 @@
 #pragma once
 #include "../core/Utils.h"
+#include "../core/RenderTypes.h"
 
 
 class AssetsLoader {

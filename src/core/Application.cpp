@@ -1,5 +1,6 @@
 #include "Application.h"
 #include "../resources/ResourceManager.h"
+#include "../core/Constants.h"
 
 // TODO move resources like Texture data to its own texture class
 // TODO add functions to ownership

@@ -28,7 +28,8 @@
             "inherits": "debug",
             "binaryDir": "${sourceDir}/build/windows-clang-debug",
             "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake"
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
+                "CMAKE_MAKE_PROGRAM": "C:/msys64/clang64/bin/ninja.exe"
             },
             "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
         },
@@ -38,7 +39,8 @@
             "inherits": "release",
             "binaryDir": "${sourceDir}/build/windows-clang-release",
             "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake"
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
+                "CMAKE_MAKE_PROGRAM": "C:/msys64/clang64/bin/ninja.exe"
             },
             "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
         },

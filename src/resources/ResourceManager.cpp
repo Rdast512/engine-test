@@ -1,7 +1,7 @@
-
 #include "ResourceManager.h"
 #include "src/graphics/VulkanContext.h"
 #include <cstdio>
+#include "../core/Constants.h"
 
 
 ResourceManager::ResourceManager(
@@ -28,7 +28,6 @@ void ResourceManager::createSyncObjects() {
     presentCompleteSemaphore.clear();
     renderFinishedSemaphore.clear();
     inFlightFences.clear();
-
     for (size_t i = 0; i < swapChainImageCount; i++) {
         presentCompleteSemaphore.emplace_back(device, vk::SemaphoreCreateInfo());
         renderFinishedSemaphore.emplace_back(device, vk::SemaphoreCreateInfo());

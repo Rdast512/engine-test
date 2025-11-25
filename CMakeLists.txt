@@ -19,6 +19,7 @@ message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 # --- Compiler Setup ---
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_link_options("-fuse-ld=lld")
     foreach(_flag_var CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO CMAKE_C_FLAGS_MINSIZEREL
                      CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS_MINSIZEREL)
         if(DEFINED ${_flag_var})
@@ -34,6 +35,15 @@ endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     message(FATAL_ERROR "This project targets Clang toolchains. Please configure CMake with clang.")
+endif()
+
+find_program(CCACHE_PROGRAM ccache HINTS "C:/msys64/clang64/bin" "C:/msys64/usr/bin")
+if(CCACHE_PROGRAM)
+    message(STATUS "Using ccache: ${CCACHE_PROGRAM}")
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+else()
+    message(WARNING "ccache not found. Install it to speed up recompilation (e.g., 'pacman -S mingw-w64-clang-x86_64-ccache' in MSYS2).")
 endif()
 
 # --- Vulkan SDK Setup ---
@@ -193,6 +203,9 @@ target_link_libraries(engine PRIVATE
     ${CMAKE_DL_LIBS}
     Vulkan::cppm
 )
+
+# --- Precompiled Headers ---
+target_precompile_headers(engine PRIVATE src/pch.h)
 
 # --- Paths Definitions ---
 file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}/shaders" ENGINE_SHADER_DIR_PATH)

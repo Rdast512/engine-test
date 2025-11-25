@@ -1,7 +1,0 @@
-// {
-//   "clangd.path": "C:\\Program Files\\LLVM\\bin\\clangd.exe",
-//   "clangd.arguments": [
-//     "--query-driver=C:\\msys64\\mingw64\\bin\\g++.exe",
-//     "--target=x86_64-w64-mingw32"
-//   ]
-// }

@@ -3,6 +3,7 @@
 //
 
 #include "TextureManager.h"
+#include "../core/Constants.h"
 
 TextureManager::TextureManager(
     ResourceManager *resourceManager,

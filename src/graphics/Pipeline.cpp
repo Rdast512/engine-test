@@ -1,6 +1,7 @@
 #include "Pipeline.h"
 #include <filesystem>
 #include <vulkan/vulkan.hpp>
+#include "../core/RenderTypes.h"
 
 #ifndef ENGINE_SHADER_DIR
 #define ENGINE_SHADER_DIR "./shaders"
