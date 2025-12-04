@@ -3,8 +3,6 @@
 CompileFlags:
   CompilationDatabase: build/linux-clang-debug
   Add:
-    - -isystem
-    - build/linux-clang-debug/vcpkg_installed/x64-linux/include
     - -Wno-error=default-member-initializer-not-yet-parsed
   Remove:
     - -fmodules-ts
