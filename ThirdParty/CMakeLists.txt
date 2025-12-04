@@ -97,9 +97,12 @@ FetchContent_MakeAvailable(vk-bootstrap)
 # ------------------------------------------------------------------------------
 # 6. Boost (Compiled from Source)
 # ------------------------------------------------------------------------------
-message(STATUS "Fetching Boost (all libraries)...")
+message(STATUS "Fetching Boost (selected libraries only)...")
 
-# Disable external compression dependencies for log to keep build simple
+# Only build these libraries (and their dependencies)
+set(BOOST_INCLUDE_LIBRARIES filesystem algorithm thread log asio CACHE STRING "" FORCE)
+
+# Disable external compression dependencies
 set(BOOST_IOSTREAMS_ENABLE_ZLIB OFF CACHE BOOL "" FORCE)
 set(BOOST_IOSTREAMS_ENABLE_BZIP2 OFF CACHE BOOL "" FORCE)
 set(BOOST_IOSTREAMS_ENABLE_LZMA OFF CACHE BOOL "" FORCE)

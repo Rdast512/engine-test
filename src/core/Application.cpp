@@ -87,8 +87,7 @@ void Application::drawFrame() {
     auto &commandBuffer = resourceManager->commandBuffers[currentFrame];
 
     while (vk::Result::eTimeout ==
-           device.waitForFences(fence, vk::True, UINT64_MAX))
-        ;
+           device.waitForFences(fence, vk::True, UINT64_MAX));
     // --- Frame logic using references ---
     auto [result, imageIndex] =
         swapChain_KHR.acquireNextImage(UINT64_MAX, presentSemaphore, nullptr);
