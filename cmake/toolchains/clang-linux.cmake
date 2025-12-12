@@ -3,7 +3,8 @@ set(CMAKE_CXX_COMPILER clang++)
 set(CMAKE_AR llvm-ar)
 set(CMAKE_RANLIB llvm-ranlib)
 set(CMAKE_NM llvm-nm)
-
+add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
+add_link_options(-stdlib=libc++)
 # # --- COMMON FLAGS for all build types ---
 # # -Wall -Wextra -Wpedantic: Excellent, strict warnings.
 # # -Wshadow: Warns about variable shadowing.

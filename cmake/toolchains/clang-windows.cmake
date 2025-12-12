@@ -1,5 +1,7 @@
 set(MSYS2_ROOT "C:/msys64")
-
+# Only apply libc++ to C++ sources to avoid unused-argument warnings on C objects
+add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
+add_link_options(-stdlib=libc++)
 # Set the compilers using their full, unambiguous paths.
 set(CMAKE_C_COMPILER   "${MSYS2_ROOT}/clang64/bin/clang.exe")
 set(CMAKE_CXX_COMPILER "${MSYS2_ROOT}/clang64/bin/clang++.exe")
