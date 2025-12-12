@@ -8,7 +8,7 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 # ------------------------------------------------------------------------------
 # 1. Slang (Manual Download & Extract)
 # ------------------------------------------------------------------------------
-set(SLANG_TAG "v2025.13.2")
+set(SLANG_TAG "v2025.24")
 string(REGEX REPLACE "^v" "" SLANG_VERSION "${SLANG_TAG}")
 set(SLANG_RELEASE_URL "https://github.com/shader-slang/slang/releases/download")
 
