@@ -9,12 +9,9 @@ endif()
 # --- Standard Configuration ---
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_EXPERIMENTAL_CXX_MODULES ON CACHE BOOL "" FORCE)
-set(CMAKE_EXPERIMENTAL_CXX_MODULE_DYNDEP ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 set(CMAKE_LINKER_TYPE LLD)
 
 # if(UNIX AND NOT APPLE)
@@ -94,61 +91,19 @@ message(STATUS "  Vulkan Library:     ${Vulkan_LIBRARY}")
 message(STATUS "  (Other libraries are built from source in ThirdParty/)")
 message(STATUS "-------------------------------------------------------------")
 
-# --- Vulkan Module Setup ---
-set(VULKAN_CPP_MODULE_SUPPORTED FALSE)
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
-    set(VULKAN_CPP_MODULE_SUPPORTED TRUE)
-endif()
-
+# --- Vulkan Header-Only Setup ---
 set(VULKAN_COMPILE_DEFS
     VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
     VULKAN_HPP_NO_STRUCT_CONSTRUCTORS=1
-    # VULKAN_HPP_NO_STD_MODULE=1
+    VULKAN_HPP_NO_STD_MODULE=1
+    VULKAN_HPP_NO_MODULE=1
 )
 
-if(VULKAN_CPP_MODULE_SUPPORTED)
-    add_library(VulkanCppModule)
-
-    # Fix for Linux/Clang "declaration does not declare anything" error in vulkan.cppm
-    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        target_compile_options(VulkanCppModule PRIVATE 
-            -fpermissive
-            # -DVULKAN_HPP_NO_STD_MODULE
-            # -DVULKAN_HPP_ENABLE_STD_MODULE
-        )
-    endif()
-
-    target_compile_definitions(VulkanCppModule PUBLIC ${VULKAN_COMPILE_DEFS})
-
-    target_include_directories(VulkanCppModule
-        BEFORE # Critical: Forces SDK headers to be searched BEFORE any others
-        PRIVATE
-        "${Vulkan_INCLUDE_DIR}"
-    )
-
-    target_link_libraries(VulkanCppModule
-        PUBLIC
-        Vulkan::Vulkan
-    )
-
-    set_target_properties(VulkanCppModule PROPERTIES CXX_STANDARD 23)
-
-    target_sources(VulkanCppModule
-        PUBLIC
-        FILE_SET cxx_modules TYPE CXX_MODULES
-        BASE_DIRS "${Vulkan_INCLUDE_DIR}"
-        FILES "${Vulkan_INCLUDE_DIR}/vulkan/vulkan.cppm"
-    )
-
-    # Add the vulkan.cppm file directly as a source file
-    target_sources(VulkanCppModule PRIVATE "${Vulkan_INCLUDE_DIR}/vulkan/vulkan.cppm")
-else()
-    message(STATUS "Vulkan C++ module disabled (std module unavailable); falling back to headers.")
-    add_library(VulkanCppModule INTERFACE)
-    target_compile_definitions(VulkanCppModule INTERFACE ${VULKAN_COMPILE_DEFS} VULKAN_HPP_NO_MODULE=1)
-    target_include_directories(VulkanCppModule INTERFACE "${Vulkan_INCLUDE_DIR}")
-    target_link_libraries(VulkanCppModule INTERFACE Vulkan::Vulkan)
-endif()
+message(STATUS "Using Vulkan headers (modules disabled)")
+add_library(VulkanCppModule INTERFACE)
+target_compile_definitions(VulkanCppModule INTERFACE ${VULKAN_COMPILE_DEFS})
+target_include_directories(VulkanCppModule INTERFACE "${Vulkan_INCLUDE_DIR}")
+target_link_libraries(VulkanCppModule INTERFACE Vulkan::Vulkan)
 
 add_library(Vulkan::cppm ALIAS VulkanCppModule)
 
