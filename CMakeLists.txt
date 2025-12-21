@@ -216,19 +216,9 @@ target_link_libraries(engine PRIVATE
     Vulkan::cppm
 )
 
-# target_link_libraries(engine2 PUBLIC
-#     ThirdParty::all
-#     Vulkan::Vulkan
-# )
-
-# target_link_libraries(engine2 PRIVATE
-#     ${CMAKE_DL_LIBS}
-#     Vulkan::cppm
-# )
 
 # --- Precompiled Headers ---
 target_precompile_headers(engine PRIVATE src/pch.h)
-# target_precompile_headers(engine2 PRIVATE src2/pch.h)
 
 # --- Paths Definitions ---
 file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}/shaders" ENGINE_SHADER_DIR_PATH)
@@ -241,11 +231,7 @@ target_compile_definitions(engine PRIVATE
     ENGINE_TEXTURES_DIR="${ENGINE_TEXTURES_DIR_PATH}"
 )
 
-# target_compile_definitions(engine2 PRIVATE
-#     ENGINE_SHADER_DIR="${ENGINE_SHADER_DIR_PATH}"
-#     ENGINE_MODELS_DIR="${ENGINE_MODELS_DIR_PATH}"
-#     ENGINE_TEXTURES_DIR="${ENGINE_TEXTURES_DIR_PATH}"
-# )
+
 
 # --- Manual Compiler Flags ---
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
