@@ -140,30 +140,30 @@ message(STATUS "Compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
 # )
 
 add_executable(engine
-    src2/main.cpp
-    src2/pch.h
-    src2/Constants.h
-    src2/core/vk_engine.cpp
-    src2/core/vk_engine.hpp
-    src2/core/vk_device.cpp
-    src2/core/vk_device.hpp
-    src2/core/vk_swapchain.cpp
-    src2/core/vk_swapchain.hpp
-    src2/core/vk_resource_manager.cpp
-    src2/core/vk_resource_manager.hpp
-    src2/core/vk_descriptors.cpp
-    src2/core/vk_descriptors.hpp
-    src2/core/types.hpp
-    src2/assets/assets_loader.cpp
-    src2/assets/assets_loader.hpp
-    src2/assets/model_storage.cpp
-    src2/assets/model_storage.hpp
-    src2/assets/texture_manager.cpp
-    src2/assets/texture_manager.hpp
-    src2/render/vk_pipeline.cpp
-    src2/render/vk_pipeline.hpp
-    src2/render/vk_renderer.cpp
-    src2/render/vk_renderer.hpp
+    src/main.cpp
+    src/pch.h
+    src/Constants.h
+    src/core/vk_engine.cpp
+    src/core/vk_engine.hpp
+    src/core/vk_device.cpp
+    src/core/vk_device.hpp
+    src/core/vk_swapchain.cpp
+    src/core/vk_swapchain.hpp
+    src/core/vk_resource_manager.cpp
+    src/core/vk_resource_manager.hpp
+    src/core/vk_descriptors.cpp
+    src/core/vk_descriptors.hpp
+    src/core/types.hpp
+    src/assets/assets_loader.cpp
+    src/assets/assets_loader.hpp
+    src/assets/model_storage.cpp
+    src/assets/model_storage.hpp
+    src/assets/texture_manager.cpp
+    src/assets/texture_manager.hpp
+    src/render/vk_pipeline.cpp
+    src/render/vk_pipeline.hpp
+    src/render/vk_renderer.cpp
+    src/render/vk_renderer.hpp
     ThirdParty/implementations.cpp
     ThirdParty/termcolor.hpp
     ThirdParty/tiny_obj_loader.h
