@@ -1,7 +1,18 @@
 #include "vk_swapchain.hpp"
 
+#include <SDL3/SDL.h>
+#include <algorithm>
+#include <limits>
+#include <termcolor.hpp>
+
 SwapChain::SwapChain(SDL_Window *window, Device *device)
-    : window(window), device(device) {}
+    : window(window),
+      device(device),
+      physicalDevice(device->getPhysicalDevice()),
+      surface(device->getSurface()),
+      vkdevice(device->getDevice()),
+      queueFamilyIndices(device->getQueueFamilyIndices()) {}
+
 void SwapChain::init() {
     std::cout << termcolor::green << "Initialized SwapChain" << std::endl;
     createSwapChain();
@@ -40,9 +51,9 @@ vk::Extent2D SwapChain::chooseSwapExtent(
     std::cout << termcolor::green << "Window size: " << width << "x" << height
               << std::endl;
 
-    return {std::clamp<uint32_t>(width, capabilities.minImageExtent.width,
+    return {std::clamp<uint32_t>(static_cast<uint32_t>(width), capabilities.minImageExtent.width,
                                  capabilities.maxImageExtent.width),
-            std::clamp<uint32_t>(height, capabilities.minImageExtent.height,
+            std::clamp<uint32_t>(static_cast<uint32_t>(height), capabilities.minImageExtent.height,
                                  capabilities.maxImageExtent.height)};
 }
 
@@ -84,7 +95,7 @@ void SwapChain::createSwapChain() {
         .clipped = true,
         .oldSwapchain = nullptr};
 
-    swapChain = vk::raii::SwapchainKHR(device, swapChainCreateInfo);
+    swapChain = vk::raii::SwapchainKHR(vkdevice, swapChainCreateInfo);
     swapChainImages = swapChain.getImages();
 }
 
@@ -112,6 +123,4 @@ void SwapChain::recreateSwapChain() {
 
     createSwapChain();
     createImageViews();
-    // resourceManager->createColorResources();
-    // resourceManager->createDepthResources();
 }

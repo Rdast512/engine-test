@@ -1,23 +1,24 @@
 #pragma once
 #include "../core/types.hpp"
-#include <tiny_obj_loader.h>
+#include "model_storage.hpp"
+#include "../ThirdParty/tiny_obj_loader.h"
 #include <termcolor.hpp>
+#include <vector>
 
 
 class AssetsLoader {
 public:
 
-    AssetsLoader();
+    explicit AssetsLoader(ModelStorage &storage);
     ~AssetsLoader() = default;
 
     void loadModel();
 
-    const std::vector<uint32_t>& getIndices() const { return indices; }  // Reference, not copy
-    const std::vector<Vertex>& getVertices() const { return vertices; }   // Reference, not copy
+    const std::vector<uint32_t>& getIndices() const { return modelStorage.getIndices(); }
+    const std::vector<Vertex>& getVertices() const { return modelStorage.getVertices(); }
 
     void processVertexData(const tinyobj::attrib_t &attrib, const std::vector<tinyobj::shape_t> &shapes);
     void loadMaterials(const std::string &path, const std::vector<tinyobj::material_t> &materials);
 private:
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
+    ModelStorage &modelStorage;
 };

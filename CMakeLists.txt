@@ -111,32 +111,63 @@ add_library(Vulkan::cppm ALIAS VulkanCppModule)
 message(STATUS "CMake is using C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
 
+# add_executable(engine
+#     src/core/main.cpp
+#     src/core/Application.cpp
+#     src/core/Application.h
+#     src/graphics/VulkanContext.cpp
+#     src/graphics/VulkanContext.h
+#     src/graphics/SwapChain.cpp
+#     src/graphics/SwapChain.h
+#     src/resources/ResourceManager.cpp
+#     src/resources/ResourceManager.h
+#     src/resources/TextureManager.cpp
+#     src/resources/TextureManager.h
+#     src/resources/AssetsLoader.cpp
+#     src/resources/AssetsLoader.h
+#     src/graphics/DescriptorManager.cpp
+#     src/graphics/DescriptorManager.h
+#     src/graphics/Pipeline.cpp
+#     src/graphics/Pipeline.h
+#     src/graphics/Renderer.cpp
+#     src/graphics/Renderer.h
+#     src/core/Utils.cpp
+#     src/core/Utils.h
+#     ThirdParty/termcolor.hpp
+#     ThirdParty/tiny_obj_loader.h
+#     ThirdParty/vk_mem_alloc.h
+#     ThirdParty/implementations.cpp
+# )
+
 add_executable(engine
-    src/core/main.cpp
-    src/core/Application.cpp
-    src/core/Application.h
-    src/graphics/VulkanContext.cpp
-    src/graphics/VulkanContext.h
-    src/graphics/SwapChain.cpp
-    src/graphics/SwapChain.h
-    src/resources/ResourceManager.cpp
-    src/resources/ResourceManager.h
-    src/resources/TextureManager.cpp
-    src/resources/TextureManager.h
-    src/resources/AssetsLoader.cpp
-    src/resources/AssetsLoader.h
-    src/graphics/DescriptorManager.cpp
-    src/graphics/DescriptorManager.h
-    src/graphics/Pipeline.cpp
-    src/graphics/Pipeline.h
-    src/graphics/Renderer.cpp
-    src/graphics/Renderer.h
-    src/core/Utils.cpp
-    src/core/Utils.h
+    src2/main.cpp
+    src2/pch.h
+    src2/Constants.h
+    src2/core/vk_engine.cpp
+    src2/core/vk_engine.hpp
+    src2/core/vk_device.cpp
+    src2/core/vk_device.hpp
+    src2/core/vk_swapchain.cpp
+    src2/core/vk_swapchain.hpp
+    src2/core/vk_resource_manager.cpp
+    src2/core/vk_resource_manager.hpp
+    src2/core/vk_descriptors.cpp
+    src2/core/vk_descriptors.hpp
+    src2/core/types.hpp
+    src2/assets/assets_loader.cpp
+    src2/assets/assets_loader.hpp
+    src2/assets/model_storage.cpp
+    src2/assets/model_storage.hpp
+    src2/assets/texture_manager.cpp
+    src2/assets/texture_manager.hpp
+    src2/render/vk_pipeline.cpp
+    src2/render/vk_pipeline.hpp
+    src2/render/vk_renderer.cpp
+    src2/render/vk_renderer.hpp
+    ThirdParty/implementations.cpp
     ThirdParty/termcolor.hpp
     ThirdParty/tiny_obj_loader.h
     ThirdParty/vk_mem_alloc.h
-    ThirdParty/implementations.cpp
 )
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -185,8 +216,19 @@ target_link_libraries(engine PRIVATE
     Vulkan::cppm
 )
 
+# target_link_libraries(engine2 PUBLIC
+#     ThirdParty::all
+#     Vulkan::Vulkan
+# )
+
+# target_link_libraries(engine2 PRIVATE
+#     ${CMAKE_DL_LIBS}
+#     Vulkan::cppm
+# )
+
 # --- Precompiled Headers ---
 target_precompile_headers(engine PRIVATE src/pch.h)
+# target_precompile_headers(engine2 PRIVATE src2/pch.h)
 
 # --- Paths Definitions ---
 file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}/shaders" ENGINE_SHADER_DIR_PATH)
@@ -198,6 +240,12 @@ target_compile_definitions(engine PRIVATE
     ENGINE_MODELS_DIR="${ENGINE_MODELS_DIR_PATH}"
     ENGINE_TEXTURES_DIR="${ENGINE_TEXTURES_DIR_PATH}"
 )
+
+# target_compile_definitions(engine2 PRIVATE
+#     ENGINE_SHADER_DIR="${ENGINE_SHADER_DIR_PATH}"
+#     ENGINE_MODELS_DIR="${ENGINE_MODELS_DIR_PATH}"
+#     ENGINE_TEXTURES_DIR="${ENGINE_TEXTURES_DIR_PATH}"
+# )
 
 # --- Manual Compiler Flags ---
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")

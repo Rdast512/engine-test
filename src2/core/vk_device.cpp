@@ -280,6 +280,9 @@ void Device::createLogicalDevice() {
 
     vkdevice = vk::raii::Device(physicalDevice, deviceCreateInfo);
 
+    // Cache supported MSAA sample count for downstream components (e.g., pipelines, resources).
+    msaaSamples = getMaxUsableSampleCount();
+
     // Print queue family usage
     if (graphicsIndex == presentIndex) {
         std::cout << termcolor::green << "\nUsing single queue for graphics and present : " << graphicsIndex <<

@@ -1,6 +1,7 @@
 #include "vk_descriptors.hpp"
-#include "../core/RenderTypes.h"
-#include "../core/Constants.h"
+#include "../core/types.hpp"
+#include "../Constants.h"
+#include <array>
 
 DescriptorManager::DescriptorManager(const vk::raii::Device &device,
                                      const std::vector<vk::raii::Buffer>& uniformBuffers,

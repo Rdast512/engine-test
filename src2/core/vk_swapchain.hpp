@@ -2,7 +2,6 @@
 #include <vulkan/vulkan_raii.hpp>
 #include "vk_device.hpp"
 #include <vulkan/vulkan_enums.hpp>
-
 // TODO add callback for window resize
 
 class SwapChain
@@ -20,19 +19,18 @@ public:
 
     SDL_Window *window = nullptr;
     Device *device = nullptr;
-    
-    
+
+    const vk::raii::PhysicalDevice &physicalDevice;
+    const vk::raii::SurfaceKHR &surface;
+    const vk::raii::Device &vkdevice;
+    const std::vector<uint32_t> &queueFamilyIndices;
+
     vk::raii::SwapchainKHR swapChain = nullptr;
     vk::SurfaceFormatKHR swapChainSurfaceFormat;
-    vk::Extent2D swapChainExtent;
+    vk::Extent2D swapChainExtent{};
     std::vector<vk::Image> swapChainImages;
     vk::Format swapChainImageFormat = vk::Format::eUndefined;
     std::vector<vk::raii::ImageView> swapChainImageViews;
-    
-    const vk::raii::PhysicalDevice &physicalDevice = device->getPhysicalDevice();
-    const vk::raii::SurfaceKHR &surface = device->getSurface();
-    const vk::raii::Device &vkdevice = device->getDevice();
-    const std::vector<uint32_t> &queueFamilyIndices = device->getQueueFamilyIndices();
 
     void recreateSwapChain();
     void cleanupSwapChain();

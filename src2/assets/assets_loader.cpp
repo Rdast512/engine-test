@@ -1,9 +1,10 @@
 
 #include "assets_loader.hpp"
-#include "../core/Constants.h"
+#include "../Constants.h"
 #include <fstream>
 #include <iostream>
 #include <unordered_map>
+#include <utility>
 
 static std::vector<char> readFile(const std::string &filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -21,7 +22,7 @@ static std::vector<char> readFile(const std::string &filename) {
 
 
 
-AssetsLoader::AssetsLoader() {
+AssetsLoader::AssetsLoader(ModelStorage &storage) : modelStorage(storage) {
     std::cout << termcolor::green << "AssetsLoader initialized" << std::endl;
     loadModel();
 }
@@ -32,6 +33,8 @@ void AssetsLoader::loadModel() {
     std::vector<tinyobj::material_t> materials;
     std::string warn, err;
     std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
 
     const auto modelPath = MODEL_PATH.string();
 
@@ -62,6 +65,7 @@ void AssetsLoader::loadModel() {
             indices.push_back(uniqueVertices[vertex]);
         }
     }
-    std::cout << termcolor::green << "Model loaded: " << modelPath << ", vertices: " << vertices.size() <<
-         ", indices: " << indices.size() << std::endl;
+    modelStorage.setModelData(std::move(vertices), std::move(indices));
+    std::cout << termcolor::green << "Model loaded: " << modelPath << ", vertices: " << modelStorage.getVertices().size() <<
+         ", indices: " << modelStorage.getIndices().size() << std::endl;
 }

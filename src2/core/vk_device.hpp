@@ -23,6 +23,7 @@ class Device{
     vk::raii::Queue presentQueue = nullptr;
     vk::raii::Queue transferQueue = nullptr;
     std::vector<uint32_t> queueFamilyIndices;
+    vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
     
     uint32_t transferIndex = 0;
     uint32_t graphicsIndex = 0;
@@ -54,6 +55,7 @@ public:
     const std::vector<uint32_t>& getQueueFamilyIndices() const { return queueFamilyIndices; }
 
     vk::SampleCountFlagBits getMaxUsableSampleCount();
+    vk::SampleCountFlagBits getMsaaSamples() const { return msaaSamples; }
     uint32_t getTransferIndex() const { return transferIndex; }
     uint32_t getGraphicsIndex() const { return graphicsIndex; }
     uint32_t getPresentIndex() const { return presentIndex; }
