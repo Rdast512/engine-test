@@ -111,34 +111,6 @@ add_library(Vulkan::cppm ALIAS VulkanCppModule)
 message(STATUS "CMake is using C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
 
-# add_executable(engine
-#     src/core/main.cpp
-#     src/core/Application.cpp
-#     src/core/Application.h
-#     src/graphics/VulkanContext.cpp
-#     src/graphics/VulkanContext.h
-#     src/graphics/SwapChain.cpp
-#     src/graphics/SwapChain.h
-#     src/resources/ResourceManager.cpp
-#     src/resources/ResourceManager.h
-#     src/resources/TextureManager.cpp
-#     src/resources/TextureManager.h
-#     src/resources/AssetsLoader.cpp
-#     src/resources/AssetsLoader.h
-#     src/graphics/DescriptorManager.cpp
-#     src/graphics/DescriptorManager.h
-#     src/graphics/Pipeline.cpp
-#     src/graphics/Pipeline.h
-#     src/graphics/Renderer.cpp
-#     src/graphics/Renderer.h
-#     src/core/Utils.cpp
-#     src/core/Utils.h
-#     ThirdParty/termcolor.hpp
-#     ThirdParty/tiny_obj_loader.h
-#     ThirdParty/vk_mem_alloc.h
-#     ThirdParty/implementations.cpp
-# )
-
 add_executable(engine
     src/main.cpp
     src/pch.h
