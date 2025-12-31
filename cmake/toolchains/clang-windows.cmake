@@ -9,7 +9,7 @@ set(CMAKE_RC_COMPILER  "${MSYS2_ROOT}/clang64/bin/windres.exe")
 set(CMAKE_AR           "${MSYS2_ROOT}/clang64/bin/llvm-ar.exe")
 set(CMAKE_RANLIB       "${MSYS2_ROOT}/clang64/bin/llvm-ranlib.exe")
 set(CMAKE_NM           "${MSYS2_ROOT}/clang64/bin/llvm-nm.exe")
-
+set(CMAKE_LINKER_TYPE LLD)
 # Set the build system using its full path.
 set(CMAKE_MAKE_PROGRAM "${MSYS2_ROOT}/clang64/bin/ninja.exe")
 set(CMAKE_C_FLAGS   "-target x86_64-w64-windows-gnu" CACHE STRING "" FORCE)

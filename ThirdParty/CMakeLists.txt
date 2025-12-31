@@ -48,6 +48,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/g-truc/glm.git
     GIT_TAG        1.0.2
 )
+message(STATUS "Downloading GLM...")
 FetchContent_MakeAvailable(glm)
 
 # ------------------------------------------------------------------------------
@@ -70,6 +71,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
     GIT_TAG        release-3.2.26
 )
+message(STATUS "Downloading SDL3...")
 FetchContent_MakeAvailable(SDL3)
 
 # ------------------------------------------------------------------------------
@@ -81,17 +83,41 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap.git
     GIT_TAG        v1.4.332
 )
+message(STATUS "Downloading vk-bootstrap...")
 FetchContent_MakeAvailable(vk-bootstrap)
+
+
+# ------------------------------------------------------------------------------
+# fmt (Dependency)
+# ------------------------------------------------------------------------------
+FetchContent_Declare(
+    fmt
+    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+    GIT_TAG        12.1.0
+)
+set(FMT_SHARED ON CACHE BOOL "" FORCE)
+set(FMT_DOC OFF CACHE BOOL "" FORCE)
+set(FMT_TEST OFF CACHE BOOL "" FORCE)
+message(STATUS "Downloading fmt...")
+FetchContent_MakeAvailable(fmt)
 
 # ------------------------------------------------------------------------------
 # 5. spdlog
 # ------------------------------------------------------------------------------
-# FetchContent_Declare(
-#     spdlog
-#     GIT_REPOSITORY https://github.com/gabime/spdlog.git
-#     GIT_TAG        v1.12.0
-# )
-# FetchContent_MakeAvailable(spdlog)
+FetchContent_Declare(
+    spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG        v1.16.0
+)
+set(SPDLOG_BUILD_SHARED ON CACHE BOOL "" FORCE)
+set(SPDLOG_BUILD_PIC ON CACHE BOOL "" FORCE)
+set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
+set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(SPDLOG_FMT_EXTERNAL OFF CACHE BOOL "" FORCE)
+message(STATUS "Downloading spdlog...")
+FetchContent_MakeAvailable(spdlog)
+
+
 
 # ------------------------------------------------------------------------------
 # 6. Boost (Compiled from Source)
@@ -112,6 +138,7 @@ FetchContent_Declare(
     URL "https://github.com/boostorg/boost/releases/download/boost-1.90.0/boost-1.90.0-cmake.tar.xz"
 )
 
+message(STATUS "Downloading Boost...")
 FetchContent_MakeAvailable(Boost)
 
 # ------------------------------------------------------------------------------
@@ -133,7 +160,8 @@ target_link_libraries(ThirdPartyLibs INTERFACE
     glm::glm
     SDL3::SDL3
     vk-bootstrap::vk-bootstrap
-    # spdlog::spdlog
+    spdlog::spdlog
+    fmt::fmt
     # Boost Targets
     Boost::filesystem
     Boost::log

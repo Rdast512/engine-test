@@ -1,9 +1,11 @@
 #include "vk_swapchain.hpp"
 
 #include <SDL3/SDL.h>
+#include "../util/debug.hpp"
+#include "../util/logger.hpp"
+#include <format>
 #include <algorithm>
 #include <limits>
-#include <termcolor.hpp>
 
 SwapChain::SwapChain(SDL_Window *window, Device *device)
     : window(window),
@@ -14,7 +16,7 @@ SwapChain::SwapChain(SDL_Window *window, Device *device)
       queueFamilyIndices(device->getQueueFamilyIndices()) {}
 
 void SwapChain::init() {
-    std::cout << termcolor::green << "Initialized SwapChain" << std::endl;
+    log_info("Initialized SwapChain");
     createSwapChain();
     createImageViews();
 }
@@ -48,8 +50,7 @@ vk::Extent2D SwapChain::chooseSwapExtent(
     }
     int width, height;
     SDL_GetWindowSizeInPixels(window, &width, &height);
-    std::cout << termcolor::green << "Window size: " << width << "x" << height
-              << std::endl;
+    log_info(std::format("Window size: {}x{}", width, height));
 
     return {std::clamp<uint32_t>(static_cast<uint32_t>(width), capabilities.minImageExtent.width,
                                  capabilities.maxImageExtent.width),
@@ -97,19 +98,23 @@ void SwapChain::createSwapChain() {
 
     swapChain = vk::raii::SwapchainKHR(vkdevice, swapChainCreateInfo);
     swapChainImages = swapChain.getImages();
-}
-
-
-void SwapChain::createImageViews() {
-    vk::ImageViewCreateInfo imageViewCreateInfo{
-        .viewType = vk::ImageViewType::e2D,
-        .format = swapChainImageFormat,
-        .subresourceRange = {vk::ImageAspectFlagBits::eColor,  0, 1, 0, 1}};
-    for (auto image : swapChainImages) {
-        imageViewCreateInfo.image = image;
-        swapChainImageViews.emplace_back(vkdevice, imageViewCreateInfo);
+    for (size_t i = 0; i < swapChainImages.size(); ++i) {
+        setDebugName(vkdevice, swapChainImages[i], std::format("SwapchainImage_{}", i));
     }
-}
+ }
+
+
+ void SwapChain::createImageViews() {
+     vk::ImageViewCreateInfo imageViewCreateInfo{
+         .viewType = vk::ImageViewType::e2D,
+         .format = swapChainImageFormat,
+         .subresourceRange = {vk::ImageAspectFlagBits::eColor,  0, 1, 0, 1}};
+     for (auto image : swapChainImages) {
+         imageViewCreateInfo.image = image;
+         swapChainImageViews.emplace_back(vkdevice, imageViewCreateInfo);
+         setDebugName(vkdevice, swapChainImageViews.back(), std::format("SwapchainImageView_{}", swapChainImageViews.size() - 1));
+     }
+ }
 
 void SwapChain::cleanupSwapChain() {
     swapChainImageViews.clear();

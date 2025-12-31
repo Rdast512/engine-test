@@ -21,7 +21,7 @@ void Engine::initialize() {
         throw std::runtime_error("Failed to create window");
     }
 
-    device = std::make_unique<Device>(window, true);
+    device = std::make_unique<Device>(window, false);
     device->init();
 
     swapChain = std::make_unique<SwapChain>(window, device.get());
@@ -34,7 +34,7 @@ void Engine::initialize() {
     resourceManager->init();
     rebuildSwapchainResources(*resourceManager, *swapChain);
 
-    textureManager = std::make_unique<TextureManager>(*device);
+    textureManager = std::make_unique<TextureManager>(*device, *resourceManager);
     textureManager->init();
 
     descriptorManager = std::make_unique<DescriptorManager>(
@@ -64,7 +64,7 @@ void Engine::run() {
     bool minimized = false;
     lastTime = std::chrono::high_resolution_clock::now();
     fpsTime = lastTime;
-
+    const double targetMs = 1000.0 / 60.0; // 60 FPS
     auto &deviceRef = device->getDevice();
 
     while (!quit) {
@@ -84,6 +84,7 @@ void Engine::run() {
                                 std::to_string(static_cast<int>(fps));
             SDL_SetWindowTitle(window, title.c_str());
         }
+  
 
         SDL_Event e;
         while (SDL_PollEvent(&e) != 0) {
@@ -105,6 +106,11 @@ void Engine::run() {
             drawFrame();
         } else {
             SDL_Delay(100);
+        }
+        auto frameEndTime = std::chrono::high_resolution_clock::now();
+        auto frameDuration = std::chrono::duration_cast<std::chrono::milliseconds>(frameEndTime - currentTime).count();
+        if (frameDuration < targetMs) {
+            SDL_Delay(static_cast<Uint32>(targetMs - frameDuration));
         }
     }
     deviceRef.waitIdle();

@@ -3,6 +3,7 @@
 #include "../core/vk_device.hpp"
 #include "../core/types.hpp"
 #include "../Constants.h"
+#include "src/core/vk_resource_manager.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
 #include <cstdint>
@@ -10,7 +11,7 @@
 // Handles loading a single texture and exposes sampler + view for pipelines.
 class TextureManager {
 public:
-    explicit TextureManager(Device &deviceWrapper);
+    explicit TextureManager(Device &deviceWrapper, ResourceManager &resourceManager);
     ~TextureManager() = default;
 
     void init();
@@ -33,14 +34,15 @@ private:
 
     vk::raii::CommandBuffer beginSingleTimeCommands(const vk::raii::Queue &queue);
     void endSingleTimeCommands(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Queue &queue);
-    void transitionImageLayout(vk::raii::CommandBuffer &commandBuffer, vk::Image image, uint32_t mipLevels,
-                               vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
+    // void transitionImageLayout(vk::raii::CommandBuffer &commandBuffer, vk::Image image, uint32_t mipLevels,
+    //                            vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
     void copyBufferToImage(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Buffer &buffer,
                            const vk::raii::Image &image, uint32_t width, uint32_t height);
     void generateMipmaps(vk::raii::Image &image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight,
                          uint32_t mipLevels);
 
     Device &deviceWrapper;
+    ResourceManager &resourceManager;
     const vk::raii::PhysicalDevice &physicalDevice;
     const vk::raii::Device &device;
     const vk::raii::Queue &graphicsQueue;

@@ -5,8 +5,11 @@ class Device{
 
     std::vector<const char *> requiredDeviceExtension = {
         vk::KHRSwapchainExtensionName,
+        vk::KHRDynamicRenderingExtensionName,
         vk::KHRMaintenance7ExtensionName,
-        vk::KHRMaintenance8ExtensionName
+        vk::KHRMaintenance8ExtensionName,
+        vk::EXTMemoryBudgetExtensionName,
+        vk::EXTMemoryPriorityExtensionName
     };
 
     SDL_Window *window = nullptr;

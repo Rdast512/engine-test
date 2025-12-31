@@ -1,4 +1,7 @@
 #include "vk_device.hpp"
+#include "../util/debug.hpp"
+#include "../util/logger.hpp"
+#include <format>
 
 const std::vector validationLayers = {
     "VK_LAYER_KHRONOS_validation"
@@ -51,9 +54,10 @@ void Device::createInstance() {
     // Create a vector to hold the required extensions
     std::vector extensions(instance_extensions, instance_extensions + count_instance_extensions);
     if (enableValidationLayers) {
-        extensions.push_back(vk::EXTDebugUtilsExtensionName);
+        // extensions.push_back(vk::EXTDebugUtilsExtensionName);
     }
-
+    // Always add debug utils extension for easier debugging
+    extensions.push_back(vk::EXTDebugUtilsExtensionName);
 
     // Get the required layers
     std::vector<char const *> requiredLayers;
@@ -124,7 +128,7 @@ void Device::createSurface() {
 }
 
 vk::SampleCountFlagBits Device::getMaxUsableSampleCount() {
-    vk::PhysicalDeviceProperties physicalDeviceProperties = physicalDevice.getProperties();
+    vk::PhysicalDeviceProperties physicalDeviceProperties = physicalDevice.getProperties2().properties;
 
     vk::SampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
                                   physicalDeviceProperties.limits.framebufferDepthSampleCounts;
@@ -146,8 +150,10 @@ void Device::pickPhysicalDevice() {
     }
     std::multimap<int, vk::raii::PhysicalDevice> candidates;
     for (const auto &device: devices) {
-        auto deviceProperties = device.getProperties();
-        deviceFeatures = device.getFeatures();
+        auto props2 = device.getProperties2();
+        auto deviceProperties = props2.properties;
+        auto features2 = device.getFeatures2();
+        deviceFeatures = features2.features;
         uint32_t score = 0;
 
         // Discrete GPUs have a significant performance advantage
@@ -170,18 +176,15 @@ void Device::pickPhysicalDevice() {
         throw std::runtime_error("failed to find a suitable GPU!");
     }
     auto ret = physicalDevice.getQueueFamilyProperties2();
-    std::cout << termcolor::green << "Using physical device: " << physicalDevice.getProperties().deviceName <<
-            std::endl;
-    std::cout << termcolor::green << "Queue amount: " << ret.size() << std::endl;
+
+    log_info(std::format("Using physical device: {}", std::string_view(physicalDevice.getProperties2().properties.deviceName.data())));
+    log_info(std::format("Queue amount: {}", ret.size()));
     for (const auto &qfp: ret) {
-        std::cout << termcolor::green << "Queue family: " << qfp.queueFamilyProperties.queueCount
-                << " graphics: " << ((qfp.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics) !=
-                                     static_cast<vk::QueueFlags>(0))
-                << " compute: " << ((qfp.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eCompute) !=
-                                    static_cast<vk::QueueFlags>(0))
-                << " transfer: " << ((qfp.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eTransfer) !=
-                                     static_cast<vk::QueueFlags>(0))
-                << " present: " << qfp.queueFamilyProperties.queueCount << std::endl;
+        const bool graphics = (qfp.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics) != static_cast<vk::QueueFlags>(0);
+        const bool compute = (qfp.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eCompute) != static_cast<vk::QueueFlags>(0);
+        const bool transfer = (qfp.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eTransfer) != static_cast<vk::QueueFlags>(0);
+        log_info(std::format("Queue family count: {} graphics: {} compute: {} transfer: {}", qfp.queueFamilyProperties.queueCount,
+                             graphics, compute, transfer));
     }
 }
 
@@ -280,22 +283,25 @@ void Device::createLogicalDevice() {
 
     vkdevice = vk::raii::Device(physicalDevice, deviceCreateInfo);
 
+    setDebugName(vkdevice, instance, "Instance");
+    setDebugName(vkdevice, physicalDevice, "PhysicalDevice");
+    setDebugName(vkdevice, surface, "WindowSurface");
+    setDebugName(vkdevice, vkdevice, "LogicalDevice");
+
     // Cache supported MSAA sample count for downstream components (e.g., pipelines, resources).
     msaaSamples = getMaxUsableSampleCount();
 
     // Print queue family usage
     if (graphicsIndex == presentIndex) {
-        std::cout << termcolor::green << "\nUsing single queue for graphics and present : " << graphicsIndex <<
-                std::endl;
+        log_info(std::format("Using single queue for graphics and present: {}", graphicsIndex));
     } else {
-        std::cout << termcolor::green << "Using separate queues for graphics and present" << std::endl;
+        log_info("Using separate queues for graphics and present");
     }
 
     if (transferIndex != queueFamilyProperties.size() && transferIndex != graphicsIndex) {
-        std::cout << termcolor::green << "Using dedicated transfer queue family " << transferIndex << std::endl;
+        log_info(std::format("Using dedicated transfer queue family {}", transferIndex));
     } else {
-        std::cout << termcolor::yellow << "No dedicated transfer queue found, will use graphics queue for transfers"
-                << std::endl;
+        log_info("No dedicated transfer queue found, will use graphics queue for transfers");
     }
 
     if (transferIndex != queueFamilyProperties.size() && transferIndex != graphicsIndex) {
@@ -306,10 +312,14 @@ void Device::createLogicalDevice() {
     }
     graphicsQueue = vk::raii::Queue(vkdevice, graphicsIndex, 0);
     presentQueue = vk::raii::Queue(vkdevice, presentIndex, 0);
-    std::cout << termcolor::green << "Using graphics queue: " << graphicsIndex << "\nUsing present queue: " <<
-            presentIndex
-            << "\nUsing transfer queue: " << (transferIndex != UINT32_MAX ? std::to_string(transferIndex) : "N/A")
-            << std::endl;
+
+    setDebugName(vkdevice, graphicsQueue, "GraphicsQueue");
+    setDebugName(vkdevice, presentQueue, "PresentQueue");
+    if (transferIndex != UINT32_MAX) {
+        setDebugName(vkdevice, transferQueue, "TransferQueue");
+    }
+    log_info(std::format("Using graphics queue: {} | present queue: {} | transfer queue: {}", graphicsIndex,
+                         presentIndex, (transferIndex != UINT32_MAX ? std::to_string(transferIndex) : "N/A")));
 
     queueFamilyIndices.push_back(graphicsIndex);
 

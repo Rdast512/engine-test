@@ -1,7 +1,9 @@
 #include "vk_descriptors.hpp"
 #include "../core/types.hpp"
 #include "../Constants.h"
+#include "../util/debug.hpp"
 #include <array>
+#include <string>
 
 DescriptorManager::DescriptorManager(const vk::raii::Device &device,
                                      const std::vector<vk::raii::Buffer>& uniformBuffers,
@@ -33,6 +35,7 @@ void DescriptorManager::createDescriptorSetLayout() {
         .bindingCount = static_cast<uint32_t>(bindings.size()), .pBindings = bindings.data()
     };
     descriptorSetLayout = vk::raii::DescriptorSetLayout(device, layoutInfo);
+    setDebugName(device, descriptorSetLayout, "DescriptorSetLayout");
 }
 
 void DescriptorManager::createDescriptorPool() {
@@ -47,6 +50,7 @@ void DescriptorManager::createDescriptorPool() {
         .pPoolSizes = poolSize.data()
     };
     descriptorPool = vk::raii::DescriptorPool(device, poolInfo);
+    setDebugName(device, descriptorPool, "DescriptorPool");
 }
 
 
@@ -62,6 +66,8 @@ void DescriptorManager::createDescriptorSets() {
     descriptorSets = device.allocateDescriptorSets(allocInfo);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        const std::string setName = "DescriptorSet_" + std::to_string(i);
+        setDebugName(device, descriptorSets[i], setName);
         vk::DescriptorBufferInfo bufferInfo{
             .buffer = uniformBuffers[i],
             .offset = 0,

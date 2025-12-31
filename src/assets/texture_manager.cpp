@@ -1,20 +1,24 @@
 #include "texture_manager.hpp"
 
 #include "../../ThirdParty/stb_image.h"
+#include "../util/debug.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <iostream>
 #include <stdexcept>
-#include <termcolor.hpp>
+#include <print>
+#include "../util/logger.hpp"
 
-TextureManager::TextureManager(Device &deviceWrapper)
+TextureManager::TextureManager(Device &deviceWrapper, ResourceManager &resourceManager)
     : deviceWrapper(deviceWrapper), physicalDevice(deviceWrapper.getPhysicalDevice()),
       device(deviceWrapper.getDevice()), graphicsQueue(deviceWrapper.getGraphicsQueue()),
       transferQueue(deviceWrapper.getTransferQueue()),
       graphicsQueueFamilyIndex(deviceWrapper.getGraphicsIndex()),
-      transferQueueFamilyIndex(deviceWrapper.getTransferIndex()) {
+      transferQueueFamilyIndex(deviceWrapper.getTransferIndex()),
+      resourceManager(resourceManager) {
+    log_info("TextureManager::TextureManager() started");
     vk::CommandPoolCreateInfo poolInfo{
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
         .queueFamilyIndex = graphicsQueueFamilyIndex
@@ -23,13 +27,15 @@ TextureManager::TextureManager(Device &deviceWrapper)
 }
 
 void TextureManager::init() {
-    std::cout << termcolor::green << "TextureManager initialized" << std::endl;
+    log_info("TextureManager::init() started");
+    log_info("TextureManager initialized");
     createTextureImage();
     createTextureImageView();
     createTextureSampler();
 }
 
 void TextureManager::createTextureImage() {
+    log_info("TextureManager::createTextureImage() started");
     int texWidth = 0;
     int texHeight = 0;
     int texChannels = 0;
@@ -46,6 +52,7 @@ void TextureManager::createTextureImage() {
     createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc,
                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                  stagingBuffer, stagingBufferMemory);
+    setDebugName(device, stagingBuffer, "TextureStagingBuffer");
 
     void *data = stagingBufferMemory.mapMemory(0, imageSize);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
@@ -57,9 +64,10 @@ void TextureManager::createTextureImage() {
                 vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst |
                     vk::ImageUsageFlagBits::eSampled,
                 vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureImageMemory);
+    setDebugName(device, textureImage, "TextureImage");
 
     auto commandBuffer = beginSingleTimeCommands(graphicsQueue);
-    transitionImageLayout(commandBuffer, *textureImage, mipLevels, vk::ImageLayout::eUndefined,
+    resourceManager.transitionImageLayout(&commandBuffer, *textureImage, mipLevels, vk::ImageLayout::eUndefined,
                           vk::ImageLayout::eTransferDstOptimal);
     copyBufferToImage(commandBuffer, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth),
                       static_cast<uint32_t>(texHeight));
@@ -69,6 +77,7 @@ void TextureManager::createTextureImage() {
 }
 
 void TextureManager::createTextureImageView() {
+    log_info("TextureManager::createTextureImageView() started");
     vk::ImageViewCreateInfo viewInfo{
         .image = textureImage,
         .viewType = vk::ImageViewType::e2D,
@@ -79,6 +88,7 @@ void TextureManager::createTextureImageView() {
 }
 
 void TextureManager::createTextureSampler() {
+    log_info("TextureManager::createTextureSampler() started");
     vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
     vk::SamplerCreateInfo samplerInfo{
         .magFilter = vk::Filter::eLinear,
@@ -99,6 +109,7 @@ void TextureManager::createTextureSampler() {
 }
 
 uint32_t TextureManager::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) {
+    log_info("TextureManager::findMemoryType() started");
     vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1u << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
@@ -110,6 +121,7 @@ uint32_t TextureManager::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyF
 
 void TextureManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
                                   vk::raii::Buffer &buffer, vk::raii::DeviceMemory &bufferMemory) {
+    log_info("TextureManager::createBuffer() started");
     const bool needsConcurrent = (usage & vk::BufferUsageFlagBits::eTransferSrc ||
                                   usage & vk::BufferUsageFlagBits::eTransferDst) &&
                                  transferQueueFamilyIndex != UINT32_MAX &&
@@ -142,6 +154,7 @@ void TextureManager::createImage(uint32_t width, uint32_t height, uint32_t mipLe
                                  vk::ImageTiling tiling, vk::ImageUsageFlags usage,
                                  vk::MemoryPropertyFlags properties, vk::raii::Image &image,
                                  vk::raii::DeviceMemory &imageMemory) {
+    log_info("TextureManager::createImage() started");
     const bool needsConcurrent = (usage & vk::ImageUsageFlagBits::eTransferSrc ||
                                   usage & vk::ImageUsageFlagBits::eTransferDst) &&
                                  transferQueueFamilyIndex != UINT32_MAX &&
@@ -174,6 +187,7 @@ void TextureManager::createImage(uint32_t width, uint32_t height, uint32_t mipLe
 }
 
 vk::raii::CommandBuffer TextureManager::beginSingleTimeCommands(const vk::raii::Queue &queue) {
+    log_info("TextureManager::beginSingleTimeCommands() started");
     vk::CommandBufferAllocateInfo allocInfo{
         .commandPool = commandPool,
         .level = vk::CommandBufferLevel::ePrimary,
@@ -189,6 +203,7 @@ vk::raii::CommandBuffer TextureManager::beginSingleTimeCommands(const vk::raii::
 }
 
 void TextureManager::endSingleTimeCommands(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Queue &queue) {
+    log_info("TextureManager::endSingleTimeCommands() started");
     commandBuffer.end();
     vk::SubmitInfo submitInfo{
         .commandBufferCount = 1,
@@ -198,39 +213,41 @@ void TextureManager::endSingleTimeCommands(vk::raii::CommandBuffer &commandBuffe
     queue.waitIdle();
 }
 
-void TextureManager::transitionImageLayout(vk::raii::CommandBuffer &commandBuffer, vk::Image image,
-                                           uint32_t mipLevelsIn, vk::ImageLayout oldLayout,
-                                           vk::ImageLayout newLayout) {
-    vk::ImageMemoryBarrier barrier{
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = image,
-        .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, mipLevelsIn, 0, 1}
-    };
-
-    vk::PipelineStageFlags sourceStage;
-    vk::PipelineStageFlags destinationStage;
-
-    if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal) {
-        barrier.srcAccessMask = vk::AccessFlagBits::eNone;
-        barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-        destinationStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
-               newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
-        barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-        barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-        sourceStage = vk::PipelineStageFlagBits::eTransfer;
-        destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
-    } else {
-        throw std::invalid_argument("unsupported layout transition");
-    }
-
-    commandBuffer.pipelineBarrier(sourceStage, destinationStage, {}, nullptr, nullptr, barrier);
-}
+// void TextureManager::transitionImageLayout(vk::raii::CommandBuffer &commandBuffer, vk::Image image,
+//                                            uint32_t mipLevelsIn, vk::ImageLayout oldLayout,
+//                                            vk::ImageLayout newLayout) {
+//     std::println("TextureManager::transitionImageLayout() started");
+//     vk::ImageMemoryBarrier barrier{
+//         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+//         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+//         .image = image,
+//         .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, mipLevelsIn, 0, 1}
+//     };
+//
+//     vk::PipelineStageFlags sourceStage;
+//     vk::PipelineStageFlags destinationStage;
+//
+//     if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal) {
+//         barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+//         barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+//         sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+//         destinationStage = vk::PipelineStageFlagBits::eTransfer;
+//     } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
+//                newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+//         barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+//         barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+//         sourceStage = vk::PipelineStageFlagBits::eTransfer;
+//         destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
+//     } else {
+//         throw std::invalid_argument("unsupported layout transition");
+//     }
+//
+//     commandBuffer.pipelineBarrier(sourceStage, destinationStage, {}, nullptr, nullptr, barrier);
+// }
 
 void TextureManager::copyBufferToImage(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Buffer &buffer,
                                        const vk::raii::Image &image, uint32_t width, uint32_t height) {
+    log_info("TextureManager::copyBufferToImage() started");
     vk::BufferImageCopy region{
         .bufferOffset = 0,
         .bufferRowLength = 0,
@@ -245,6 +262,7 @@ void TextureManager::copyBufferToImage(vk::raii::CommandBuffer &commandBuffer, c
 
 void TextureManager::generateMipmaps(vk::raii::Image &image, vk::Format imageFormat, int32_t texWidth,
                                      int32_t texHeight, uint32_t mipLevelsIn) {
+    log_info("TextureManager::generateMipmaps() started");
     vk::FormatProperties formatProperties = physicalDevice.getFormatProperties(imageFormat);
     if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
         throw std::runtime_error("Texture image format does not support linear blitting!");
@@ -310,3 +328,4 @@ void TextureManager::generateMipmaps(vk::raii::Image &image, vk::Format imageFor
 
     endSingleTimeCommands(commandBuffer, graphicsQueue);
 }
+

@@ -2,9 +2,10 @@
 #include "assets_loader.hpp"
 #include "../Constants.h"
 #include <fstream>
-#include <iostream>
+#include <format>
 #include <unordered_map>
 #include <utility>
+#include "../util/logger.hpp"
 
 static std::vector<char> readFile(const std::string &filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -23,7 +24,7 @@ static std::vector<char> readFile(const std::string &filename) {
 
 
 AssetsLoader::AssetsLoader(ModelStorage &storage) : modelStorage(storage) {
-    std::cout << termcolor::green << "AssetsLoader initialized" << std::endl;
+    log_info("AssetsLoader initialized");
     loadModel();
 }
 
@@ -66,6 +67,6 @@ void AssetsLoader::loadModel() {
         }
     }
     modelStorage.setModelData(std::move(vertices), std::move(indices));
-    std::cout << termcolor::green << "Model loaded: " << modelPath << ", vertices: " << modelStorage.getVertices().size() <<
-         ", indices: " << modelStorage.getIndices().size() << std::endl;
+    log_info(std::format("Model loaded: {} | vertices: {} | indices: {}", modelPath, modelStorage.getVertices().size(),
+                         modelStorage.getIndices().size()));
 }

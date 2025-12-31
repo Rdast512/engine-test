@@ -24,7 +24,6 @@ message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 # --- Compiler Setup ---
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    add_link_options("-fuse-ld=lld")
     foreach(_flag_var CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO CMAKE_C_FLAGS_MINSIZEREL
                      CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS_MINSIZEREL)
         if(DEFINED ${_flag_var})
@@ -136,10 +135,13 @@ add_executable(engine
     src/render/vk_pipeline.hpp
     src/render/vk_renderer.cpp
     src/render/vk_renderer.hpp
+    src/util/logger.cpp
+    src/util/logger.hpp
     ThirdParty/implementations.cpp
     ThirdParty/termcolor.hpp
     ThirdParty/tiny_obj_loader.h
     ThirdParty/vk_mem_alloc.h
+        src/util/debug.cpp
 )
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -210,14 +212,89 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     if(WIN32)
         # Windows with Clang (MSVC ABI) - no libstdc++ debug flags
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -m64 -march=native -mtune=native")
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -fprefetch-loop-arrays -m64")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64")
     else()
         # Linux with Clang/GCC (GCC ABI) - include libstdc++ debug flags
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC -Og -m64 -march=native -mtune=native -pthread")
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -fprefetch-loop-arrays -m64 -pthread")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -pthread")
     endif()
 else()
     message(FATAL_ERROR "Unsupported compiler: ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
 add_dependencies(engine Shaders)
+
+# --- Copy DLLs to Executable Directory ---
+if(WIN32)
+    # Copy SDL3 DLL
+    add_custom_command(TARGET engine POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:SDL3::SDL3-shared>
+        $<TARGET_FILE_DIR:engine>
+        COMMENT "Copying SDL3 DLL to executable directory"
+    )
+    
+    # Copy Boost DLLs if they exist
+    if(TARGET Boost::filesystem)
+        add_custom_command(TARGET engine POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:Boost::filesystem>
+            $<TARGET_FILE_DIR:engine>
+            COMMENT "Copying Boost::filesystem DLL to executable directory"
+        )
+    endif()
+    
+    if(TARGET Boost::log)
+        add_custom_command(TARGET engine POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:Boost::log>
+            $<TARGET_FILE_DIR:engine>
+            COMMENT "Copying Boost::log DLL to executable directory"
+        )
+    endif()
+    
+    if(TARGET Boost::thread)
+        add_custom_command(TARGET engine POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:Boost::thread>
+            $<TARGET_FILE_DIR:engine>
+            COMMENT "Copying Boost::thread DLL to executable directory"
+        )
+    endif()
+    
+    # Copy fmt DLL if it's shared
+    if(TARGET fmt::fmt)
+        add_custom_command(TARGET engine POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:fmt::fmt>
+            $<TARGET_FILE_DIR:engine>
+            COMMENT "Copying fmt DLL to executable directory"
+        )
+    endif()
+    
+    # Copy spdlog DLL if it's shared
+    if(TARGET spdlog::spdlog)
+        add_custom_command(TARGET engine POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:spdlog::spdlog>
+            $<TARGET_FILE_DIR:engine>
+            COMMENT "Copying spdlog DLL to executable directory"
+        )
+    endif()
+    
+    # Copy glm DLL if it exists (shouldn't normally, but handle it)
+    if(TARGET glm::glm)
+        add_custom_command(TARGET engine POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:glm::glm>
+            $<TARGET_FILE_DIR:engine>
+            COMMENT "Copying glm DLL to executable directory"
+        )
+    endif()
+else()
+    # Linux: Set RPATH to find shared libraries
+    set_target_properties(engine PROPERTIES
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
+    )
+endif()
