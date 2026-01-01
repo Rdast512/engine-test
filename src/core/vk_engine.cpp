@@ -24,13 +24,15 @@ void Engine::initialize() {
     device = std::make_unique<Device>(window, false);
     device->init();
 
+    allocator = std::make_unique<VkAllocator>(device.get());
+
     swapChain = std::make_unique<SwapChain>(window, device.get());
     swapChain->init();
 
     modelStorage = std::make_unique<ModelStorage>();
     assetsLoader = std::make_unique<AssetsLoader>(*modelStorage);
 
-    resourceManager = std::make_unique<ResourceManager>(device.get(), assetsLoader.get());
+    resourceManager = std::make_unique<ResourceManager>(device.get(), assetsLoader.get(), allocator.get());
     resourceManager->init();
     rebuildSwapchainResources(*resourceManager, *swapChain);
 

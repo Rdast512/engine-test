@@ -2,21 +2,18 @@
 #include "vk_device.hpp"
 #include "../Constants.h"
 #include <glm/gtc/matrix_transform.hpp>
-#include <print>
 #include "../util/debug.hpp"
 #include "../util/logger.hpp"
-
 #include <chrono>
 #include <format>
 #include <cstring>
-#include <iostream>
-#include <ranges>
 #include <stdexcept>
 
 ResourceManager::ResourceManager(
-    Device* deviceWrapper,
-    const AssetsLoader* assetsLoader
-) : deviceWrapper(deviceWrapper), physicalDevice(deviceWrapper->getPhysicalDevice()),
+    const Device* deviceWrapper,
+    const AssetsLoader* assetsLoader,
+    const VkAllocator* allocator
+) : deviceWrapper(deviceWrapper), allocator(allocator), physicalDevice(deviceWrapper->getPhysicalDevice()),
     device(deviceWrapper->getDevice()),
     queueFamilyIndices(deviceWrapper->getQueueFamilyIndices()), graphicsIndex(deviceWrapper->getGraphicsIndex()),
     graphicsQueue(deviceWrapper->getGraphicsQueue()), transferQueue(deviceWrapper->getTransferQueue()),

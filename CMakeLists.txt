@@ -110,39 +110,59 @@ add_library(Vulkan::cppm ALIAS VulkanCppModule)
 message(STATUS "CMake is using C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
 
-add_executable(engine
-    src/main.cpp
-    src/pch.h
-    src/Constants.h
-    src/core/vk_engine.cpp
-    src/core/vk_engine.hpp
-    src/core/vk_device.cpp
-    src/core/vk_device.hpp
-    src/core/vk_swapchain.cpp
-    src/core/vk_swapchain.hpp
-    src/core/vk_resource_manager.cpp
-    src/core/vk_resource_manager.hpp
-    src/core/vk_descriptors.cpp
-    src/core/vk_descriptors.hpp
-    src/core/types.hpp
-    src/assets/assets_loader.cpp
-    src/assets/assets_loader.hpp
-    src/assets/model_storage.cpp
-    src/assets/model_storage.hpp
-    src/assets/texture_manager.cpp
-    src/assets/texture_manager.hpp
-    src/render/vk_pipeline.cpp
-    src/render/vk_pipeline.hpp
-    src/render/vk_renderer.cpp
-    src/render/vk_renderer.hpp
-    src/util/logger.cpp
-    src/util/logger.hpp
-    ThirdParty/implementations.cpp
-    ThirdParty/termcolor.hpp
-    ThirdParty/tiny_obj_loader.h
-    ThirdParty/vk_mem_alloc.h
-        src/util/debug.cpp
+
+file(GLOB_RECURSE ENGINE_SRC_FILES
+        "${CMAKE_SOURCE_DIR}/src/*.cpp"
+        "${CMAKE_SOURCE_DIR}/ThirdParty/*.cpp"
 )
+
+file(GLOB_RECURSE ENGINE_HEADER_FILES
+        "${CMAKE_SOURCE_DIR}/src/*.hpp"
+        "${CMAKE_SOURCE_DIR}/src/*.h"
+        "${CMAKE_SOURCE_DIR}/ThirdParty/*.h"
+        "${CMAKE_SOURCE_DIR}/ThirdParty/*.hpp"
+)
+
+add_executable(engine
+        ${ENGINE_SRC_FILES}
+        ${ENGINE_HEADER_FILES}
+)
+
+#add_executable(engine
+#    src/main.cpp
+#    src/pch.h
+#    src/Constants.h
+#    src/core/vk_engine.cpp
+#    src/core/vk_engine.hpp
+#    src/core/vk_device.cpp
+#    src/core/vk_device.hpp
+#    src/core/vk_swapchain.cpp
+#    src/core/vk_swapchain.hpp
+#    src/core/vk_resource_manager.cpp
+#    src/core/vk_resource_manager.hpp
+#    src/core/vk_descriptors.cpp
+#    src/core/vk_descriptors.hpp
+#    src/core/types.hpp
+#    src/assets/assets_loader.cpp
+#    src/assets/assets_loader.hpp
+#    src/assets/model_storage.cpp
+#    src/assets/model_storage.hpp
+#    src/assets/texture_manager.cpp
+#    src/assets/texture_manager.hpp
+#    src/render/vk_pipeline.cpp
+#    src/render/vk_pipeline.hpp
+#    src/render/vk_renderer.cpp
+#    src/render/vk_renderer.hpp
+#    src/util/logger.cpp
+#    src/util/logger.hpp
+#        src/core/vk_allocator.hpp
+#        src/core/vk_allocator.hpp
+#    ThirdParty/implementations.cpp
+#    ThirdParty/termcolor.hpp
+#    ThirdParty/tiny_obj_loader.h
+#    ThirdParty/vk_mem_alloc.h
+#        src/util/debug.cpp
+#)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 

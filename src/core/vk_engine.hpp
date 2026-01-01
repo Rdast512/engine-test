@@ -10,11 +10,13 @@
 #include "../assets/assets_loader.hpp"
 #include "../assets/model_storage.hpp"
 #include "../render/vk_pipeline.hpp"
+#include "vk_allocator.hpp"
 
 
 class Engine{
     SDL_Window *window = nullptr;
     std::unique_ptr<Device> device;
+    std::unique_ptr<VkAllocator> allocator;
     std::unique_ptr<SwapChain> swapChain;
     std::unique_ptr<ModelStorage> modelStorage;
     std::unique_ptr<AssetsLoader> assetsLoader;
