@@ -263,7 +263,7 @@ void TextureManager::copyBufferToImage(vk::raii::CommandBuffer &commandBuffer, c
 void TextureManager::generateMipmaps(vk::raii::Image &image, vk::Format imageFormat, int32_t texWidth,
                                      int32_t texHeight, uint32_t mipLevelsIn) {
     log_info("TextureManager::generateMipmaps() started");
-    vk::FormatProperties formatProperties = physicalDevice.getFormatProperties(imageFormat);
+    vk::FormatProperties formatProperties = physicalDevice.getFormatProperties2(imageFormat).formatProperties;
     if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
         throw std::runtime_error("Texture image format does not support linear blitting!");
     }

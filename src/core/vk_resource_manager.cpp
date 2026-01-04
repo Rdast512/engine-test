@@ -24,6 +24,57 @@ ResourceManager::ResourceManager(
     log_info("ResourceManager initialized");
 }
 
+ResourceManager::~ResourceManager()
+{
+    log_info("ResourceManager destructor called");
+
+    // Uniform buffers: unmap then destroy with VMA
+    for (size_t i = 0; i < uniformBuffersMemory.size(); ++i)
+    {
+        if (uniformBuffersMemory[i] != nullptr)
+        {
+            vmaUnmapMemory(allocator->allocator, uniformBuffersMemory[i]);
+            VkBuffer raw = uniformBuffers[i].release();
+            vmaDestroyBuffer(allocator->allocator, raw, uniformBuffersMemory[i]);
+        }
+    }
+
+    // Vertex buffer
+    if (vertexBufferMemory != nullptr)
+    {
+        VkBuffer raw = vertexBuffer.release();
+        vmaDestroyBuffer(allocator->allocator, raw, vertexBufferMemory);
+    }
+
+    // Staging buffer
+    if (stagingBufferMemory != nullptr)
+    {
+        VkBuffer raw = stagingBuffer.release();
+        vmaDestroyBuffer(allocator->allocator, raw, stagingBufferMemory);
+    }
+
+    // Index buffer
+    if (indexBufferMemory != nullptr)
+    {
+        VkBuffer raw = indexBuffer.release();
+        vmaDestroyBuffer(allocator->allocator, raw, indexBufferMemory);
+    }
+
+    // Color image
+    if (colorImageMemory != nullptr)
+    {
+        VkImage raw = colorImage.release();
+        vmaDestroyImage(allocator->allocator, raw, colorImageMemory);
+    }
+
+    // Depth image
+    if (depthImageMemory != nullptr)
+    {
+        VkImage raw = depthImage.release();
+        vmaDestroyImage(allocator->allocator, raw, depthImageMemory);
+    }
+}
+
 void ResourceManager::init()
 {
     log_info("ResourceManager::init() started");
@@ -127,7 +178,7 @@ void ResourceManager::createCommandBuffers()
 }
 
 void ResourceManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-                                   vk::raii::Buffer& buffer, vk::raii::DeviceMemory& bufferMemory)
+                                   vk::raii::Buffer& buffer, VmaAllocation& bufferMemory)
 {
     log_info("ResourceManager::createBuffer() started");
     vk::BufferCreateInfo bufferInfo{
@@ -135,14 +186,17 @@ void ResourceManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usa
         .queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size()),
         .pQueueFamilyIndices = queueFamilyIndices.data()
     };
-    buffer = vk::raii::Buffer(device, bufferInfo);
-    vk::MemoryRequirements memRequirements = buffer.getMemoryRequirements();
-    vk::MemoryAllocateInfo allocInfo{
-        .allocationSize = memRequirements.size,
-        .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties)
-    };
-    bufferMemory = vk::raii::DeviceMemory(device, allocInfo);
-    buffer.bindMemory(*bufferMemory, 0);
+    
+    VmaAllocationCreateInfo allocInfo{};
+    if (properties & vk::MemoryPropertyFlagBits::eHostVisible) {
+        allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | 
+                         VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    } else {
+        allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+    }
+    
+    allocator->alocateBuffer(bufferInfo, allocInfo, buffer, bufferMemory);
 }
 
 void ResourceManager::copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& dstBuffer, vk::DeviceSize size)
@@ -181,21 +235,37 @@ void ResourceManager::createVertexBuffer()
 
     vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
+    // Ensure previous staging allocation is released before reusing the member buffer
+    if (stagingBufferMemory != nullptr)
+    {
+        VkBuffer rawStaging = stagingBuffer.release();
+        vmaDestroyBuffer(allocator->allocator, rawStaging, stagingBufferMemory);
+        stagingBufferMemory = nullptr;
+    }
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                  stagingBuffer, stagingBufferMemory);
     setDebugName(device, stagingBuffer, "VertexStagingBuffer");
 
-    void* dataStaging = stagingBufferMemory.mapMemory(0, bufferSize);
+    void* dataStaging = nullptr;
+    vmaMapMemory(allocator->allocator, stagingBufferMemory, &dataStaging);
     memcpy(dataStaging, vertices.data(), bufferSize);
-    stagingBufferMemory.unmapMemory();
+    vmaUnmapMemory(allocator->allocator, stagingBufferMemory);
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
                  vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory);
     setDebugName(device, vertexBuffer, "VertexBuffer");
 
     copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+    // Free staging buffer after use to avoid leaking allocations
+    if (stagingBufferMemory != nullptr)
+    {
+        VkBuffer rawStaging = stagingBuffer.release();
+        vmaDestroyBuffer(allocator->allocator, rawStaging, stagingBufferMemory);
+        stagingBufferMemory = nullptr;
+    }
 }
 
 void ResourceManager::createIndexBuffer()
@@ -204,20 +274,37 @@ void ResourceManager::createIndexBuffer()
     log_info(std::format("Creating index buffer with {} indices", indices.size()));
     vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
+    // Ensure previous staging allocation is released before reusing the member buffer
+    if (stagingBufferMemory != nullptr)
+    {
+        VkBuffer rawStaging = stagingBuffer.release();
+        vmaDestroyBuffer(allocator->allocator, rawStaging, stagingBufferMemory);
+        stagingBufferMemory = nullptr;
+    }
+
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                  stagingBuffer, stagingBufferMemory);
     setDebugName(device, stagingBuffer, "IndexStagingBuffer");
 
-    void* data = stagingBufferMemory.mapMemory(0, bufferSize);
+    void* data = nullptr;
+    vmaMapMemory(allocator->allocator, stagingBufferMemory, &data);
     memcpy(data, indices.data(), (size_t)bufferSize);
-    stagingBufferMemory.unmapMemory();
+    vmaUnmapMemory(allocator->allocator, stagingBufferMemory);
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
                  vk::MemoryPropertyFlagBits::eDeviceLocal, indexBuffer, indexBufferMemory);
     setDebugName(device, indexBuffer, "IndexBuffer");
 
     copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+    // Free staging buffer after use to avoid leaking allocations
+    if (stagingBufferMemory != nullptr)
+    {
+        VkBuffer rawStaging = stagingBuffer.release();
+        vmaDestroyBuffer(allocator->allocator, rawStaging, stagingBufferMemory);
+        stagingBufferMemory = nullptr;
+    }
 }
 
 void ResourceManager::createUniformBuffers()
@@ -231,13 +318,17 @@ void ResourceManager::createUniformBuffers()
     {
         vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
         vk::raii::Buffer buffer({});
-        vk::raii::DeviceMemory bufferMem({});
+        VmaAllocation bufferMem = nullptr;
         createBuffer(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
                      vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
                      bufferMem);
         uniformBuffers.emplace_back(std::move(buffer));
-        uniformBuffersMemory.emplace_back(std::move(bufferMem));
-        uniformBuffersMapped.emplace_back(uniformBuffersMemory[i].mapMemory(0, bufferSize));
+        uniformBuffersMemory.emplace_back(bufferMem);
+        
+        void* mappedData = nullptr;
+        vmaMapMemory(allocator->allocator, bufferMem, &mappedData);
+        uniformBuffersMapped.emplace_back(mappedData);
+        
         setDebugName(device, uniformBuffers.back(), std::format("UniformBuffer_{}", i));
     }
 }
@@ -248,7 +339,7 @@ vk::Format ResourceManager::findSupportedFormat(const std::vector<vk::Format>& c
     log_info("ResourceManager::findSupportedFormat() started");
     for (const auto format : candidates)
     {
-        vk::FormatProperties props = physicalDevice.getFormatProperties(format);
+        vk::FormatProperties props = physicalDevice.getFormatProperties2(format).formatProperties;
 
         if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features)
         {
@@ -265,7 +356,7 @@ vk::Format ResourceManager::findSupportedFormat(const std::vector<vk::Format>& c
 uint32_t ResourceManager::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
 {
     log_info("ResourceManager::findMemoryType() started");
-    vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+    vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties2().memoryProperties;
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
     {
         if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
@@ -298,6 +389,15 @@ void ResourceManager::createColorResources()
     {
         return;
     }
+
+    // Destroy previous color resources before recreating
+    if (colorImageMemory != nullptr)
+    {
+        VkImage raw = colorImage.release();
+        vmaDestroyImage(allocator->allocator, raw, colorImageMemory);
+        colorImageMemory = nullptr;
+        colorImageView = nullptr;
+    }
     vk::Format colorFormat = swapChainImageFormat;
 
     createImage(swapChainExtent.width, swapChainExtent.height, 1,
@@ -316,7 +416,7 @@ void ResourceManager::createColorResources()
 void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipLevels,
                                   vk::SampleCountFlagBits numSamples, vk::Format format, vk::ImageTiling tiling,
                                   vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::raii::Image& image,
-                                  vk::raii::DeviceMemory& imageMemory)
+                                  VmaAllocation& imageMemory)
 {
     log_info("ResourceManager::createImage() started");
     // Determine sharing mode based on usage
@@ -345,15 +445,13 @@ void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipL
         .pQueueFamilyIndices = queueIndices.data()
     };
 
-    image = vk::raii::Image(device, imageInfo);
-
-    vk::MemoryRequirements memRequirements = image.getMemoryRequirements();
-    vk::MemoryAllocateInfo allocInfo{
-        .allocationSize = memRequirements.size,
-        .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties)
-    };
-    imageMemory = vk::raii::DeviceMemory(device, allocInfo);
-    image.bindMemory(imageMemory, 0);
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+    if (properties & vk::MemoryPropertyFlagBits::eHostVisible) {
+        allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    }
+    
+    allocator->alocateImage(imageInfo, allocInfo, image, imageMemory);
 }
 
 vk::Format ResourceManager::findDepthFormat()
@@ -375,6 +473,15 @@ void ResourceManager::createDepthResources()
     log_info("ResourceManager::createDepthResources() started");
     vk::Format depthFormat = findDepthFormat();
     log_info(std::format("Depth format selected: {}", vk::to_string(depthFormat)));
+
+    // Destroy previous depth resources before recreating
+    if (depthImageMemory != nullptr)
+    {
+        VkImage raw = depthImage.release();
+        vmaDestroyImage(allocator->allocator, raw, depthImageMemory);
+        depthImageMemory = nullptr;
+        depthImageView = nullptr;
+    }
     createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, depthFormat, vk::ImageTiling::eOptimal,
                 vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal,
                 depthImage, depthImageMemory);
@@ -413,7 +520,7 @@ void ResourceManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFo
 {
     log_info("ResourceManager::generateMipmaps() started");
     // Check for blit support
-    vk::FormatProperties formatProperties = physicalDevice.getFormatProperties(imageFormat);
+    vk::FormatProperties formatProperties = physicalDevice.getFormatProperties2(imageFormat).formatProperties;
     if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
     {
         throw std::runtime_error("Texture image format does not support linear blitting!");

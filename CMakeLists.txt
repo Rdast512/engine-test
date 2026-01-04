@@ -51,60 +51,13 @@ else()
 endif()
 
 # --- Vulkan SDK Setup ---
-if(NOT DEFINED ENV{VULKAN_SDK})
-    message(FATAL_ERROR "Environment variable VULKAN_SDK must point to your Vulkan SDK root.")
-endif()
-
-set(VULKAN_SDK_ROOT "$ENV{VULKAN_SDK}")
-set(Vulkan_INCLUDE_DIR "${VULKAN_SDK_ROOT}/include" CACHE PATH "Vulkan Include Path" FORCE)
-
-list(APPEND CMAKE_PREFIX_PATH
-    "${VULKAN_SDK_ROOT}"
-    "${VULKAN_SDK_ROOT}/lib/cmake"
-    "${VULKAN_SDK_ROOT}/Lib/cmake"
-    "${VULKAN_SDK_ROOT}/lib/cmake/Vulkan"
-    "${VULKAN_SDK_ROOT}/Lib/cmake/Vulkan"
-)
+# Vulkan setup is now handled inside ThirdParty/CMakeLists.txt
 
 # --- Add Dependencies (Vendored) ---
 # This builds SDL3, Boost, GLM, etc. from source
 add_subdirectory(ThirdParty)
 
 set(CMAKE_VERBOSE_MAKEFILE OFF)
-
-# Only find Vulkan from system/SDK (everything else is in ThirdParty)
-find_library(Vulkan_LIBRARY
-    NAMES vulkan libvulkan
-    PATHS "${VULKAN_SDK_ROOT}/lib"
-    NO_DEFAULT_PATH
-    NO_CMAKE_FIND_ROOT_PATH
-)
-find_package(Vulkan REQUIRED)
-
-# --- DEBUG INFO ---
-message(STATUS "-------------------------------------------------------------")
-message(STATUS "Dependency Paths:")
-message(STATUS "  Vulkan SDK Root:    ${VULKAN_SDK_ROOT}")
-message(STATUS "  Vulkan Include:     ${Vulkan_INCLUDE_DIR}")
-message(STATUS "  Vulkan Library:     ${Vulkan_LIBRARY}")
-message(STATUS "  (Other libraries are built from source in ThirdParty/)")
-message(STATUS "-------------------------------------------------------------")
-
-# --- Vulkan Header-Only Setup ---
-set(VULKAN_COMPILE_DEFS
-    VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
-    VULKAN_HPP_NO_STRUCT_CONSTRUCTORS=1
-    VULKAN_HPP_NO_STD_MODULE=1
-    VULKAN_HPP_NO_MODULE=1
-)
-
-message(STATUS "Using Vulkan headers (modules disabled)")
-add_library(VulkanCppModule INTERFACE)
-target_compile_definitions(VulkanCppModule INTERFACE ${VULKAN_COMPILE_DEFS})
-target_include_directories(VulkanCppModule INTERFACE "${Vulkan_INCLUDE_DIR}")
-target_link_libraries(VulkanCppModule INTERFACE Vulkan::Vulkan)
-
-add_library(Vulkan::cppm ALIAS VulkanCppModule)
 
 # --- Engine Executable ---
 message(STATUS "CMake is using C++ compiler: ${CMAKE_CXX_COMPILER}")
@@ -201,13 +154,11 @@ add_custom_target(Shaders ALL DEPENDS ${COMPILED_SHADERS})
 
 # --- Linking ---
 target_link_libraries(engine PUBLIC
-    ThirdParty::all  # This links SDL3, Boost, GLM, spdlog, vk-bootstrap
-    Vulkan::Vulkan   # This links the Vulkan SDK
+    ThirdParty::all  # This links SDL3, Boost, GLM, spdlog, vk-bootstrap, Vulkan
 )
 
 target_link_libraries(engine PRIVATE
     ${CMAKE_DL_LIBS}
-    Vulkan::cppm
 )
 
 
@@ -244,77 +195,119 @@ endif()
 
 add_dependencies(engine Shaders)
 
-# --- Copy DLLs to Executable Directory ---
+# # --- Copy DLLs to Executable Directory ---
+# if(WIN32)
+#     # Copy SDL3 DLL
+#     add_custom_command(TARGET engine POST_BUILD
+#         COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#         $<TARGET_FILE:SDL3::SDL3-shared>
+#         $<TARGET_FILE_DIR:engine>
+#         COMMENT "Copying SDL3 DLL to executable directory"
+#     )
+    
+#     # Copy Boost DLLs if they exist
+#     if(TARGET Boost::filesystem)
+#         add_custom_command(TARGET engine POST_BUILD
+#             COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#             $<TARGET_FILE:Boost::filesystem>
+#             $<TARGET_FILE_DIR:engine>
+#             COMMENT "Copying Boost::filesystem DLL to executable directory"
+#         )
+#     endif()
+    
+#     if(TARGET Boost::log)
+#         add_custom_command(TARGET engine POST_BUILD
+#             COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#             $<TARGET_FILE:Boost::log>
+#             $<TARGET_FILE_DIR:engine>
+#             COMMENT "Copying Boost::log DLL to executable directory"
+#         )
+#     endif()
+    
+#     if(TARGET Boost::thread)
+#         add_custom_command(TARGET engine POST_BUILD
+#             COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#             $<TARGET_FILE:Boost::thread>
+#             $<TARGET_FILE_DIR:engine>
+#             COMMENT "Copying Boost::thread DLL to executable directory"
+#         )
+#     endif()
+    
+#     # Copy fmt DLL if it's shared
+#     if(TARGET fmt::fmt)
+#         add_custom_command(TARGET engine POST_BUILD
+#             COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#             $<TARGET_FILE:fmt::fmt>
+#             $<TARGET_FILE_DIR:engine>
+#             COMMENT "Copying fmt DLL to executable directory"
+#         )
+#     endif()
+    
+#     # Copy spdlog DLL if it's shared
+#     if(TARGET spdlog::spdlog)
+#         add_custom_command(TARGET engine POST_BUILD
+#             COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#             $<TARGET_FILE:spdlog::spdlog>
+#             $<TARGET_FILE_DIR:engine>
+#             COMMENT "Copying spdlog DLL to executable directory"
+#         )
+#     endif()
+    
+#     # Copy glm DLL if it exists (shouldn't normally, but handle it)
+#     if(TARGET glm::glm)
+#         add_custom_command(TARGET engine POST_BUILD
+#             COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#             $<TARGET_FILE:glm::glm>
+#             $<TARGET_FILE_DIR:engine>
+#             COMMENT "Copying glm DLL to executable directory"
+#         )
+#     endif()
+# else()
+#     # Linux: Set RPATH to find shared libraries
+#     set_target_properties(engine PROPERTIES
+#         BUILD_RPATH "$ORIGIN"
+#         INSTALL_RPATH "$ORIGIN"
+#     )
+# endif()
 if(WIN32)
-    # Copy SDL3 DLL
-    add_custom_command(TARGET engine POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:SDL3::SDL3-shared>
-        $<TARGET_FILE_DIR:engine>
-        COMMENT "Copying SDL3 DLL to executable directory"
+    # 1. Define list of targets whose DLLs need copying
+    #    NOTE: We added Boost::log_setup and Boost::atomic because 
+    #    Boost::log and Boost::filesystem often depend on them.
+    set(SHARED_LIBS_TO_COPY
+        SDL3::SDL3
+        fmt::fmt
+        spdlog::spdlog
+        Boost::filesystem
+        Boost::log
+        Boost::log_setup
+        Boost::thread
+        Boost::atomic
+        vk-bootstrap::vk-bootstrap 
     )
-    
-    # Copy Boost DLLs if they exist
-    if(TARGET Boost::filesystem)
-        add_custom_command(TARGET engine POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:Boost::filesystem>
-            $<TARGET_FILE_DIR:engine>
-            COMMENT "Copying Boost::filesystem DLL to executable directory"
-        )
-    endif()
-    
-    if(TARGET Boost::log)
-        add_custom_command(TARGET engine POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:Boost::log>
-            $<TARGET_FILE_DIR:engine>
-            COMMENT "Copying Boost::log DLL to executable directory"
-        )
-    endif()
-    
-    if(TARGET Boost::thread)
-        add_custom_command(TARGET engine POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:Boost::thread>
-            $<TARGET_FILE_DIR:engine>
-            COMMENT "Copying Boost::thread DLL to executable directory"
-        )
-    endif()
-    
-    # Copy fmt DLL if it's shared
-    if(TARGET fmt::fmt)
-        add_custom_command(TARGET engine POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:fmt::fmt>
-            $<TARGET_FILE_DIR:engine>
-            COMMENT "Copying fmt DLL to executable directory"
-        )
-    endif()
-    
-    # Copy spdlog DLL if it's shared
-    if(TARGET spdlog::spdlog)
-        add_custom_command(TARGET engine POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:spdlog::spdlog>
-            $<TARGET_FILE_DIR:engine>
-            COMMENT "Copying spdlog DLL to executable directory"
-        )
-    endif()
-    
-    # Copy glm DLL if it exists (shouldn't normally, but handle it)
-    if(TARGET glm::glm)
-        add_custom_command(TARGET engine POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:glm::glm>
-            $<TARGET_FILE_DIR:engine>
-            COMMENT "Copying glm DLL to executable directory"
-        )
-    endif()
+
+    # 2. Iterate and create copy commands
+    foreach(_LIB ${SHARED_LIBS_TO_COPY})
+        # Check if the target exists (in case you disabled a lib)
+        if(TARGET ${_LIB})
+            # Check if it is actually a shared library or executable (has a runtime file)
+            get_target_property(_type ${_LIB} TYPE)
+            
+            if("${_type}" STREQUAL "SHARED_LIBRARY" OR "${_type}" STREQUAL "MODULE_LIBRARY")
+                add_custom_command(TARGET engine POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    $<TARGET_FILE:${_LIB}>
+                    $<TARGET_FILE_DIR:engine>
+                    COMMENT "Copying DLL for ${_LIB}..."
+                )
+            endif()
+        endif()
+    endforeach()
 else()
-    # Linux: Set RPATH to find shared libraries
+    # Linux/macOS: RPATH settings
+    # This ensures the executable looks in its own directory for .so files
     set_target_properties(engine PROPERTIES
-        BUILD_RPATH "$ORIGIN"
+        BUILD_WITH_INSTALL_RPATH TRUE
         INSTALL_RPATH "$ORIGIN"
+        BUILD_RPATH "$ORIGIN"
     )
 endif()

@@ -5,7 +5,6 @@ class Device{
 
     std::vector<const char *> requiredDeviceExtension = {
         vk::KHRSwapchainExtensionName,
-        vk::KHRDynamicRenderingExtensionName,
         vk::KHRMaintenance7ExtensionName,
         vk::KHRMaintenance8ExtensionName,
         vk::EXTMemoryBudgetExtensionName,
@@ -51,6 +50,7 @@ public:
     const vk::raii::SurfaceKHR& getSurface() const { return surface; }
     const vk::raii::Device& getDevice() const { return vkdevice; }
     const vk::PhysicalDeviceFeatures& getDeviceFeatures() const { return deviceFeatures; }
+    uint32_t getGraphicsQueueFamilyIndex() const { return graphicsIndex; }
     
     const vk::raii::Queue& getGraphicsQueue() const { return graphicsQueue; }
     const vk::raii::Queue& getPresentQueue() const { return presentQueue; }

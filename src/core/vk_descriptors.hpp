@@ -18,9 +18,9 @@ public:
     void createDescriptorSetLayout();
     void createDescriptorPool();
     void createDescriptorSets();
+    const vk::raii::DescriptorPool& getDescriptorPool() const { return descriptorPool; }
 
     const vk::raii::DescriptorSetLayout& getDescriptorSetLayout() { return descriptorSetLayout; }
-
 
     const vk::raii::Device& device;
     const std::vector<vk::raii::Buffer>& uniformBuffers;

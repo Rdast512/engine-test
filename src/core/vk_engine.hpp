@@ -1,5 +1,8 @@
 #pragma once
 #include <SDL3/SDL.h>
+#include "imgui.h"
+#include "imgui_impl_sdl3.h"
+#include "imgui_impl_vulkan.h"
 #include <memory>
 #include <chrono>
 #include "vk_device.hpp"
@@ -33,8 +36,11 @@ class Engine{
     int frameCount = 0;
     float fps = 0.0f;
 
+    vk::raii::DescriptorPool imguiDescriptorPool = nullptr;
+
     void drawFrame();
     void recordCommandBuffer(uint32_t imageIndex);
+    void createImGuiDescriptorPool();
 
 public:
     void initialize();

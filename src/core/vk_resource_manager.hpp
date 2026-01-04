@@ -11,7 +11,7 @@
 class ResourceManager {
 public:
 	ResourceManager(const Device *deviceaWrapper, const AssetsLoader *assetsLoader, const VkAllocator *allocator = nullptr);
-	~ResourceManager() = default;
+	~ResourceManager();
 
 	void init();
 	void createSyncObjects();
@@ -26,7 +26,7 @@ public:
 	void updateUniformBuffer(uint32_t currentImage);
 
 	void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-					  vk::raii::Buffer &buffer, vk::raii::DeviceMemory &bufferMemory);
+					  vk::raii::Buffer &buffer, VmaAllocation &bufferMemory);
 	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char> &code) const;
 
 	const std::vector<vk::raii::Buffer>& getUniformBuffers() const { return uniformBuffers; }
@@ -34,7 +34,7 @@ public:
 
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits samples,
 					 vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
-					 vk::MemoryPropertyFlags properties, vk::raii::Image &image, vk::raii::DeviceMemory &imageMemory);
+					 vk::MemoryPropertyFlags properties, vk::raii::Image &image, VmaAllocation &imageMemory);
 	vk::raii::ImageView createImageView(vk::raii::Image &image, vk::Format format, vk::ImageAspectFlags aspectFlags,
 										uint32_t mipLevels);
 	void copyBuffer(vk::raii::Buffer &srcBuffer, vk::raii::Buffer &dstBuffer, vk::DeviceSize size);
@@ -87,23 +87,23 @@ public:
 	std::vector<vk::raii::Semaphore> renderFinishedSemaphore;
 	std::vector<vk::raii::Fence> inFlightFences;
 	vk::raii::Image depthImage = nullptr;
-	vk::raii::DeviceMemory depthImageMemory = nullptr;
+	VmaAllocation depthImageMemory = nullptr;
 	vk::raii::ImageView depthImageView = nullptr;
 	vk::raii::CommandPool commandPool = nullptr;
 	vk::raii::CommandPool transferCommandPool = nullptr;
 	std::vector<vk::raii::CommandBuffer> commandBuffers;
 	std::vector<vk::raii::CommandBuffer> transferCommandBuffer;
 	vk::raii::Buffer vertexBuffer = nullptr;
-	vk::raii::DeviceMemory vertexBufferMemory = nullptr;
+	VmaAllocation vertexBufferMemory = nullptr;
 	vk::raii::Buffer stagingBuffer = nullptr;
-	vk::raii::DeviceMemory stagingBufferMemory = nullptr;
+	VmaAllocation stagingBufferMemory = nullptr;
 	vk::raii::Buffer indexBuffer = nullptr;
-	vk::raii::DeviceMemory indexBufferMemory = nullptr;
+	VmaAllocation indexBufferMemory = nullptr;
 	std::vector<vk::raii::Buffer> uniformBuffers;
-	std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
+	std::vector<VmaAllocation> uniformBuffersMemory;
 	std::vector<void *> uniformBuffersMapped;
 	vk::raii::Image colorImage = nullptr;
-	vk::raii::DeviceMemory colorImageMemory = nullptr;
+	VmaAllocation colorImageMemory = nullptr;
 	vk::raii::ImageView colorImageView = nullptr;
 };
 

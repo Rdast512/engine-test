@@ -38,7 +38,7 @@ public:
 
 
     void alocateBuffer(const vk::BufferCreateInfo &bufferInfo, const VmaAllocationCreateInfo &allocInfo,
-                       vk::raii::Buffer &buffer, VmaAllocation &allocation) {
+                       vk::raii::Buffer &buffer, VmaAllocation &allocation) const {
         VkBuffer rawBuffer{};
         if (vmaCreateBuffer(allocator, reinterpret_cast<const VkBufferCreateInfo*>(&bufferInfo), &allocInfo,
                             &rawBuffer, &allocation, nullptr) != VK_SUCCESS) {
@@ -48,7 +48,7 @@ public:
     }
 
     void alocateImage(const vk::ImageCreateInfo &imageInfo, const VmaAllocationCreateInfo &allocInfo,
-                      vk::raii::Image &image, VmaAllocation &allocation) {
+                      vk::raii::Image &image, VmaAllocation &allocation) const {
         VkImage rawImage{};
         if (vmaCreateImage(allocator, reinterpret_cast<const VkImageCreateInfo*>(&imageInfo), &allocInfo,
                            &rawImage, &allocation, nullptr) != VK_SUCCESS) {

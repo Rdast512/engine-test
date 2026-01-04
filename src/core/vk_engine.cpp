@@ -1,5 +1,7 @@
 #include "vk_engine.hpp"
 #include "../Constants.h"
+#include <array>
+#include <algorithm>
 
 // Helper to rebuild swapchain-dependent resources (color/depth) after swapchain changes.
 static void rebuildSwapchainResources(ResourceManager &resourceManager, SwapChain &swapChain) {
@@ -10,6 +12,8 @@ static void rebuildSwapchainResources(ResourceManager &resourceManager, SwapChai
     resourceManager.createDepthResources();
 }
 
+
+
 void Engine::initialize() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         throw std::runtime_error("Failed to initialize SDL: " + std::string(SDL_GetError()));
@@ -17,9 +21,23 @@ void Engine::initialize() {
 
     window = SDL_CreateWindow("Vulkan", static_cast<int>(WIDTH), static_cast<int>(HEIGHT),
                               SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+
     if (!window) {
         throw std::runtime_error("Failed to create window");
     }
+
+
+
+
+    // Setup Platform/Renderer backends
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+
+
 
     device = std::make_unique<Device>(window, false);
     device->init();
@@ -46,6 +64,8 @@ void Engine::initialize() {
         textureManager->getTextureImageView());
     descriptorManager->init();
 
+    createImGuiDescriptorPool();
+
     pipeline = std::make_unique<Pipeline>(
         resourceManager.get(),
         device->getDevice(),
@@ -54,13 +74,72 @@ void Engine::initialize() {
         descriptorManager->getDescriptorSetLayout());
     pipeline->init();
 
+    // Setup Platform/Renderer backends
+    ImGui_ImplSDL3_InitForVulkan(window);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.ApiVersion = VK_API_VERSION_1_4;
+    init_info.Instance = *device->getInstance();
+    init_info.PhysicalDevice = *device->getPhysicalDevice();
+    init_info.Device = *device->getDevice();
+    init_info.QueueFamily = device->getGraphicsQueueFamilyIndex();
+    init_info.Queue = *device->getGraphicsQueue();
+    init_info.DescriptorPool = *imguiDescriptorPool;
+    const uint32_t imageCount = static_cast<uint32_t>(swapChain->swapChainImages.size());
+    init_info.MinImageCount = std::max<uint32_t>(imageCount, 2);
+    init_info.ImageCount = std::max<uint32_t>(imageCount, init_info.MinImageCount);
+    init_info.UseDynamicRendering = true;
+    VkFormat colorFormat = static_cast<VkFormat>(swapChain->swapChainImageFormat);
+    VkFormat depthFormat = static_cast<VkFormat>(resourceManager->findDepthFormat());
+    VkPipelineRenderingCreateInfoKHR pipelineRenderingInfo{};
+    pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
+    pipelineRenderingInfo.colorAttachmentCount = 1;
+    pipelineRenderingInfo.pColorAttachmentFormats = &colorFormat;
+    pipelineRenderingInfo.depthAttachmentFormat = depthFormat;
+    pipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+    init_info.PipelineInfoMain.RenderPass = VK_NULL_HANDLE;
+    init_info.PipelineInfoMain.Subpass = 0;
+    init_info.PipelineInfoMain.MSAASamples = static_cast<VkSampleCountFlagBits>(device->getMsaaSamples());
+    init_info.PipelineInfoMain.PipelineRenderingCreateInfo = pipelineRenderingInfo;
+    if (!ImGui_ImplVulkan_Init(&init_info)) {
+        throw std::runtime_error("ImGui_ImplVulkan_Init failed");
+    }
+
     initialized = true;
+}
+
+void Engine::createImGuiDescriptorPool() {
+    // Backends require a pool with ample combined image samplers; follow ImGui recommendations.
+    auto &vkDevice = device->getDevice();
+    const uint32_t imguiSamplerMin = std::max<uint32_t>(IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE, 1000);
+    std::array poolSizes{
+        vk::DescriptorPoolSize{vk::DescriptorType::eSampler, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eCombinedImageSampler, imguiSamplerMin},
+        vk::DescriptorPoolSize{vk::DescriptorType::eSampledImage, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageImage, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eUniformTexelBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageTexelBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eUniformBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eUniformBufferDynamic, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageBufferDynamic, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eInputAttachment, 1000}
+    };
+
+    const uint32_t maxSets = 1000 * static_cast<uint32_t>(poolSizes.size());
+    vk::DescriptorPoolCreateInfo poolInfo{
+        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+        .maxSets = maxSets,
+        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+        .pPoolSizes = poolSizes.data()
+    };
+    imguiDescriptorPool = vk::raii::DescriptorPool(vkDevice, poolInfo);
 }
 
 void Engine::run() {
     if (!initialized) {
         initialize();
     }
+
 
     bool quit = false;
     bool minimized = false;
@@ -86,10 +165,11 @@ void Engine::run() {
                                 std::to_string(static_cast<int>(fps));
             SDL_SetWindowTitle(window, title.c_str());
         }
-  
 
-        SDL_Event e;
+        SDL_Event e{};
         while (SDL_PollEvent(&e) != 0) {
+            ImGui_ImplSDL3_ProcessEvent(&e);
+
             if (e.type == SDL_EVENT_QUIT) {
                 quit = true;
             } else if (e.type == SDL_EVENT_WINDOW_RESIZED) {
@@ -104,11 +184,21 @@ void Engine::run() {
             }
         }
 
+
+
+        // Start ImGui frame
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+        ImGui::ShowDemoWindow();
+        ImGui::Render();
+
         if (!minimized && !quit) {
             drawFrame();
         } else {
             SDL_Delay(100);
         }
+
         auto frameEndTime = std::chrono::high_resolution_clock::now();
         auto frameDuration = std::chrono::duration_cast<std::chrono::milliseconds>(frameEndTime - currentTime).count();
         if (frameDuration < targetMs) {
@@ -248,6 +338,10 @@ void Engine::recordCommandBuffer(uint32_t imageIndex) {
     commandBuffers[currentFrame].setScissor(
         0, vk::Rect2D(vk::Offset2D(0, 0), swapChain->swapChainExtent));
     commandBuffers[currentFrame].drawIndexed(static_cast<uint32_t>(indexCount), 1, 0, 0, 0);
+    
+    // Render ImGui
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *commandBuffers[currentFrame]);
+    
     commandBuffers[currentFrame].endRendering();
     // After rendering, transition the swapchain image to PRESENT_SRC
     resourceManager->transitionImageLayout(
@@ -272,6 +366,31 @@ void Engine::shutdown() {
 }
 
 void Engine::cleanup() {
+    if (!initialized) return;
+    auto &deviceRef = device->getDevice();
+    deviceRef.waitIdle();
+
+
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
+    imguiDescriptorPool.reset();
+
+    // Explicitly clear command buffers before destroying other resources
+    if (resourceManager) {
+        resourceManager->commandBuffers.clear();
+        resourceManager->transferCommandBuffer.clear();
+    }
+
+    pipeline.reset();
+    descriptorManager.reset();
+    textureManager.reset();  
+    resourceManager.reset();
+    swapChain.reset();
+
+    allocator.reset();
+    device.reset();
+
     if (window) {
         SDL_DestroyWindow(window);
         window = nullptr;

@@ -4,6 +4,54 @@ include(FetchContent)
 # Optimization: Disable C++ Module scanning for third-party libs
 # They don't use modules yet, so scanning them is wasted time.
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
+# ------------------------------------------------------------------------------
+# Vulkan SDK (found via VULKAN_SDK env var)
+# ------------------------------------------------------------------------------
+if(NOT DEFINED ENV{VULKAN_SDK})
+    message(FATAL_ERROR "Environment variable VULKAN_SDK must point to your Vulkan SDK root.")
+endif()
+
+set(VULKAN_SDK_ROOT "$ENV{VULKAN_SDK}")
+set(Vulkan_INCLUDE_DIR "${VULKAN_SDK_ROOT}/include" CACHE PATH "Vulkan Include Path" FORCE)
+
+list(APPEND CMAKE_PREFIX_PATH
+    "${VULKAN_SDK_ROOT}"
+    "${VULKAN_SDK_ROOT}/lib/cmake"
+    "${VULKAN_SDK_ROOT}/Lib/cmake"
+    "${VULKAN_SDK_ROOT}/lib/cmake/Vulkan"
+    "${VULKAN_SDK_ROOT}/Lib/cmake/Vulkan"
+)
+
+find_library(Vulkan_LIBRARY
+    NAMES vulkan libvulkan
+    PATHS "${VULKAN_SDK_ROOT}/lib"
+    NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
+)
+find_package(Vulkan REQUIRED)
+
+message(STATUS "-------------------------------------------------------------")
+message(STATUS "Vulkan SDK Configuration:")
+message(STATUS "  Vulkan SDK Root:    ${VULKAN_SDK_ROOT}")
+message(STATUS "  Vulkan Include:     ${Vulkan_INCLUDE_DIR}")
+message(STATUS "  Vulkan Library:     ${Vulkan_LIBRARY}")
+message(STATUS "-------------------------------------------------------------")
+
+set(VULKAN_COMPILE_DEFS
+    VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
+    VULKAN_HPP_NO_STRUCT_CONSTRUCTORS=1
+    VULKAN_HPP_NO_STD_MODULE=1
+    VULKAN_HPP_NO_MODULE=1
+)
+
+message(STATUS "Using Vulkan headers (modules disabled)")
+add_library(VulkanCppModule INTERFACE)
+target_compile_definitions(VulkanCppModule INTERFACE ${VULKAN_COMPILE_DEFS})
+target_include_directories(VulkanCppModule INTERFACE "${Vulkan_INCLUDE_DIR}")
+target_link_libraries(VulkanCppModule INTERFACE Vulkan::Vulkan)
+
+add_library(Vulkan::cppm ALIAS VulkanCppModule)
 # ------------------------------------------------------------------------------
 # 1. Slang (Manual Download & Extract)
 # ------------------------------------------------------------------------------
@@ -69,26 +117,34 @@ endif()
 FetchContent_Declare(
     SDL3
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG        release-3.2.26
+    GIT_TAG        release-3.4.0
 )
 message(STATUS "Downloading SDL3...")
 FetchContent_MakeAvailable(SDL3)
 
-# ------------------------------------------------------------------------------
-# 4. vk-bootstrap
-# ------------------------------------------------------------------------------
-set(VK_BOOTSTRAP_TEST OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-    vk-bootstrap
-    GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap.git
-    GIT_TAG        v1.4.332
-)
-message(STATUS "Downloading vk-bootstrap...")
-FetchContent_MakeAvailable(vk-bootstrap)
+## ------------------------------------------------------------------------------
+## 4. vk-bootstrap
+## ------------------------------------------------------------------------------
+#set(VK_BOOTSTRAP_TEST OFF CACHE BOOL "" FORCE)
+#FetchContent_Declare(
+#    vk-bootstrap
+#    GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap.git
+#    GIT_TAG        v1.4.332
+#)
+#message(STATUS "Downloading vk-bootstrap...")
+#FetchContent_MakeAvailable(vk-bootstrap)
 
 
 # ------------------------------------------------------------------------------
-# fmt (Dependency)
+# 4. volk
+# ------------------------------------------------------------------------------
+#FetchContent_Declare(
+#    volk
+#        GIT_REPOSITORY https://github.com/zeux/volk.git
+#)
+#message(STATUS "Downloading volk...")
+#FetchContent_MakeAvailable(volk)
+
 # ------------------------------------------------------------------------------
 FetchContent_Declare(
     fmt
@@ -141,6 +197,48 @@ FetchContent_Declare(
 message(STATUS "Downloading Boost...")
 FetchContent_MakeAvailable(Boost)
 
+
+# ------------------------------------------------------------------------------
+# 7. ImGui
+# ------------------------------------------------------------------------------
+FetchContent_Declare(
+    ImGui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG        v1.92.5
+)
+
+message(STATUS "Downloading ImGui...")
+FetchContent_MakeAvailable(ImGui)
+
+# ------------------------------------------------------------------------------
+
+set(IMGUI_SOURCES
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    # BACKENDS
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+)
+
+# NOTE: Keeping ImGui STATIC is highly recommended even in a shared build.
+# Exporting ImGui symbols across DLL boundaries requires complex configuration.
+add_library(imgui STATIC ${IMGUI_SOURCES})
+
+target_include_directories(imgui PUBLIC 
+    ${imgui_SOURCE_DIR} 
+    ${imgui_SOURCE_DIR}/backends
+)
+target_link_libraries(imgui PUBLIC
+    SDL3::SDL3
+    Vulkan::Vulkan
+)
+
+
+
+
 # ------------------------------------------------------------------------------
 # Targets Definition
 # ------------------------------------------------------------------------------
@@ -157,12 +255,15 @@ add_library(ThirdParty::headers ALIAS ThirdPartyHeaders)
 add_library(ThirdPartyLibs INTERFACE)
 target_link_libraries(ThirdPartyLibs INTERFACE
     ThirdParty::headers
+    Vulkan::Vulkan
+    Vulkan::cppm
     glm::glm
     SDL3::SDL3
-    vk-bootstrap::vk-bootstrap
+    #  vk-bootstrap::vk-bootstrap
     spdlog::spdlog
     fmt::fmt
     # Boost Targets
+    imgui
     Boost::filesystem
     Boost::log
     Boost::system

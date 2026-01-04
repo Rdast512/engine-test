@@ -190,36 +190,37 @@ void Device::pickPhysicalDevice() {
 
 void Device::createLogicalDevice() {
     // find the index of the first queue family that supports graphics
-    std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
+
+    auto queueFamilyProperties2 = physicalDevice.getQueueFamilyProperties2();
 
     // get the first index into queueFamilyProperties which supports graphics
-    auto graphicsQueueFamilyProperty = std::ranges::find_if(queueFamilyProperties, [](auto const &qfp) {
-        return (qfp.queueFlags & vk::QueueFlagBits::eGraphics) != static_cast<vk::QueueFlags>(0);
+    auto graphicsQueueFamilyProperty = std::ranges::find_if(queueFamilyProperties2, [](auto const &qfp) {
+        return (qfp.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics) != static_cast<vk::QueueFlags>(0);
     });
-
     graphicsIndex = static_cast<uint32_t>(
-        std::distance(queueFamilyProperties.begin(), graphicsQueueFamilyProperty));
+        std::distance(queueFamilyProperties2.begin(), graphicsQueueFamilyProperty));
+
 
     // determine a queueFamilyIndex that supports present
     // first check if the graphicsIndex is good enough
     auto presentIndex = physicalDevice.getSurfaceSupportKHR(graphicsIndex, *surface)
                             ? graphicsIndex
-                            : static_cast<uint32_t>(queueFamilyProperties.size());
-    if (presentIndex == queueFamilyProperties.size()) {
+                            : static_cast<uint32_t>(queueFamilyProperties2.size());
+    if (presentIndex == queueFamilyProperties2.size()) {
         // the graphicsIndex doesn't support present -> look for another family index that supports both
         // graphics and present
-        for (size_t i = 0; i < queueFamilyProperties.size(); i++) {
-            if ((queueFamilyProperties[i].queueFlags & vk::QueueFlagBits::eGraphics) &&
+        for (size_t i = 0; i < queueFamilyProperties2.size(); i++) {
+            if ((queueFamilyProperties2[i].queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics) &&
                 physicalDevice.getSurfaceSupportKHR(static_cast<uint32_t>(i), *surface)) {
                 graphicsIndex = static_cast<uint32_t>(i);
                 presentIndex = graphicsIndex;
                 break;
             }
         }
-        if (presentIndex == queueFamilyProperties.size()) {
+        if (presentIndex == queueFamilyProperties2.size()) {
             // there's nothing like a single family index that supports both graphics and present -> look for another
             // family index that supports present
-            for (size_t i = 0; i < queueFamilyProperties.size(); i++) {
+            for (size_t i = 0; i < queueFamilyProperties2.size(); i++) {
                 if (physicalDevice.getSurfaceSupportKHR(static_cast<uint32_t>(i), *surface)) {
                     presentIndex = static_cast<uint32_t>(i);
                     break;
@@ -227,15 +228,15 @@ void Device::createLogicalDevice() {
             }
         }
     }
-    if ((graphicsIndex == queueFamilyProperties.size()) || (presentIndex == queueFamilyProperties.size())) {
+    if ((graphicsIndex == queueFamilyProperties2.size()) || (presentIndex == queueFamilyProperties2.size())) {
         throw std::runtime_error("Could not find a queue for graphics or present -> terminating");
     }
 
     // Find dedicated transfer queue family (transfer-only, no graphics)
-    transferIndex = static_cast<uint32_t>(queueFamilyProperties.size());
-    for (size_t i = 0; i < queueFamilyProperties.size(); i++) {
-        if ((queueFamilyProperties[i].queueFlags & vk::QueueFlagBits::eTransfer) &&
-            !(queueFamilyProperties[i].queueFlags & vk::QueueFlagBits::eGraphics)) {
+    transferIndex = static_cast<uint32_t>(queueFamilyProperties2.size());
+    for (size_t i = 0; i < queueFamilyProperties2.size(); i++) {
+        if ((queueFamilyProperties2[i].queueFamilyProperties.queueFlags & vk::QueueFlagBits::eTransfer) &&
+            !(queueFamilyProperties2[i].queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics)) {
             transferIndex = static_cast<uint32_t>(i);
             break;
         }
@@ -264,7 +265,7 @@ void Device::createLogicalDevice() {
     });
 
     // Transfer queue (if available and different from graphics)
-    if (transferIndex != queueFamilyProperties.size() && transferIndex != graphicsIndex) {
+    if (transferIndex != queueFamilyProperties2.size() && transferIndex != graphicsIndex) {
         queueCreateInfos.push_back({
             .queueFamilyIndex = transferIndex,
             .queueCount = 1,
@@ -298,16 +299,16 @@ void Device::createLogicalDevice() {
         log_info("Using separate queues for graphics and present");
     }
 
-    if (transferIndex != queueFamilyProperties.size() && transferIndex != graphicsIndex) {
+    if (transferIndex != queueFamilyProperties2.size() && transferIndex != graphicsIndex) {
         log_info(std::format("Using dedicated transfer queue family {}", transferIndex));
     } else {
         log_info("No dedicated transfer queue found, will use graphics queue for transfers");
     }
 
-    if (transferIndex != queueFamilyProperties.size() && transferIndex != graphicsIndex) {
+    if (transferIndex != queueFamilyProperties2.size() && transferIndex != graphicsIndex) {
         transferQueue = vk::raii::Queue(vkdevice, transferIndex, 0);
     }
-    if (transferIndex == queueFamilyProperties.size()) {
+    if (transferIndex == queueFamilyProperties2.size()) {
         transferIndex = UINT32_MAX; // Mark as invalid
     }
     graphicsQueue = vk::raii::Queue(vkdevice, graphicsIndex, 0);
