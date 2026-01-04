@@ -1,6 +1,5 @@
 #include "model_storage.hpp"
 
-#include <utility>
 
 void ModelStorage::setModelData(std::vector<Vertex> verticesIn, std::vector<uint32_t> indicesIn) {
     vertices = std::move(verticesIn);

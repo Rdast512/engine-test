@@ -31,8 +31,6 @@
 #include <vulkan/vulkan_raii.hpp>
 #include <vulkan/vk_platform.h>
 
-#define VMA_VULKAN_VERSION 1004000
-#include <vma/vk_mem_alloc.h>
 
 #include "../ThirdParty/termcolor.hpp"
 #include "../ThirdParty/tiny_obj_loader.h"

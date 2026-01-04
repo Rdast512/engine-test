@@ -37,12 +37,16 @@ class Engine{
     float fps = 0.0f;
 
     vk::raii::DescriptorPool imguiDescriptorPool = nullptr;
+    VkFormat imguiColorFormat = VK_FORMAT_UNDEFINED;
+    VkFormat imguiDepthFormat = VK_FORMAT_UNDEFINED;
+    VkPipelineRenderingCreateInfoKHR imguiPipelineRenderingInfo{};
 
     void drawFrame();
     void recordCommandBuffer(uint32_t imageIndex);
     void createImGuiDescriptorPool();
 
 public:
+    ~Engine();
     void initialize();
     void run();
     void render();

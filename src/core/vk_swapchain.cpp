@@ -3,9 +3,7 @@
 #include <SDL3/SDL.h>
 #include "../util/debug.hpp"
 #include "../util/logger.hpp"
-#include <format>
-#include <algorithm>
-#include <limits>
+
 
 SwapChain::SwapChain(SDL_Window *window, Device *device)
     : window(window),

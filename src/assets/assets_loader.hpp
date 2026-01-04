@@ -1,9 +1,6 @@
 #pragma once
 #include "../core/types.hpp"
 #include "model_storage.hpp"
-#include "../ThirdParty/tiny_obj_loader.h"
-#include <termcolor.hpp>
-#include <vector>
 
 
 class AssetsLoader {

@@ -1,7 +1,10 @@
+#define VMA_VULKAN_VERSION 1004000
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #define VMA_IMPLEMENTATION
-#include "../ThirdParty/vk_mem_alloc.h"
+#include "vma/vk_mem_alloc.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define TINYOBJLOADER_IMPLEMENTATION
-#include "../ThirdParty/tiny_obj_loader.h"
+#include "tiny_obj_loader.h"

@@ -55,6 +55,7 @@ int main() {
         Engine engine;
         engine.run();
     } catch (const std::exception &e) {
+        std::cout << "Engine ended. Exception: " << e.what() << std::endl;
         std::cerr << e.what() << std::endl;
         return EXIT_FAILURE;
     }

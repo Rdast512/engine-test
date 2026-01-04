@@ -2,8 +2,7 @@
 #include "../core/types.hpp"
 #include "../Constants.h"
 #include "../util/debug.hpp"
-#include <array>
-#include <string>
+
 
 DescriptorManager::DescriptorManager(const vk::raii::Device &device,
                                      const std::vector<vk::raii::Buffer>& uniformBuffers,

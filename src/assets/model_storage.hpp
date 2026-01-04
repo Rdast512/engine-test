@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../core/types.hpp"
-#include <vector>
 
 // Central storage for loaded 3D model data (vertices + indices).
 class ModelStorage {

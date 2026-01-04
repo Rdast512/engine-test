@@ -190,8 +190,8 @@ void ResourceManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usa
     VmaAllocationCreateInfo allocInfo{};
     if (properties & vk::MemoryPropertyFlagBits::eHostVisible) {
         allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-        allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | 
-                         VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        // Keep host access but avoid CREATE_MAPPED to prevent double map/unmap; we map explicitly where needed.
+        allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     } else {
         allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     }

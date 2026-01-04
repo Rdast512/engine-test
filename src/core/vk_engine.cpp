@@ -1,7 +1,6 @@
 #include "vk_engine.hpp"
 #include "../Constants.h"
-#include <array>
-#include <algorithm>
+#include "src/util/logger.hpp"
 
 // Helper to rebuild swapchain-dependent resources (color/depth) after swapchain changes.
 static void rebuildSwapchainResources(ResourceManager &resourceManager, SwapChain &swapChain) {
@@ -13,6 +12,10 @@ static void rebuildSwapchainResources(ResourceManager &resourceManager, SwapChai
 }
 
 
+
+Engine::~Engine() {
+    cleanup();
+}
 
 void Engine::initialize() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -88,18 +91,18 @@ void Engine::initialize() {
     init_info.MinImageCount = std::max<uint32_t>(imageCount, 2);
     init_info.ImageCount = std::max<uint32_t>(imageCount, init_info.MinImageCount);
     init_info.UseDynamicRendering = true;
-    VkFormat colorFormat = static_cast<VkFormat>(swapChain->swapChainImageFormat);
-    VkFormat depthFormat = static_cast<VkFormat>(resourceManager->findDepthFormat());
-    VkPipelineRenderingCreateInfoKHR pipelineRenderingInfo{};
-    pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-    pipelineRenderingInfo.colorAttachmentCount = 1;
-    pipelineRenderingInfo.pColorAttachmentFormats = &colorFormat;
-    pipelineRenderingInfo.depthAttachmentFormat = depthFormat;
-    pipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+    imguiColorFormat = static_cast<VkFormat>(swapChain->swapChainImageFormat);
+    imguiDepthFormat = static_cast<VkFormat>(resourceManager->findDepthFormat());
+    imguiPipelineRenderingInfo = VkPipelineRenderingCreateInfoKHR{};
+    imguiPipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
+    imguiPipelineRenderingInfo.colorAttachmentCount = 1;
+    imguiPipelineRenderingInfo.pColorAttachmentFormats = &imguiColorFormat;
+    imguiPipelineRenderingInfo.depthAttachmentFormat = imguiDepthFormat;
+    imguiPipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
     init_info.PipelineInfoMain.RenderPass = VK_NULL_HANDLE;
     init_info.PipelineInfoMain.Subpass = 0;
     init_info.PipelineInfoMain.MSAASamples = static_cast<VkSampleCountFlagBits>(device->getMsaaSamples());
-    init_info.PipelineInfoMain.PipelineRenderingCreateInfo = pipelineRenderingInfo;
+    init_info.PipelineInfoMain.PipelineRenderingCreateInfo = imguiPipelineRenderingInfo;
     if (!ImGui_ImplVulkan_Init(&init_info)) {
         throw std::runtime_error("ImGui_ImplVulkan_Init failed");
     }
@@ -370,7 +373,6 @@ void Engine::cleanup() {
     auto &deviceRef = device->getDevice();
     deviceRef.waitIdle();
 
-
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
@@ -386,14 +388,17 @@ void Engine::cleanup() {
     descriptorManager.reset();
     textureManager.reset();  
     resourceManager.reset();
+    log_info("Resources cleaned up");
     swapChain.reset();
-
+    log_info("Swap chain cleaned up");
     allocator.reset();
+    log_info("Allocator cleaned up");
     device.reset();
-
-    if (window) {
-        SDL_DestroyWindow(window);
-        window = nullptr;
-    }
+    log_info("Device cleaned up");
+    SDL_DestroyWindow(window);
+    log_info("Window destroyed");
+    window = nullptr;
     SDL_Quit();
+    initialized = false;
+    log_info("Engine cleaned up");
 }

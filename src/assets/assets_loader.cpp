@@ -1,10 +1,6 @@
 
 #include "assets_loader.hpp"
 #include "../Constants.h"
-#include <fstream>
-#include <format>
-#include <unordered_map>
-#include <utility>
 #include "../util/logger.hpp"
 
 static std::vector<char> readFile(const std::string &filename) {

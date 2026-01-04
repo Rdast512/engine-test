@@ -52,6 +52,20 @@ target_include_directories(VulkanCppModule INTERFACE "${Vulkan_INCLUDE_DIR}")
 target_link_libraries(VulkanCppModule INTERFACE Vulkan::Vulkan)
 
 add_library(Vulkan::cppm ALIAS VulkanCppModule)
+
+# ------------------------------------------------------------------------------
+# Vulkan Memory Allocator (from Vulkan SDK)
+# ------------------------------------------------------------------------------
+set(VMA_HEADER_PATH "${VULKAN_SDK_ROOT}/include/vma/vk_mem_alloc.h")
+if(NOT EXISTS "${VMA_HEADER_PATH}")
+    message(FATAL_ERROR "VMA header not found at ${VMA_HEADER_PATH}. Ensure Vulkan SDK includes VMA.")
+endif()
+
+message(STATUS "Using VMA from Vulkan SDK: ${VMA_HEADER_PATH}")
+add_library(VulkanMemoryAllocator INTERFACE)
+target_include_directories(VulkanMemoryAllocator INTERFACE "${VULKAN_SDK_ROOT}/include")
+target_link_libraries(VulkanMemoryAllocator INTERFACE Vulkan::Vulkan)
+
 # ------------------------------------------------------------------------------
 # 1. Slang (Manual Download & Extract)
 # ------------------------------------------------------------------------------
@@ -247,7 +261,7 @@ target_link_libraries(imgui PUBLIC
 add_library(ThirdPartyHeaders INTERFACE)
 target_include_directories(ThirdPartyHeaders INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${SLANG_EXTRACT_DIR}/include> 
+    $<BUILD_INTERFACE:${SLANG_EXTRACT_DIR}/include>
 )
 add_library(ThirdParty::headers ALIAS ThirdPartyHeaders)
 
@@ -257,6 +271,7 @@ target_link_libraries(ThirdPartyLibs INTERFACE
     ThirdParty::headers
     Vulkan::Vulkan
     Vulkan::cppm
+    VulkanMemoryAllocator
     glm::glm
     SDL3::SDL3
     #  vk-bootstrap::vk-bootstrap
