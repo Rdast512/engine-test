@@ -267,12 +267,37 @@ target_link_libraries(imgui PUBLIC
 FetchContent_Declare(
         tracy
         GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-        GIT_TAG master
+        GIT_TAG v0.13.1
         GIT_SHALLOW TRUE
         GIT_PROGRESS TRUE
 )
 message(STATUS "Downloading Tracy...")
 FetchContent_MakeAvailable(tracy)
+
+# Create TracyProfiler DLL as requested for multi-DLL usage
+add_library(TracyProfiler SHARED "${tracy_SOURCE_DIR}/public/TracyClient.cpp")
+
+# Definitions:
+# TRACY_ENABLE: Enable profiling
+# TRACY_EXPORTS: Building the DLL (export symbols)
+target_compile_definitions(TracyProfiler PRIVATE TRACY_ENABLE TRACY_EXPORTS)
+
+# Interface Definitions (for consumers):
+# TRACY_ENABLE: Enable profiling macros
+# TRACY_IMPORTS: Use imported symbols from the DLL
+target_compile_definitions(TracyProfiler INTERFACE TRACY_ENABLE TRACY_IMPORTS)
+
+target_include_directories(TracyProfiler SYSTEM PUBLIC "${tracy_SOURCE_DIR}/public")
+
+if(WIN32)
+    # Fix for MinGW/Clang missing CONTROLTRACE_ID
+    # _WIN32_WINNT=0x0A00 targets Windows 10
+    # TRACY_NO_SYSTEM_TRACING: MinGW/Clang headers are missing ETW definitions (SYSTEM_PROCESS_KW_THREAD, etc.)
+    target_compile_definitions(TracyProfiler PRIVATE WIN32_LEAN_AND_MEAN "_WIN32_WINNT=0x0A00" "CONTROLTRACE_ID=TRACEHANDLE" TRACY_NO_SYSTEM_TRACING)
+    # Tracy needs system libs on Windows
+    target_link_libraries(TracyProfiler PRIVATE ws2_32 dbghelp secur32)
+endif()
+
 
 
 # ------------------------------------------------------------------------------
@@ -298,6 +323,7 @@ target_link_libraries(ThirdPartyLibs INTERFACE
         SDL3::SDL3
         #  vk-bootstrap::vk-bootstrap
         spdlog::spdlog
+        TracyProfiler
         fmt::fmt
         # Boost Targets
         imgui

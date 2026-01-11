@@ -51,6 +51,7 @@ if(WIN32)
         Boost::log_setup
         Boost::thread
         Boost::atomic
+        TracyProfiler
     )
 
     foreach(_LIB ${SHARED_LIBS_TO_COPY})

@@ -1,6 +1,8 @@
 #include "vk_engine.hpp"
 #include "../Constants.h"
 #include "../static_headers/logger.hpp"
+#include "../util/vk_tracy.hpp"
+
 
 // Helper to rebuild swapchain-dependent resources (color/depth) after swapchain changes.
 static void rebuildSwapchainResources(ResourceManager& resourceManager, SwapChain& swapChain)
@@ -290,7 +292,9 @@ void Engine::drawFrame()
 
 void Engine::recordCommandBuffer(uint32_t imageIndex)
 {
+    ZoneScoped;
     auto& commandBuffers = resourceManager->commandBuffers;
+
     auto indexCount = (resourceManager->indices.size());
     commandBuffers[currentFrame].begin({});
 
