@@ -1,7 +1,7 @@
 
 #include "assets_loader.hpp"
 #include "../Constants.h"
-#include "../util/logger.hpp"
+#include "../static_headers/logger.hpp"
 
 static std::vector<char> readFile(const std::string &filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);

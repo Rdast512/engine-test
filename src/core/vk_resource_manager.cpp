@@ -3,23 +3,24 @@
 #include "../Constants.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include "../util/debug.hpp"
-#include "../util/logger.hpp"
+#include "../static_headers/logger.hpp"
 #include <chrono>
 #include <format>
 #include <cstring>
 #include <stdexcept>
 
 ResourceManager::ResourceManager(
-    const Device* deviceWrapper,
-    const AssetsLoader* assetsLoader,
-    const VkAllocator* allocator
-) : deviceWrapper(deviceWrapper), allocator(allocator), physicalDevice(deviceWrapper->getPhysicalDevice()),
-    device(deviceWrapper->getDevice()),
-    queueFamilyIndices(deviceWrapper->getQueueFamilyIndices()), graphicsIndex(deviceWrapper->getGraphicsIndex()),
-    graphicsQueue(deviceWrapper->getGraphicsQueue()), transferQueue(deviceWrapper->getTransferQueue()),
-    transferIndex(deviceWrapper->getTransferIndex()),
-    vertices(assetsLoader->getVertices()), indices(assetsLoader->getIndices()),
-    msaaSamples(deviceWrapper->getMsaaSamples())
+    const Device& deviceWrapper,
+    const VkAllocator& allocator,
+    const std::vector<Vertex>& verticesIn,
+    const std::vector<uint32_t>& indicesIn
+) : deviceWrapper(deviceWrapper), allocator(allocator), physicalDevice(deviceWrapper.getPhysicalDevice()),
+    device(deviceWrapper.getDevice()),
+    queueFamilyIndices(deviceWrapper.getQueueFamilyIndices()), graphicsIndex(deviceWrapper.getGraphicsIndex()),
+    graphicsQueue(deviceWrapper.getGraphicsQueue()), transferQueue(deviceWrapper.getTransferQueue()),
+    transferIndex(deviceWrapper.getTransferIndex()),
+    vertices(verticesIn), indices(indicesIn),
+    msaaSamples(deviceWrapper.getMsaaSamples())
 {
     log_info("ResourceManager initialized");
 }
@@ -33,9 +34,9 @@ ResourceManager::~ResourceManager()
     {
         if (uniformBuffersMemory[i] != nullptr)
         {
-            vmaUnmapMemory(allocator->allocator, uniformBuffersMemory[i]);
+            vmaUnmapMemory(allocator.allocator, uniformBuffersMemory[i]);
             VkBuffer raw = uniformBuffers[i].release();
-            vmaDestroyBuffer(allocator->allocator, raw, uniformBuffersMemory[i]);
+            vmaDestroyBuffer(allocator.allocator, raw, uniformBuffersMemory[i]);
         }
     }
 
@@ -43,35 +44,35 @@ ResourceManager::~ResourceManager()
     if (vertexBufferMemory != nullptr)
     {
         VkBuffer raw = vertexBuffer.release();
-        vmaDestroyBuffer(allocator->allocator, raw, vertexBufferMemory);
+        vmaDestroyBuffer(allocator.allocator, raw, vertexBufferMemory);
     }
 
     // Staging buffer
     if (stagingBufferMemory != nullptr)
     {
         VkBuffer raw = stagingBuffer.release();
-        vmaDestroyBuffer(allocator->allocator, raw, stagingBufferMemory);
+        vmaDestroyBuffer(allocator.allocator, raw, stagingBufferMemory);
     }
 
     // Index buffer
     if (indexBufferMemory != nullptr)
     {
         VkBuffer raw = indexBuffer.release();
-        vmaDestroyBuffer(allocator->allocator, raw, indexBufferMemory);
+        vmaDestroyBuffer(allocator.allocator, raw, indexBufferMemory);
     }
 
     // Color image
     if (colorImageMemory != nullptr)
     {
         VkImage raw = colorImage.release();
-        vmaDestroyImage(allocator->allocator, raw, colorImageMemory);
+        vmaDestroyImage(allocator.allocator, raw, colorImageMemory);
     }
 
     // Depth image
     if (depthImageMemory != nullptr)
     {
         VkImage raw = depthImage.release();
-        vmaDestroyImage(allocator->allocator, raw, depthImageMemory);
+        vmaDestroyImage(allocator.allocator, raw, depthImageMemory);
     }
 }
 
@@ -196,7 +197,7 @@ void ResourceManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usa
         allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     }
     
-    allocator->alocateBuffer(bufferInfo, allocInfo, buffer, bufferMemory);
+    allocator.alocateBuffer(bufferInfo, allocInfo, buffer, bufferMemory);
 }
 
 void ResourceManager::copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& dstBuffer, vk::DeviceSize size)
@@ -239,7 +240,7 @@ void ResourceManager::createVertexBuffer()
     if (stagingBufferMemory != nullptr)
     {
         VkBuffer rawStaging = stagingBuffer.release();
-        vmaDestroyBuffer(allocator->allocator, rawStaging, stagingBufferMemory);
+        vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
         stagingBufferMemory = nullptr;
     }
 
@@ -249,9 +250,9 @@ void ResourceManager::createVertexBuffer()
     setDebugName(device, stagingBuffer, "VertexStagingBuffer");
 
     void* dataStaging = nullptr;
-    vmaMapMemory(allocator->allocator, stagingBufferMemory, &dataStaging);
+    vmaMapMemory(allocator.allocator, stagingBufferMemory, &dataStaging);
     memcpy(dataStaging, vertices.data(), bufferSize);
-    vmaUnmapMemory(allocator->allocator, stagingBufferMemory);
+    vmaUnmapMemory(allocator.allocator, stagingBufferMemory);
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
                  vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory);
@@ -263,7 +264,7 @@ void ResourceManager::createVertexBuffer()
     if (stagingBufferMemory != nullptr)
     {
         VkBuffer rawStaging = stagingBuffer.release();
-        vmaDestroyBuffer(allocator->allocator, rawStaging, stagingBufferMemory);
+        vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
         stagingBufferMemory = nullptr;
     }
 }
@@ -278,7 +279,7 @@ void ResourceManager::createIndexBuffer()
     if (stagingBufferMemory != nullptr)
     {
         VkBuffer rawStaging = stagingBuffer.release();
-        vmaDestroyBuffer(allocator->allocator, rawStaging, stagingBufferMemory);
+        vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
         stagingBufferMemory = nullptr;
     }
 
@@ -288,9 +289,9 @@ void ResourceManager::createIndexBuffer()
     setDebugName(device, stagingBuffer, "IndexStagingBuffer");
 
     void* data = nullptr;
-    vmaMapMemory(allocator->allocator, stagingBufferMemory, &data);
+    vmaMapMemory(allocator.allocator, stagingBufferMemory, &data);
     memcpy(data, indices.data(), (size_t)bufferSize);
-    vmaUnmapMemory(allocator->allocator, stagingBufferMemory);
+    vmaUnmapMemory(allocator.allocator, stagingBufferMemory);
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
                  vk::MemoryPropertyFlagBits::eDeviceLocal, indexBuffer, indexBufferMemory);
@@ -302,7 +303,7 @@ void ResourceManager::createIndexBuffer()
     if (stagingBufferMemory != nullptr)
     {
         VkBuffer rawStaging = stagingBuffer.release();
-        vmaDestroyBuffer(allocator->allocator, rawStaging, stagingBufferMemory);
+        vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
         stagingBufferMemory = nullptr;
     }
 }
@@ -326,7 +327,7 @@ void ResourceManager::createUniformBuffers()
         uniformBuffersMemory.emplace_back(bufferMem);
         
         void* mappedData = nullptr;
-        vmaMapMemory(allocator->allocator, bufferMem, &mappedData);
+        vmaMapMemory(allocator.allocator, bufferMem, &mappedData);
         uniformBuffersMapped.emplace_back(mappedData);
         
         setDebugName(device, uniformBuffers.back(), std::format("UniformBuffer_{}", i));
@@ -394,7 +395,7 @@ void ResourceManager::createColorResources()
     if (colorImageMemory != nullptr)
     {
         VkImage raw = colorImage.release();
-        vmaDestroyImage(allocator->allocator, raw, colorImageMemory);
+        vmaDestroyImage(allocator.allocator, raw, colorImageMemory);
         colorImageMemory = nullptr;
         colorImageView = nullptr;
     }
@@ -451,7 +452,7 @@ void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipL
         allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     }
     
-    allocator->alocateImage(imageInfo, allocInfo, image, imageMemory);
+    allocator.alocateImage(imageInfo, allocInfo, image, imageMemory);
 }
 
 vk::Format ResourceManager::findDepthFormat()
@@ -478,7 +479,7 @@ void ResourceManager::createDepthResources()
     if (depthImageMemory != nullptr)
     {
         VkImage raw = depthImage.release();
-        vmaDestroyImage(allocator->allocator, raw, depthImageMemory);
+        vmaDestroyImage(allocator.allocator, raw, depthImageMemory);
         depthImageMemory = nullptr;
         depthImageView = nullptr;
     }

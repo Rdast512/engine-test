@@ -3,7 +3,8 @@
 #include "../core/vk_device.hpp"
 #include "../core/types.hpp"
 #include "../Constants.h"
-#include "src/core/vk_resource_manager.hpp"
+#include "../core/vk_allocator.hpp"
+#include "../core/vk_resource_manager.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
 #include <cstdint>
@@ -11,8 +12,8 @@
 // Handles loading a single texture and exposes sampler + view for pipelines.
 class TextureManager {
 public:
-    explicit TextureManager(Device &deviceWrapper, ResourceManager &resourceManager);
-    ~TextureManager() = default;
+    explicit TextureManager(Device &deviceWrapper, ResourceManager &resourceManager, VkAllocator &allocator);
+    ~TextureManager();
 
     void init();
 
@@ -27,10 +28,10 @@ private:
 
     uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
     void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-                      vk::raii::Buffer &buffer, vk::raii::DeviceMemory &bufferMemory);
+                      vk::raii::Buffer &buffer, VmaAllocation &bufferMemory);
     void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format,
                      vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
-                     vk::raii::Image &image, vk::raii::DeviceMemory &imageMemory);
+                     vk::raii::Image &image, VmaAllocation &imageMemory);
 
     vk::raii::CommandBuffer beginSingleTimeCommands(const vk::raii::Queue &queue);
     void endSingleTimeCommands(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Queue &queue);
@@ -43,6 +44,7 @@ private:
 
     Device &deviceWrapper;
     ResourceManager &resourceManager;
+    VkAllocator &allocator;
     const vk::raii::PhysicalDevice &physicalDevice;
     const vk::raii::Device &device;
     const vk::raii::Queue &graphicsQueue;
@@ -52,10 +54,10 @@ private:
 
     vk::raii::CommandPool commandPool = nullptr;
     vk::raii::Buffer stagingBuffer = nullptr;
-    vk::raii::DeviceMemory stagingBufferMemory = nullptr;
+    VmaAllocation stagingBufferMemory = nullptr;
     vk::raii::Sampler textureSampler = nullptr;
     vk::raii::Image textureImage = nullptr;
-    vk::raii::DeviceMemory textureImageMemory = nullptr;
+    VmaAllocation textureImageMemory = nullptr;
     vk::raii::ImageView textureImageView = nullptr;
     uint32_t mipLevels = 0;
 };

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/pch.h"
+#include "pch.h"
 #include "vk_device.hpp"
 #include <vma/vk_mem_alloc.h>
 
@@ -14,7 +14,7 @@ public:
     const vk::raii::Device &device;
     const vk::raii::Instance &instance;
 
-    VkAllocator(Device *deviceWrapper) : physicalDevice(deviceWrapper->getPhysicalDevice()), device(deviceWrapper->getDevice()), instance(deviceWrapper->getInstance()) {
+    VkAllocator(Device &deviceWrapper) : physicalDevice(deviceWrapper.getPhysicalDevice()), device(deviceWrapper.getDevice()), instance(deviceWrapper.getInstance()) {
 
         // Get the dynamic dispatcher for proper Vulkan function access
         VmaVulkanFunctions vulkanFunctions = {};

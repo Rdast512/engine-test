@@ -1,6 +1,6 @@
 #include "vk_device.hpp"
 #include "../util/debug.hpp"
-#include "../util/logger.hpp"
+#include "../static_headers/logger.hpp"
 #include <format>
 
 const std::vector validationLayers = {

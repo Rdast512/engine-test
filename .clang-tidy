@@ -1,0 +1,28 @@
+# .clang-tidy - recommended baseline for C++23 (performance, readability, modernization, safety)
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  performance-*,
+  modernize-*,
+  readability-*,
+  hicpp-*,
+  -modernize-use-trailing-return-type,  # often noisy in some codebases
+  -readability-identifier-naming         # optional: enable if you want naming enforcement
+
+WarningsAsErrors: ''
+
+# Only analyze headers under src (skip include/tests/third-party)
+HeaderFilterRegex: '.*/src/.*'
+
+# Skip generated build outputs and any path not under src
+ExcludePaths: '(^|.*/)build/.*|^(?!.*[/\\]src[/\\]).*'
+
+# Make automatic fixes use your .clang-format if present
+FormatStyle: file
+
+# Helpful when running clang-tidy directly; keep C++ standard explicit.
+ExtraArgs: ['-std=c++23']
+
+# Run deeper lifetime/temporary checks
+AnalyzeTemporaryDtors: true

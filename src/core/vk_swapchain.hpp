@@ -12,13 +12,13 @@ class SwapChain
     void createSwapChain();
     void createImageViews();
 public:
-    SwapChain(SDL_Window *window, Device *device);
+    SwapChain(SDL_Window *window, const Device &device);
     ~SwapChain() = default;
 
     void init();
 
     SDL_Window *window = nullptr;
-    Device *device = nullptr;
+    const Device &device = nullptr;
 
     const vk::raii::PhysicalDevice &physicalDevice;
     const vk::raii::SurfaceKHR &surface;

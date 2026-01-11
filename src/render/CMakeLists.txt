@@ -1,0 +1,9 @@
+set(RENDER_SOURCES
+    vk_materials.cpp
+    vk_pipeline.cpp
+    vk_renderer.cpp
+)
+
+add_library(engine_render SHARED ${RENDER_SOURCES})
+target_link_libraries(engine_render PUBLIC engine_build_config engine_core engine_util ThirdParty::all)
+target_precompile_headers(engine_render PRIVATE ${PCH_HEADER})

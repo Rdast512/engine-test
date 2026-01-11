@@ -1,16 +1,18 @@
 #pragma once
 #include "vk_device.hpp"
-#include "../assets/assets_loader.hpp"
 #include "../core/types.hpp"
 #include "../Constants.h"
 #include <vulkan/vulkan_raii.hpp>
 #include <optional>
 #include "vk_allocator.hpp"
 
-// Manages GPU resources (buffers, images, command pools) using Device + AssetsLoader data.
+// Manages GPU resources (buffers, images, command pools) using Device + Assets data.
 class ResourceManager {
 public:
-	ResourceManager(const Device *deviceaWrapper, const AssetsLoader *assetsLoader, const VkAllocator *allocator = nullptr);
+	ResourceManager(const Device &deviceaWrapper,
+			   const VkAllocator &allocator,
+			   const std::vector<Vertex> &verticesIn,
+			   const std::vector<uint32_t> &indicesIn);
 	~ResourceManager();
 
 	void init();
@@ -67,8 +69,8 @@ public:
 	void updateSwapChainExtent(vk::Extent2D newExtent);
 	void updateSwapChainImageFormat(vk::Format newFormat) { swapChainImageFormat = newFormat; }
 
-	const Device *deviceWrapper;
-	const VkAllocator *allocator;
+	const Device &deviceWrapper;
+	const VkAllocator &allocator;
 	const vk::raii::PhysicalDevice &physicalDevice;
 	const vk::raii::Device &device;
 	const std::vector<uint32_t> &queueFamilyIndices;

@@ -1,76 +1,76 @@
 {
-    "version": 8,
-    "cmakeMinimumRequired": { "major": 3, "minor": 29, "patch": 0 },
-    "configurePresets": [
-        {
-            "name": "base",
-            "hidden": true,
-            "generator": "Ninja",
-            "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-            }
-        },
-        {
-            "name": "debug",
-            "hidden": true,
-            "inherits": "base",
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
-        },
-        {
-            "name": "release",
-            "hidden": true,
-            "inherits": "base",
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
-        },
-        {
-            "name": "windows-clang-debug",
-            "displayName": "Windows (MSYS2) | Clang | Debug",
-            "inherits": "debug",
-            "binaryDir": "${sourceDir}/build/windows-clang-debug",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
-                "CMAKE_MAKE_PROGRAM": "C:/msys64/clang64/bin/ninja.exe"
-            },
-            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
-        },
-        {
-            "name": "windows-clang-release",
-            "displayName": "Windows (MSYS2) | Clang | Release",
-            "inherits": "release",
-            "binaryDir": "${sourceDir}/build/windows-clang-release",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
-                "CMAKE_MAKE_PROGRAM": "C:/msys64/clang64/bin/ninja.exe"
-            },
-            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
-        },
-        {
-            "name": "linux-clang-debug",
-            "displayName": "Linux | Clang | Debug",
-            "inherits": "debug",
-            "binaryDir": "${sourceDir}/build/linux-clang-debug",
-            "installDir": "${sourceDir}/install/linux-clang-debug",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake"
-            },
-            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
-        },
-        {
-            "name": "linux-clang-release",
-            "displayName": "Linux | Clang | Release",
-            "inherits": "release",
-            "binaryDir": "${sourceDir}/build/linux-clang-release",
-            "installDir": "${sourceDir}/install/linux-clang-release",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake"
-            },
-            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
-        }
-    ],
-    "buildPresets": [
-        { "name": "windows-clang-debug", "configurePreset": "windows-clang-debug" },
-        { "name": "windows-clang-release", "configurePreset": "windows-clang-release" },
-        { "name": "linux-clang-debug", "configurePreset": "linux-clang-debug" },
-        { "name": "linux-clang-release", "configurePreset": "linux-clang-release" }
-    ]
+  "version": 8,
+  "cmakeMinimumRequired": { "major": 3, "minor": 29, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "debug",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "release",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "windows-clang-debug",
+      "displayName": "Windows (MSYS2) | Clang | Debug",
+      "inherits": "debug",
+      "binaryDir": "${sourceDir}/build/windows-clang-debug",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
+        "CMAKE_MAKE_PROGRAM": "C:/msys64/clang64/bin/ninja.exe"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "windows-clang-release",
+      "displayName": "Windows (MSYS2) | Clang | Release",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build/windows-clang-release",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-windows.cmake",
+        "CMAKE_MAKE_PROGRAM": "C:/msys64/clang64/bin/ninja.exe"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "linux-clang-debug",
+      "displayName": "Linux | Clang | Debug",
+      "inherits": "debug",
+      "binaryDir": "${sourceDir}/build/linux-clang-debug",
+      "installDir": "${sourceDir}/install/linux-clang-debug",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    },
+    {
+      "name": "linux-clang-release",
+      "displayName": "Linux | Clang | Release",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build/linux-clang-release",
+      "installDir": "${sourceDir}/install/linux-clang-release",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/clang-linux.cmake"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-clang-debug", "configurePreset": "windows-clang-debug" },
+    { "name": "windows-clang-release", "configurePreset": "windows-clang-release" },
+    { "name": "linux-clang-debug", "configurePreset": "linux-clang-debug" },
+    { "name": "linux-clang-release", "configurePreset": "linux-clang-release" }
+  ]
 }

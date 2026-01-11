@@ -13,6 +13,7 @@ set(BUILD_SHARED_LIBS ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_LINKER_TYPE LLD)
+# set(CMAKE_EXE_LINKER_FLAGS "{CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld --coverage")
 
 # if(UNIX AND NOT APPLE)
 #     add_compile_options(-stdlib=libc++)
@@ -58,66 +59,16 @@ endif()
 add_subdirectory(ThirdParty)
 
 set(CMAKE_VERBOSE_MAKEFILE OFF)
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
-# --- Engine Executable ---
-message(STATUS "CMake is using C++ compiler: ${CMAKE_CXX_COMPILER}")
-message(STATUS "Compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
-
-
-file(GLOB_RECURSE ENGINE_SRC_FILES
-        "${CMAKE_SOURCE_DIR}/src/*.cpp"
-        "${CMAKE_SOURCE_DIR}/ThirdParty/*.cpp"
-)
-
-file(GLOB_RECURSE ENGINE_HEADER_FILES
-        "${CMAKE_SOURCE_DIR}/src/*.hpp"
-        "${CMAKE_SOURCE_DIR}/src/*.h"
-        "${CMAKE_SOURCE_DIR}/ThirdParty/*.h"
-        "${CMAKE_SOURCE_DIR}/ThirdParty/*.hpp"
-)
-
-add_executable(engine
-        ${ENGINE_SRC_FILES}
-        ${ENGINE_HEADER_FILES}
-)
-
-#add_executable(engine
-#    src/main.cpp
-#    src/pch.h
-#    src/Constants.h
-#    src/core/vk_engine.cpp
-#    src/core/vk_engine.hpp
-#    src/core/vk_device.cpp
-#    src/core/vk_device.hpp
-#    src/core/vk_swapchain.cpp
-#    src/core/vk_swapchain.hpp
-#    src/core/vk_resource_manager.cpp
-#    src/core/vk_resource_manager.hpp
-#    src/core/vk_descriptors.cpp
-#    src/core/vk_descriptors.hpp
-#    src/core/types.hpp
-#    src/assets/assets_loader.cpp
-#    src/assets/assets_loader.hpp
-#    src/assets/model_storage.cpp
-#    src/assets/model_storage.hpp
-#    src/assets/texture_manager.cpp
-#    src/assets/texture_manager.hpp
-#    src/render/vk_pipeline.cpp
-#    src/render/vk_pipeline.hpp
-#    src/render/vk_renderer.cpp
-#    src/render/vk_renderer.hpp
-#    src/util/logger.cpp
-#    src/util/logger.hpp
-#        src/core/vk_allocator.hpp
-#        src/core/vk_allocator.hpp
-#    ThirdParty/implementations.cpp
-#    ThirdParty/termcolor.hpp
-#    ThirdParty/tiny_obj_loader.h
-#    ThirdParty/vk_mem_alloc.h
-#        src/util/debug.cpp
-#)
-
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
+# Place all runtime and library outputs in the build root so DLLs sit next to the executable
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+foreach(CONFIG DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+    string(TOUPPER ${CONFIG} CONFIG_UPPER)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_BINARY_DIR})
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_BINARY_DIR})
+endforeach()
 
 # --- Shader Compilation ---
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
@@ -152,89 +103,25 @@ endforeach()
 
 add_custom_target(Shaders ALL DEPENDS ${COMPILED_SHADERS})
 
-# --- Linking ---
-target_link_libraries(engine PUBLIC
-    ThirdParty::all  # This links SDL3, Boost, GLM, spdlog, vk-bootstrap, Vulkan
-)
-
-target_link_libraries(engine PRIVATE
-    ${CMAKE_DL_LIBS}
-)
-
-
-# --- Precompiled Headers ---
-target_precompile_headers(engine PRIVATE src/pch.h)
-
 # --- Paths Definitions ---
 file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}/shaders" ENGINE_SHADER_DIR_PATH)
 file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/models" ENGINE_MODELS_DIR_PATH)
 file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/textures" ENGINE_TEXTURES_DIR_PATH)
 
-target_compile_definitions(engine PRIVATE
-    ENGINE_SHADER_DIR="${ENGINE_SHADER_DIR_PATH}"
-    ENGINE_MODELS_DIR="${ENGINE_MODELS_DIR_PATH}"
-    ENGINE_TEXTURES_DIR="${ENGINE_TEXTURES_DIR_PATH}"
-)
-
-
-
+add_subdirectory(src)
 # --- Manual Compiler Flags ---
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    message(STATUS "Detected Clang/GCC compiler: ${CMAKE_CXX_COMPILER_ID}")
     if(WIN32)
-        # Windows with Clang (MSVC ABI) - no libstdc++ debug flags
-        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g -m64 -march=native -mtune=native")
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64")
+        message(STATUS "Configuring compiler flags for Clang on Windows")
+        # Windows with Clang (MSVC ABI) - no libstdc++ debug flags -fprofile-arcs -ftest-coverage
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3 -m64 -march=native -mtune=native")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -fprofile-arcs -ftest-coverage")
     else()
-        # Linux with Clang/GCC (GCC ABI) - include libstdc++ debug flags
+        message(STATUS "Configuring compiler flags for Clang/GCC on Linux")
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC -Og -m64 -march=native -mtune=native -pthread")
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -pthread")
     endif()
 else()
     message(FATAL_ERROR "Unsupported compiler: ${CMAKE_CXX_COMPILER_ID}")
-endif()
-
-add_dependencies(engine Shaders)
-
-
-if(WIN32)
-    # 1. Define list of targets whose DLLs need copying
-    #    NOTE: We added Boost::log_setup and Boost::atomic because 
-    #    Boost::log and Boost::filesystem often depend on them.
-    set(SHARED_LIBS_TO_COPY
-        SDL3::SDL3
-        fmt::fmt
-        spdlog::spdlog
-        Boost::filesystem
-        Boost::log
-        Boost::log_setup
-        Boost::thread
-        Boost::atomic
-        vk-bootstrap::vk-bootstrap 
-    )
-
-    # 2. Iterate and create copy commands
-    foreach(_LIB ${SHARED_LIBS_TO_COPY})
-        # Check if the target exists (in case you disabled a lib)
-        if(TARGET ${_LIB})
-            # Check if it is actually a shared library or executable (has a runtime file)
-            get_target_property(_type ${_LIB} TYPE)
-            
-            if("${_type}" STREQUAL "SHARED_LIBRARY" OR "${_type}" STREQUAL "MODULE_LIBRARY")
-                add_custom_command(TARGET engine POST_BUILD
-                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    $<TARGET_FILE:${_LIB}>
-                    $<TARGET_FILE_DIR:engine>
-                    COMMENT "Copying DLL for ${_LIB}..."
-                )
-            endif()
-        endif()
-    endforeach()
-else()
-    # Linux/macOS: RPATH settings
-    # This ensures the executable looks in its own directory for .so files
-    set_target_properties(engine PROPERTIES
-        BUILD_WITH_INSTALL_RPATH TRUE
-        INSTALL_RPATH "$ORIGIN"
-        BUILD_RPATH "$ORIGIN"
-    )
 endif()

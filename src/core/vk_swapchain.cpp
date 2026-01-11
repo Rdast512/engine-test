@@ -2,16 +2,16 @@
 
 #include <SDL3/SDL.h>
 #include "../util/debug.hpp"
-#include "../util/logger.hpp"
+#include "../static_headers/logger.hpp"
 
 
-SwapChain::SwapChain(SDL_Window *window, Device *device)
+SwapChain::SwapChain(SDL_Window *window, const Device &device)
     : window(window),
       device(device),
-      physicalDevice(device->getPhysicalDevice()),
-      surface(device->getSurface()),
-      vkdevice(device->getDevice()),
-      queueFamilyIndices(device->getQueueFamilyIndices()) {}
+      physicalDevice(device.getPhysicalDevice()),
+      surface(device.getSurface()),
+      vkdevice(device.getDevice()),
+      queueFamilyIndices(device.getQueueFamilyIndices()) {}
 
 void SwapChain::init() {
     log_info("Initialized SwapChain");
