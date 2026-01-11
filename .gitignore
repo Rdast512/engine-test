@@ -17,3 +17,4 @@
 vcpkg_installed/
 .clangd
 /obsidian
+/ThirdParty/_deps/

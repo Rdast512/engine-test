@@ -114,7 +114,6 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     message(STATUS "Detected Clang/GCC compiler: ${CMAKE_CXX_COMPILER_ID}")
     if(WIN32)
         message(STATUS "Configuring compiler flags for Clang on Windows")
-        # Windows with Clang (MSVC ABI) - no libstdc++ debug flags -fprofile-arcs -ftest-coverage
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3 -m64 -march=native -mtune=native")
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -fprofile-arcs -ftest-coverage")
     else()

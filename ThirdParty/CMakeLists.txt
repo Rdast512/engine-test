@@ -1,6 +1,17 @@
 # ThirdParty/CMakeLists.txt
 include(FetchContent)
 
+
+# Keep downloaded third-party sources/builds inside ThirdParty/_deps/<config> so
+# debug/release (or multi-config) artifacts stay separated and survive cache wipes.
+if(CMAKE_CONFIGURATION_TYPES)
+        set(_thirdparty_cfg_dir "multi-config")
+else()
+        string(TOLOWER "${CMAKE_BUILD_TYPE}" _thirdparty_cfg_dir)
+endif()
+set(FETCHCONTENT_BASE_DIR "${CMAKE_CURRENT_LIST_DIR}/_deps/${_thirdparty_cfg_dir}" CACHE PATH "Where FetchContent stores dependency sources/builds" FORCE)
+message(STATUS "FetchContent base dir: ${FETCHCONTENT_BASE_DIR}")
+
 # Optimization: Disable C++ Module scanning for third-party libs
 # They don't use modules yet, so scanning them is wasted time.
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)

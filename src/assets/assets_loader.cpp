@@ -18,7 +18,6 @@ static std::vector<char> readFile(const std::string &filename) {
 }
 
 
-
 AssetsLoader::AssetsLoader(ModelStorage &storage) : modelStorage(storage) {
     log_info("AssetsLoader initialized");
     loadModel();
