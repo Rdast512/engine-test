@@ -293,9 +293,10 @@ if(WIN32)
     # Fix for MinGW/Clang missing CONTROLTRACE_ID
     # _WIN32_WINNT=0x0A00 targets Windows 10
     # TRACY_NO_SYSTEM_TRACING: MinGW/Clang headers are missing ETW definitions (SYSTEM_PROCESS_KW_THREAD, etc.)
-    target_compile_definitions(TracyProfiler PRIVATE WIN32_LEAN_AND_MEAN "_WIN32_WINNT=0x0A00" "CONTROLTRACE_ID=TRACEHANDLE" TRACY_NO_SYSTEM_TRACING)
+    # CONTROLTRACE_ID=TRACEHANDLE
+    target_compile_definitions(TracyProfiler PRIVATE WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
     # Tracy needs system libs on Windows
-    target_link_libraries(TracyProfiler PRIVATE ws2_32 dbghelp secur32)
+    target_link_libraries(TracyProfiler PRIVATE ws2_32 dbghelp user32)
 endif()
 
 

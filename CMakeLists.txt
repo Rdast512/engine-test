@@ -19,23 +19,48 @@ set(CMAKE_LINKER_TYPE LLD)
 #     add_compile_options(-stdlib=libc++)
 #     add_link_options(-stdlib=libc++)
 # endif()
-
 message(STATUS "CMAKE_Version: ${CMAKE_VERSION}")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     message(STATUS "Detected Clang/GCC compiler: ${CMAKE_CXX_COMPILER_ID}")
+
     if(WIN32)
         message(STATUS "Configuring compiler flags for Clang on Windows")
-        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -g3 -m64 -march=native -mtune=native")
-        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -fprofile-arcs -ftest-coverage")
-        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3 -m64 -march=native -mtune=native")
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -fprofile-arcs -ftest-coverage")
+
+        # [TRACY-FIX] Generate PDB file for the linker
+        add_link_options($<$<CONFIG:Debug>:-Wl,--pdb=>)
+        # [TRACY-FIX] Also generate PDB for RelWithDebInfo if you use it
+        add_link_options($<$<CONFIG:RelWithDebInfo>:-Wl,--pdb=>)
+
+        # [TRACY-FIX] Added -gcodeview. This converts DWARF to Microsoft CodeView format
+        # so dbghelp.dll (used by Tracy) can read it.
+        set(COMMON_DEBUG_FLAGS "-O0 -g -gcodeview -m64 -march=native -mtune=native -pthread")
+
+        # [TRACY-FIX] amAdded -g to Release. This allows Tracy to see function names
+        # in optimized builds without slowing down the code.
+        set(COMMON_RELEASE_FLAGS "-O3 -g -gcodeview -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -pthread")
+
+        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${COMMON_DEBUG_FLAGS}")
+        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${COMMON_RELEASE_FLAGS}")
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${COMMON_DEBUG_FLAGS}")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${COMMON_RELEASE_FLAGS}")
+
     else()
         message(STATUS "Configuring compiler flags for Clang/GCC on Linux")
-        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -ggdb -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC -Og -m64 -march=native -mtune=native -pthread")
-        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -pthread")
-        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC -Og -m64 -march=native -mtune=native -pthread")
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -pthread")
+
+        # [TRACY-FIX] Removed -D_GLIBCXX_DEBUG for profiling reliability.
+        # It distorts performance metrics heavily. Use AddressSanitizer instead for debugging.
+        set(COMMON_DEBUG_FLAGS "-ggdb -Og -m64 -march=native -mtune=native -pthread")
+
+        # [TRACY-FIX] Added -g (or -ggdb) to Release.
+        # Tracy needs this to map addresses to function names.
+        # Removed -fprofile-arcs -ftest-coverage (These destroy performance/profiling accuracy).
+        set(COMMON_RELEASE_FLAGS "-O3 -ggdb -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -pthread")
+
+        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${COMMON_DEBUG_FLAGS}")
+        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${COMMON_RELEASE_FLAGS}")
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${COMMON_DEBUG_FLAGS}")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${COMMON_RELEASE_FLAGS}")
     endif()
 else()
     message(FATAL_ERROR "Unsupported compiler: ${CMAKE_CXX_COMPILER_ID}")
