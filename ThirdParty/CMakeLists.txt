@@ -250,6 +250,9 @@ set(IMGUI_SOURCES
 # Exporting ImGui symbols across DLL boundaries requires complex configuration.
 add_library(imgui STATIC ${IMGUI_SOURCES})
 
+# Build ImGui with PIC so it can link into shared libraries
+set_target_properties(imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 target_include_directories(imgui PUBLIC
         ${imgui_SOURCE_DIR}
         ${imgui_SOURCE_DIR}/backends
