@@ -92,7 +92,50 @@ if(WIN32)
             $<TARGET_FILE_DIR:engine>
         COMMENT "Copying engine module DLLs")
 else()
+    # On Linux copy third-party shared libs next to the executable
+    set(SHARED_LIBS_TO_COPY
+        SDL3::SDL3
+        fmt::fmt
+        spdlog::spdlog
+        glm::glm
+        Boost::filesystem
+        Boost::log
+        Boost::log_setup
+        Boost::system
+        Boost::thread
+        Boost::atomic
+        Boost::chrono
+        Boost::container
+        Boost::date_time
+        TracyProfiler
+    )
+
+    foreach(_LIB ${SHARED_LIBS_TO_COPY})
+        if(TARGET ${_LIB})
+            get_target_property(_type ${_LIB} TYPE)
+            if("${_type}" STREQUAL "SHARED_LIBRARY" OR "${_type}" STREQUAL "MODULE_LIBRARY")
+                add_custom_command(TARGET engine POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        $<TARGET_FILE:${_LIB}>
+                        $<TARGET_FILE_DIR:engine>
+                    COMMAND ${CMAKE_COMMAND} -E create_symlink
+                        $<TARGET_FILE:${_LIB}>
+                        $<TARGET_FILE_DIR:engine>/$<TARGET_SONAME_FILE_NAME:${_LIB}>
+                    COMMAND ${CMAKE_COMMAND} -E create_symlink
+                        $<TARGET_FILE:${_LIB}>
+                        $<TARGET_FILE_DIR:engine>/$<TARGET_LINKER_FILE_NAME:${_LIB}>
+                    COMMENT "Copying shared lib (and SONAME links) for ${_LIB}...")
+            endif()
+        endif()
+    endforeach()
+
     set_target_properties(engine PROPERTIES
+        BUILD_WITH_INSTALL_RPATH TRUE
+        INSTALL_RPATH "$ORIGIN"
+        BUILD_RPATH "$ORIGIN")
+
+    # Ensure the runtime module resolves siblings via $ORIGIN
+    set_target_properties(engine_runtime PROPERTIES
         BUILD_WITH_INSTALL_RPATH TRUE
         INSTALL_RPATH "$ORIGIN"
         BUILD_RPATH "$ORIGIN")
