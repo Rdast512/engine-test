@@ -7,7 +7,7 @@
 
 namespace {
 // Lazily create a colored console logger once.
-spdlog::logger &get_logger() {
+auto get_logger() -> spdlog::logger & {
 	static std::once_flag flag;
 	static std::shared_ptr<spdlog::logger> logger;
 	std::call_once(flag, [] {

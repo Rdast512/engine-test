@@ -29,7 +29,7 @@ private:
     uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
     void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
                       vk::raii::Buffer &buffer, VmaAllocation &bufferMemory);
-    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format,
+    void createImage(uint32_t width, uint32_t height, uint32_t mipLevelsIn, vk::Format format,
                      vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
                      vk::raii::Image &image, VmaAllocation &imageMemory);
 

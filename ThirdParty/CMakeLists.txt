@@ -4,11 +4,11 @@ include(FetchContent)
 
 # Keep downloaded third-party sources/builds inside ThirdParty/_deps/<config> so
 # debug/release (or multi-config) artifacts stay separated and survive cache wipes.
-if(CMAKE_CONFIGURATION_TYPES)
-        set(_thirdparty_cfg_dir "multi-config")
-else()
-        string(TOLOWER "${CMAKE_BUILD_TYPE}" _thirdparty_cfg_dir)
-endif()
+if (CMAKE_CONFIGURATION_TYPES)
+    set(_thirdparty_cfg_dir "multi-config")
+else ()
+    string(TOLOWER "${CMAKE_BUILD_TYPE}" _thirdparty_cfg_dir)
+endif ()
 set(FETCHCONTENT_BASE_DIR "${CMAKE_CURRENT_LIST_DIR}/_deps/${_thirdparty_cfg_dir}" CACHE PATH "Where FetchContent stores dependency sources/builds" FORCE)
 message(STATUS "FetchContent base dir: ${FETCHCONTENT_BASE_DIR}")
 
@@ -20,7 +20,7 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 # Vulkan SDK (found via VULKAN_SDK env var)
 # ------------------------------------------------------------------------------
 if (NOT DEFINED ENV{VULKAN_SDK})
-  message(FATAL_ERROR "Environment variable VULKAN_SDK must point to your Vulkan SDK root.")
+    message(FATAL_ERROR "Environment variable VULKAN_SDK must point to your Vulkan SDK root.")
 endif ()
 
 set(VULKAN_SDK_ROOT "$ENV{VULKAN_SDK}")
@@ -69,7 +69,7 @@ add_library(Vulkan::cppm ALIAS VulkanCppModule)
 # ------------------------------------------------------------------------------
 set(VMA_HEADER_PATH "${VULKAN_SDK_ROOT}/include/vma/vk_mem_alloc.h")
 if (NOT EXISTS "${VMA_HEADER_PATH}")
-  message(FATAL_ERROR "VMA header not found at ${VMA_HEADER_PATH}. Ensure Vulkan SDK includes VMA.")
+    message(FATAL_ERROR "VMA header not found at ${VMA_HEADER_PATH}. Ensure Vulkan SDK includes VMA.")
 endif ()
 
 message(STATUS "Using VMA from Vulkan SDK: ${VMA_HEADER_PATH}")
@@ -85,13 +85,13 @@ string(REGEX REPLACE "^v" "" SLANG_VERSION "${SLANG_TAG}")
 set(SLANG_RELEASE_URL "https://github.com/shader-slang/slang/releases/download")
 
 if (WIN32)
-  set(SLANG_OS_NAME "win")
-  set(SLANG_ARTIFACT_NAME "slang-${SLANG_VERSION}-windows-x86_64.zip")
+    set(SLANG_OS_NAME "win")
+    set(SLANG_ARTIFACT_NAME "slang-${SLANG_VERSION}-windows-x86_64.zip")
 elseif (UNIX AND NOT APPLE)
-  set(SLANG_OS_NAME "linux")
-  set(SLANG_ARTIFACT_NAME "slang-${SLANG_VERSION}-linux-x86_64.zip")
+    set(SLANG_OS_NAME "linux")
+    set(SLANG_ARTIFACT_NAME "slang-${SLANG_VERSION}-linux-x86_64.zip")
 else ()
-  message(FATAL_ERROR "Unsupported OS for Slang.")
+    message(FATAL_ERROR "Unsupported OS for Slang.")
 endif ()
 
 set(SLANG_DOWNLOAD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/slang_download")
@@ -99,18 +99,18 @@ set(SLANG_EXTRACT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Slang-${SLANG_OS_NAME}")
 set(SLANG_DOWNLOAD_URL "${SLANG_RELEASE_URL}/${SLANG_TAG}/${SLANG_ARTIFACT_NAME}")
 
 if (NOT EXISTS "${SLANG_EXTRACT_DIR}/README.md")
-  message(STATUS "Downloading Slang from ${SLANG_DOWNLOAD_URL}")
-  file(DOWNLOAD ${SLANG_DOWNLOAD_URL} "${SLANG_DOWNLOAD_DIR}/${SLANG_ARTIFACT_NAME}" SHOW_PROGRESS STATUS download_status)
-  list(GET download_status 0 error_code)
+    message(STATUS "Downloading Slang from ${SLANG_DOWNLOAD_URL}")
+    file(DOWNLOAD ${SLANG_DOWNLOAD_URL} "${SLANG_DOWNLOAD_DIR}/${SLANG_ARTIFACT_NAME}" SHOW_PROGRESS STATUS download_status)
+    list(GET download_status 0 error_code)
 
-  if (NOT error_code EQUAL 0)
-    list(GET download_status 1 error_msg)
-    message(FATAL_ERROR "Failed to download Slang: ${error_msg}")
-  endif ()
+    if (NOT error_code EQUAL 0)
+        list(GET download_status 1 error_msg)
+        message(FATAL_ERROR "Failed to download Slang: ${error_msg}")
+    endif ()
 
-  message(STATUS "Extracting Slang to ${SLANG_EXTRACT_DIR}...")
-  file(ARCHIVE_EXTRACT INPUT "${SLANG_DOWNLOAD_DIR}/${SLANG_ARTIFACT_NAME}" DESTINATION "${SLANG_EXTRACT_DIR}")
-  file(REMOVE_RECURSE "${SLANG_DOWNLOAD_DIR}")
+    message(STATUS "Extracting Slang to ${SLANG_EXTRACT_DIR}...")
+    file(ARCHIVE_EXTRACT INPUT "${SLANG_DOWNLOAD_DIR}/${SLANG_ARTIFACT_NAME}" DESTINATION "${SLANG_EXTRACT_DIR}")
+    file(REMOVE_RECURSE "${SLANG_DOWNLOAD_DIR}")
 endif ()
 
 # ------------------------------------------------------------------------------
@@ -134,8 +134,8 @@ set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(SDL_DISABLE_INSTALL ON CACHE BOOL "" FORCE)
 set(SDL_VULKAN ON CACHE BOOL "" FORCE)
 if (UNIX AND NOT APPLE)
-  set(SDL_WAYLAND ON CACHE BOOL "" FORCE)
-  set(SDL_X11 ON CACHE BOOL "" FORCE)
+    set(SDL_WAYLAND ON CACHE BOOL "" FORCE)
+    set(SDL_X11 ON CACHE BOOL "" FORCE)
 endif ()
 
 FetchContent_Declare(
@@ -289,7 +289,7 @@ target_compile_definitions(TracyProfiler INTERFACE TRACY_ENABLE TRACY_IMPORTS)
 
 target_include_directories(TracyProfiler SYSTEM PUBLIC "${tracy_SOURCE_DIR}/public")
 
-if(WIN32)
+if (WIN32)
     # Fix for MinGW/Clang missing CONTROLTRACE_ID
     # _WIN32_WINNT=0x0A00 targets Windows 10
     # TRACY_NO_SYSTEM_TRACING: MinGW/Clang headers are missing ETW definitions (SYSTEM_PROCESS_KW_THREAD, etc.)
@@ -297,8 +297,7 @@ if(WIN32)
     target_compile_definitions(TracyProfiler PRIVATE WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
     # Tracy needs system libs on Windows
     target_link_libraries(TracyProfiler PRIVATE ws2_32 dbghelp user32)
-endif()
-
+endif ()
 
 
 # ------------------------------------------------------------------------------
