@@ -116,6 +116,7 @@ void TextureManager::createTextureImageView()
                                      .viewType = vk::ImageViewType::e2D,
                                      .format = vk::Format::eR8G8B8A8Srgb,
                                      .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, mipLevels, 0, 1}};
+    textureImageViewCreateInfo = viewInfo;
     textureImageView = vk::raii::ImageView(device, viewInfo);
 }
 

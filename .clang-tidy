@@ -1,4 +1,6 @@
-# .clang-tidy - recommended baseline for C++23 (performance, readability, modernization, safety)
+---
+# .clang-tidy - Optimized for C++23, Performance, Safety, Boost & Readability
+
 Checks: >
   clang-analyzer-*,
   bugprone-*,
@@ -7,22 +9,82 @@ Checks: >
   modernize-*,
   readability-*,
   hicpp-*,
-  -modernize-use-trailing-return-type,  # often noisy in some codebases
-  -readability-identifier-naming         # optional: enable if you want naming enforcement
+  boost-*,
+  -clang-diagnostic-designated-init-for-non-aggregate,
+  -modernize-use-trailing-return-type,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-identifier-naming
 
-WarningsAsErrors: ''
+# Treat warnings as errors (Optional: Uncomment for CI pipelines)
+# WarningsAsErrors: '*'
 
 # Only analyze headers under src (skip include/tests/third-party)
 HeaderFilterRegex: '.*/src/.*'
 
-# Skip generated build outputs and any path not under src
-ExcludePaths: '(^|.*/)build/.*|^(?!.*[/\\]src[/\\]).*'
+# Skip generated build outputs and external dependencies
+ExcludePaths: '(^|.*/)build/.*|(^|.*/)third_party/.*|(^|.*/)tests/.*'
 
 # Make automatic fixes use your .clang-format if present
 FormatStyle: file
 
-# Helpful when running clang-tidy directly; keep C++ standard explicit.
-ExtraArgs: ['-std=c++23']
+# Compiler Flags
+ExtraArgs:
+  - '-std=c++23'
+  # If using SDL3, ensure the include path is visible to clang-tidy
+  # - '-I/path/to/SDL3/include'
 
-# Run deeper lifetime/temporary checks
+# Deep analysis settings
 AnalyzeTemporaryDtors: true
+
+# Specific Check Options
+CheckOptions:
+  # --- Modernize (C++23 Focus) ---
+  - key: modernize-use-std-print.CheckCHeaders
+    value: 'true'
+  - key: modernize-loop-convert.MinConfidence
+    value: 'reasonable'
+  - key: modernize-use-nullptr.NullMacros
+    value: 'NULL'
+
+  # --- Performance ---
+  - key: performance-unnecessary-value-param.AllowedTypes
+    value: ''
+  - key: performance-move-const-arg.CheckMoveConstructors
+    value: 'true'
+
+  # --- Memory & Safety (CppCoreGuidelines) ---
+  - key: cppcoreguidelines-owning-memory.LegacyResourceNames
+    value: 'SDL_*,malloc,calloc,realloc,free'
+  - key: cppcoreguidelines-no-malloc.Reallocations
+    value: 'realloc'
+  - key: cppcoreguidelines-no-malloc.Allocations
+    value: 'malloc,calloc'
+  - key: cppcoreguidelines-no-malloc.Deallocations
+    value: 'free'
+
+  # --- Readability (Naming Conventions) ---
+  # Enforces standard C++ naming to reduce cognitive load
+  - key: readability-identifier-naming.ClassCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.StructCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.FunctionCase
+    value: 'camelBack'
+  - key: readability-identifier-naming.VariableCase
+    value: 'lower_case'
+  - key: readability-identifier-naming.ParameterCase
+    value: 'lower_case'
+  - key: readability-identifier-naming.MemberCase
+    value: 'lower_case'
+  - key: readability-identifier-naming.PrivateMemberSuffix
+    value: '_'
+  - key: readability-identifier-naming.EnumConstantCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: 'UPPER_CASE'
+  - key: readability-identifier-naming.NamespaceCase
+    value: 'lower_case'
+
+  # --- Boost ---
+  - key: boost-use-to-string.CheckStd
+    value: 'true'

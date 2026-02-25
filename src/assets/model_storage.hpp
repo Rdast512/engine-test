@@ -10,10 +10,10 @@ public:
 
     void setModelData(std::vector<Vertex> verticesIn, std::vector<uint32_t> indicesIn);
     void clear();
-    bool empty() const;
+    [[nodiscard]] bool empty() const;
 
-    const std::vector<Vertex>& getVertices() const { return vertices; }
-    const std::vector<uint32_t>& getIndices() const { return indices; }
+    [[nodiscard]] const std::vector<Vertex>& getVertices() const { return vertices; }
+    [[nodiscard]] const std::vector<uint32_t>& getIndices() const { return indices; }
 
 private:
     std::vector<Vertex> vertices;

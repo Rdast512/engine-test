@@ -9,7 +9,8 @@ public:
     DescriptorManager(const vk::raii::Device& device,
                       const std::vector<vk::raii::Buffer>& uniformBuffers,
                       const vk::raii::Sampler& textureSampler,
-                      const vk::raii::ImageView& textureImageView);
+                      const vk::raii::ImageView& textureImageView,
+                      const vk::ImageViewCreateInfo& textureImageViewCreateInfo);
 
     ~DescriptorManager() = default;
 
@@ -26,6 +27,7 @@ public:
     const std::vector<vk::raii::Buffer>& uniformBuffers;
     const vk::raii::Sampler& textureSampler;
     const vk::raii::ImageView& textureImageView;
+    const vk::ImageViewCreateInfo& textureImageViewCreateInfo;
 
 
     vk::raii::DescriptorSetLayout descriptorSetLayout = nullptr;
@@ -33,4 +35,3 @@ public:
     std::vector<vk::raii::DescriptorSet> descriptorSets;
 
 };
-

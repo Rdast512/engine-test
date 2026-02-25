@@ -146,18 +146,6 @@ FetchContent_Declare(
 message(STATUS "Downloading SDL3...")
 FetchContent_MakeAvailable(SDL3)
 
-## ------------------------------------------------------------------------------
-## 4. vk-bootstrap
-## ------------------------------------------------------------------------------
-#set(VK_BOOTSTRAP_TEST OFF CACHE BOOL "" FORCE)
-#FetchContent_Declare(
-#    vk-bootstrap
-#    GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap.git
-#    GIT_TAG        v1.4.332
-#)
-#message(STATUS "Downloading vk-bootstrap...")
-#FetchContent_MakeAvailable(vk-bootstrap)
-
 
 # ------------------------------------------------------------------------------
 # 4. volk

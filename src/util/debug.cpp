@@ -8,7 +8,7 @@
 #include <string_view>
 
 namespace {
-inline void setDebugNameHandle(const vk::raii::Device &device, uint64_t handle, vk::ObjectType type, std::string_view name) {
+    void setDebugNameHandle(const vk::raii::Device &device, uint64_t handle, vk::ObjectType type, std::string_view name) {
 	const auto setNameFn = device.getDispatcher()->vkSetDebugUtilsObjectNameEXT;
 	if (!setNameFn || handle == 0) {
 		return; // Debug utils extension not enabled or null handle

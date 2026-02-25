@@ -14,7 +14,7 @@ public:
     const vk::raii::Device &device;
     const vk::raii::Instance &instance;
 
-    VkAllocator(Device &deviceWrapper) : physicalDevice(deviceWrapper.getPhysicalDevice()), device(deviceWrapper.getDevice()), instance(deviceWrapper.getInstance()) {
+    explicit VkAllocator(Device &deviceWrapper) : physicalDevice(deviceWrapper.getPhysicalDevice()), device(deviceWrapper.getDevice()), instance(deviceWrapper.getInstance()) {
 
         // Get the dynamic dispatcher for proper Vulkan function access
         VmaVulkanFunctions vulkanFunctions = {};

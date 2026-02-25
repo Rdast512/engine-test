@@ -109,7 +109,7 @@ void ResourceManager::updateUniformBuffer(uint32_t currentImage)
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    float time = std::chrono::duration<float>(currentTime - startTime).count();
     UniformBufferObject ubo{};
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -290,7 +290,7 @@ void ResourceManager::createIndexBuffer()
 
     void* data = nullptr;
     vmaMapMemory(allocator.allocator, stagingBufferMemory, &data);
-    memcpy(data, indices.data(), (size_t)bufferSize);
+    memcpy(data, indices.data(), bufferSize);
     vmaUnmapMemory(allocator.allocator, stagingBufferMemory);
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
@@ -378,7 +378,7 @@ vk::raii::ImageView ResourceManager::createImageView(vk::raii::Image& image, vk:
         .image = image,
         .viewType = vk::ImageViewType::e2D,
         .format = format,
-        .subresourceRange = {aspectFlags, 0, mipLevels, 0, 1}
+        .subresourceRange = {.aspectMask=aspectFlags, .baseMipLevel=0, .levelCount=mipLevels, .baseArrayLayer=0, .layerCount=1}
     };
     return vk::raii::ImageView(device, viewInfo);
 }
@@ -409,13 +409,13 @@ void ResourceManager::createColorResources()
     commandBuffers[0].begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     transitionImageLayout(&commandBuffers[0], colorImage, 1,
                           vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal,
-                          {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
+                          {.aspectMask=vk::ImageAspectFlagBits::eColor, .baseMipLevel=0, .levelCount=1, .baseArrayLayer=0, .layerCount=1});
     endCommandBuffer(commandBuffers[0], graphicsQueue);
     colorImageView = createImageView(colorImage, colorFormat, vk::ImageAspectFlagBits::eColor, 1);
 }
 
 void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipLevels,
-                                  vk::SampleCountFlagBits numSamples, vk::Format format, vk::ImageTiling tiling,
+                                  vk::SampleCountFlagBits Samples, vk::Format format, vk::ImageTiling tiling,
                                   vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::raii::Image& image,
                                   VmaAllocation& imageMemory)
 {
@@ -435,10 +435,10 @@ void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipL
     vk::ImageCreateInfo imageInfo{
         .imageType = vk::ImageType::e2D,
         .format = format,
-        .extent = {width, height, 1},
+        .extent = {.width=width, .height=height, .depth=1},
         .mipLevels = mipLevels,
         .arrayLayers = 1,
-        .samples = numSamples,
+        .samples = Samples,
         .tiling = tiling,
         .usage = usage,
         .sharingMode = sharingMode,
@@ -491,7 +491,7 @@ void ResourceManager::createDepthResources()
     commandBuffers[0].begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     transitionImageLayout(&commandBuffers[0], depthImage, 1,
                           vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal,
-                          {vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1}
+                          {.aspectMask=vk::ImageAspectFlagBits::eDepth, .baseMipLevel=0, .levelCount=1, .baseArrayLayer=0, .layerCount=1}
     );
     endCommandBuffer(commandBuffers[0], graphicsQueue);
 }
@@ -555,10 +555,10 @@ void ResourceManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFo
         graphicsCmd.pipelineBarrier2(depInfoToSrc);
 
         vk::ImageBlit blit{};
-        blit.srcSubresource = {vk::ImageAspectFlagBits::eColor, i - 1, 0, 1};
+        blit.srcSubresource = {.aspectMask=vk::ImageAspectFlagBits::eColor, .mipLevel=i - 1, .baseArrayLayer=0, .layerCount=1};
         blit.srcOffsets[0] = vk::Offset3D(0, 0, 0);
         blit.srcOffsets[1] = vk::Offset3D(mipWidth, mipHeight, 1);
-        blit.dstSubresource = {vk::ImageAspectFlagBits::eColor, i, 0, 1};
+        blit.dstSubresource = {.aspectMask=vk::ImageAspectFlagBits::eColor, .mipLevel=i, .baseArrayLayer=0, .layerCount=1};
         blit.dstOffsets[0] = vk::Offset3D(0, 0, 0);
         blit.dstOffsets[1] = vk::Offset3D(mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1);
 
@@ -579,7 +579,7 @@ void ResourceManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFo
         .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
         .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
         .image = *image,
-        .subresourceRange = {vk::ImageAspectFlagBits::eColor, mipLevels - 1, 1, 0, 1}
+        .subresourceRange = {.aspectMask=vk::ImageAspectFlagBits::eColor, .baseMipLevel=mipLevels - 1, .levelCount=1, .baseArrayLayer=0, .layerCount=1}
     };
     vk::DependencyInfo depInfoLast{
         .imageMemoryBarrierCount = 1,
@@ -597,7 +597,7 @@ void ResourceManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFo
         .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
         .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
         .image = *image,
-        .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, mipLevels, 0, 1}
+        .subresourceRange = {.aspectMask=vk::ImageAspectFlagBits::eColor, .baseMipLevel=0, .levelCount=mipLevels, .baseArrayLayer=0, .layerCount=1}
     };
     vk::DependencyInfo depInfoFinal{
         .imageMemoryBarrierCount = 1,

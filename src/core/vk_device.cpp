@@ -244,12 +244,13 @@ void Device::createLogicalDevice() {
 
     // query for Vulkan features
     vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,
-        vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
+        vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT, vk::PhysicalDeviceDescriptorHeapFeaturesEXT,
         vk::PhysicalDeviceShaderFloatControls2FeaturesKHR> featureChain = {
         {.features = {.sampleRateShading = true, .samplerAnisotropy = true}}, // vk::PhysicalDeviceFeatures2
         {.shaderDrawParameters = true},
-        {.synchronization2 = true, .dynamicRendering = true, .maintenance4 = true}, // vk::PhysicalDeviceVulkan13Features
+        {.synchronization2 = true, .dynamicRendering = true}, // vk::PhysicalDeviceVulkan13Features
         {.extendedDynamicState = true}, // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
+        {.descriptorHeap = true}, // vk::PhysicalDeviceDescriptorHeapFeaturesEXT
         {.shaderFloatControls2 = true} // vk::PhysicalDeviceShaderFloatControls2FeaturesKHR
     };
 

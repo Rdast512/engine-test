@@ -37,8 +37,8 @@ void AssetsLoader::loadModel() {
     if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, modelPath.c_str())) {
         throw std::runtime_error(err);
     }
-    for (const auto &shape: shapes) {
-        for (const auto &index: shape.mesh.indices) {
+    for (const auto & [name, mesh] : shapes) {
+        for (const auto &index: mesh.indices) {
             Vertex vertex{};
 
             vertex.pos = {
@@ -54,7 +54,7 @@ void AssetsLoader::loadModel() {
 
             vertex.color = {1.0f, 1.0f, 1.0f};
 
-            if (uniqueVertices.count(vertex) == 0) {
+            if (uniqueVertices.contains(vertex) == 0) {
                 uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
                 vertices.push_back(vertex);
             }

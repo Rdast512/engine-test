@@ -7,7 +7,8 @@ class Device{
         vk::KHRMaintenance7ExtensionName,
         vk::KHRMaintenance8ExtensionName,
         vk::EXTMemoryBudgetExtensionName,
-        vk::EXTMemoryPriorityExtensionName
+        vk::EXTMemoryPriorityExtensionName,
+        vk::EXTDescriptorHeapExtensionName
     };
 
     SDL_Window *window = nullptr;

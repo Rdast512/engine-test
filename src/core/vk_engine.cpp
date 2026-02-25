@@ -62,7 +62,7 @@ void Engine::initialize()
 
     descriptorManager =
         std::make_unique<DescriptorManager>(device->getDevice(), resourceManager->getUniformBuffers(),
-                                            textureManager->getTextureSampler(), textureManager->getTextureImageView());
+                                            textureManager->getTextureSampler(), textureManager->getTextureImageView(), textureManager->gettextureImageViewCreateInfo());
     descriptorManager->init();
 
     createImGuiDescriptorPool();

@@ -9,7 +9,7 @@
 // Manages GPU resources (buffers, images, command pools) using Device + Assets data.
 class ResourceManager {
 public:
-	ResourceManager(const Device &deviceaWrapper,
+	ResourceManager(const Device &deviceWrapper,
 			   const VkAllocator &allocator,
 			   const std::vector<Vertex> &verticesIn,
 			   const std::vector<uint32_t> &indicesIn);

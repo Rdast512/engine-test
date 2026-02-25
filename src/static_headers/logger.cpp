@@ -10,7 +10,7 @@ namespace {
 auto get_logger() -> spdlog::logger & {
 	static std::once_flag flag;
 	static std::shared_ptr<spdlog::logger> logger;
-	std::call_once(flag, [] {
+	std::call_once(flag, [] -> void {
 		auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 		logger = std::make_shared<spdlog::logger>("engine", sink);
 		logger->set_level(spdlog::level::info);

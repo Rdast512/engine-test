@@ -17,23 +17,24 @@ public:
 
     void init();
 
-    const vk::raii::Sampler &getTextureSampler() const { return textureSampler; }
-    const vk::raii::ImageView &getTextureImageView() const { return textureImageView; }
-    uint32_t getMipLevels() const { return mipLevels; }
+    [[nodiscard]] const vk::raii::Sampler &getTextureSampler() const { return textureSampler; }
+    [[nodiscard]] const vk::raii::ImageView &getTextureImageView() const { return textureImageView; }
+    [[nodiscard]] const vk::ImageViewCreateInfo &gettextureImageViewCreateInfo() const { return textureImageViewCreateInfo; }
+    [[nodiscard]] uint32_t getMipLevels() const { return mipLevels; }
 
 private:
     void createTextureImage();
     void createTextureImageView();
     void createTextureSampler();
 
-    uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
+    auto findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) -> uint32_t;
     void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
                       vk::raii::Buffer &buffer, VmaAllocation &bufferMemory);
     void createImage(uint32_t width, uint32_t height, uint32_t mipLevelsIn, vk::Format format,
                      vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
                      vk::raii::Image &image, VmaAllocation &imageMemory);
 
-    vk::raii::CommandBuffer beginSingleTimeCommands(const vk::raii::Queue &queue);
+    auto beginSingleTimeCommands(const vk::raii::Queue &queue) -> vk::raii::CommandBuffer;
     void endSingleTimeCommands(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Queue &queue);
     // void transitionImageLayout(vk::raii::CommandBuffer &commandBuffer, vk::Image image, uint32_t mipLevels,
     //                            vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
@@ -57,6 +58,7 @@ private:
     VmaAllocation stagingBufferMemory = nullptr;
     vk::raii::Sampler textureSampler = nullptr;
     vk::raii::Image textureImage = nullptr;
+    vk::ImageViewCreateInfo textureImageViewCreateInfo;
     VmaAllocation textureImageMemory = nullptr;
     vk::raii::ImageView textureImageView = nullptr;
     uint32_t mipLevels = 0;

@@ -4,7 +4,6 @@
 #include <vector>
 
 class Renderer {
-private:
 	std::vector<VkCommandBuffer> commandBuffers;
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;

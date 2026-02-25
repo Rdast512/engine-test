@@ -34,11 +34,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 
         # [TRACY-FIX] Added -gcodeview. This converts DWARF to Microsoft CodeView format
         # so dbghelp.dll (used by Tracy) can read it.
-        set(COMMON_DEBUG_FLAGS "-O0 -g -gcodeview -m64 -march=native -mtune=native -pthread")
+        set(COMMON_DEBUG_FLAGS "-O0 -g -m64 -march=native -mtune=native -pthread")
 
         # [TRACY-FIX] amAdded -g to Release. This allows Tracy to see function names
         # in optimized builds without slowing down the code.
-        set(COMMON_RELEASE_FLAGS "-O3 -g -gcodeview -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -pthread")
+        set(COMMON_RELEASE_FLAGS "-O3 -g -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -pthread")
 
         set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${COMMON_DEBUG_FLAGS}")
         set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${COMMON_RELEASE_FLAGS}")
