@@ -1,8 +1,6 @@
 #pragma once
 
-#include "pch.h"
 #include "vk_device.hpp"
-#include <vma/vk_mem_alloc.h>
 
 
 class VkAllocator

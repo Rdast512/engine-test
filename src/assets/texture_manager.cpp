@@ -2,6 +2,7 @@
 
 #include "../../ThirdParty/stb_image.h"
 #include "../util/debug.hpp"
+#include "../util/vk_tracy.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -46,6 +47,7 @@ TextureManager::~TextureManager()
 
 void TextureManager::init()
 {
+    ZoneScopedN("TextureManager::init");
     log_info("TextureManager::init() started");
     log_info("TextureManager initialized");
     createTextureImage();
@@ -55,6 +57,7 @@ void TextureManager::init()
 
 void TextureManager::createTextureImage()
 {
+    ZoneScopedN("TextureManager::createTextureImage");
     log_info("TextureManager::createTextureImage() started");
     int texWidth = 0;
     int texHeight = 0;
@@ -111,6 +114,7 @@ void TextureManager::createTextureImage()
 
 void TextureManager::createTextureImageView()
 {
+    ZoneScopedN("TextureManager::createTextureImageView");
     log_info("TextureManager::createTextureImageView() started");
     vk::ImageViewCreateInfo viewInfo{.image = textureImage,
                                      .viewType = vk::ImageViewType::e2D,
@@ -122,6 +126,7 @@ void TextureManager::createTextureImageView()
 
 void TextureManager::createTextureSampler()
 {
+    ZoneScopedN("TextureManager::createTextureSampler");
     log_info("TextureManager::createTextureSampler() started");
     vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
     vk::SamplerCreateInfo samplerInfo{.magFilter = vk::Filter::eLinear,
@@ -143,7 +148,7 @@ void TextureManager::createTextureSampler()
 uint32_t TextureManager::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
 {
     log_info("TextureManager::findMemoryType() started");
-    vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+    vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties2().memoryProperties;
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
     {
         if ((typeFilter & (1u << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
@@ -157,6 +162,7 @@ uint32_t TextureManager::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyF
 void TextureManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
                                   vk::raii::Buffer& buffer, VmaAllocation& bufferMemory)
 {
+    ZoneScopedN("TextureManager::createBuffer");
     log_info("TextureManager::createBuffer() started");
     // const bool needsConcurrent = (usage &
     // vk::BufferUsageFlagBits::eTransferSrc ||
@@ -194,6 +200,7 @@ void TextureManager::createImage(uint32_t width, uint32_t height, uint32_t mipLe
                                  vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
                                  vk::raii::Image& image, VmaAllocation& imageMemory)
 {
+    ZoneScopedN("TextureManager::createImage");
     log_info("TextureManager::createImage() started");
     const bool needsConcurrent =
         (usage & vk::ImageUsageFlagBits::eTransferSrc || usage & vk::ImageUsageFlagBits::eTransferDst) &&
@@ -234,6 +241,7 @@ void TextureManager::createImage(uint32_t width, uint32_t height, uint32_t mipLe
 
 vk::raii::CommandBuffer TextureManager::beginSingleTimeCommands(const vk::raii::Queue& queue)
 {
+    ZoneScopedN("TextureManager::beginSingleTimeCommands");
     log_info("TextureManager::beginSingleTimeCommands() started");
     vk::CommandBufferAllocateInfo allocInfo{
         .commandPool = commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1};
@@ -246,6 +254,7 @@ vk::raii::CommandBuffer TextureManager::beginSingleTimeCommands(const vk::raii::
 
 void TextureManager::endSingleTimeCommands(vk::raii::CommandBuffer& commandBuffer, const vk::raii::Queue& queue)
 {
+    ZoneScopedN("TextureManager::endSingleTimeCommands");
     log_info("TextureManager::endSingleTimeCommands() started");
     commandBuffer.end();
     vk::SubmitInfo submitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandBuffer};
@@ -293,6 +302,7 @@ void TextureManager::endSingleTimeCommands(vk::raii::CommandBuffer& commandBuffe
 void TextureManager::copyBufferToImage(vk::raii::CommandBuffer& commandBuffer, const vk::raii::Buffer& buffer,
                                        const vk::raii::Image& image, uint32_t width, uint32_t height)
 {
+    ZoneScopedN("TextureManager::copyBufferToImage");
     log_info("TextureManager::copyBufferToImage() started");
     vk::BufferImageCopy region{.bufferOffset = 0,
                                .bufferRowLength = 0,
@@ -307,6 +317,7 @@ void TextureManager::copyBufferToImage(vk::raii::CommandBuffer& commandBuffer, c
 void TextureManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFormat, int32_t texWidth,
                                      int32_t texHeight, uint32_t mipLevelsIn)
 {
+    ZoneScopedN("TextureManager::generateMipmaps");
     log_info("TextureManager::generateMipmaps() started");
     vk::FormatProperties formatProperties = physicalDevice.getFormatProperties2(imageFormat).formatProperties;
     if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear))

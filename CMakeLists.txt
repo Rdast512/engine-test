@@ -12,8 +12,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(BUILD_SHARED_LIBS ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_LINKER_TYPE LLD)
-# set(CMAKE_EXE_LINKER_FLAGS "{CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld --coverage")
 
 # if(UNIX AND NOT APPLE)
 #     add_compile_options(-stdlib=libc++)
@@ -21,6 +19,22 @@ set(CMAKE_LINKER_TYPE LLD)
 # endif()
 message(STATUS "CMAKE_Version: ${CMAKE_VERSION}")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message(STATUS "=== TOOLCHAIN VERIFICATION ===")
+message(STATUS "C   compiler:   ${CMAKE_C_COMPILER}")
+message(STATUS "CXX compiler:   ${CMAKE_CXX_COMPILER}")
+message(STATUS "RC  compiler:   ${CMAKE_RC_COMPILER}")
+message(STATUS "Linker:         ${CMAKE_LINKER}")
+message(STATUS "Linker type:    ${CMAKE_LINKER_TYPE}")
+message(STATUS "AR:             ${CMAKE_AR}")
+message(STATUS "RANLIB:         ${CMAKE_RANLIB}")
+message(STATUS "NM:             ${CMAKE_NM}")
+message(STATUS "STRIP:          ${CMAKE_STRIP}")
+message(STATUS "OBJCOPY:        ${CMAKE_OBJCOPY}")
+message(STATUS "OBJDUMP:        ${CMAKE_OBJDUMP}")
+message(STATUS "Make program:   ${CMAKE_MAKE_PROGRAM}")
+message(STATUS "CXX flags:      ${CMAKE_CXX_FLAGS}")
+message(STATUS "C flags:        ${CMAKE_C_FLAGS}")
+message(STATUS "==============================")
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     message(STATUS "Detected Clang/GCC compiler: ${CMAKE_CXX_COMPILER_ID}")
 
@@ -28,17 +42,23 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         message(STATUS "Configuring compiler flags for Clang on Windows")
 
         # [TRACY-FIX] Generate PDB file for the linker
-        add_link_options($<$<CONFIG:Debug>:-Wl,--pdb=>)
         # [TRACY-FIX] Also generate PDB for RelWithDebInfo if you use it
-        add_link_options($<$<CONFIG:RelWithDebInfo>:-Wl,--pdb=>)
+        add_link_options("$<$<CONFIG:Debug,RelWithDebInfo>:-Wl,--pdb=>")
+
+        # [COVERAGE] NOTE: -fprofile-instr-generate is intentionally NOT set here as a
+        # global link option. This project uses shared libraries (engine_core, engine_runtime…).
+        # If every DLL links its own libclang_rt.profile, each gets independent counter arrays
+        # and they conflict → only destructor hints appear.
+        # The runtime is linked ONLY into the engine executable (see src/CMakeLists.txt) so
+        # all DLLs register their counters with one runtime → single clean .profraw at exit.
 
         # [TRACY-FIX] Added -gcodeview. This converts DWARF to Microsoft CodeView format
         # so dbghelp.dll (used by Tracy) can read it.
-        set(COMMON_DEBUG_FLAGS "-O0 -g -m64 -march=native -mtune=native -pthread")
+        set(COMMON_DEBUG_FLAGS "-O0 -g -gdwarf -gcodeview -m64 -march=native -mtune=native -pthread -fprofile-instr-generate -fcoverage-mapping")
 
         # [TRACY-FIX] amAdded -g to Release. This allows Tracy to see function names
         # in optimized builds without slowing down the code.
-        set(COMMON_RELEASE_FLAGS "-O3 -g -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -pthread")
+        set(COMMON_RELEASE_FLAGS "-O3 -g -gdwarf -gcodeview -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -pthread")
 
         set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${COMMON_DEBUG_FLAGS}")
         set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${COMMON_RELEASE_FLAGS}")
@@ -97,6 +117,11 @@ endif()
 
 # --- Vulkan SDK Setup ---
 # Vulkan setup is now handled inside ThirdParty/CMakeLists.txt
+
+# Disable C++ module scanning globally before any targets are defined.
+# None of the third-party deps or engine sources use C++20 modules yet.
+# This avoids the expensive per-TU module-dependency scan that Ninja/clang trigger.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 # --- Add Dependencies (Vendored) ---
 # This builds SDL3, Boost, GLM, etc. from source

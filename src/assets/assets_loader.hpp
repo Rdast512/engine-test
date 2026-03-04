@@ -2,6 +2,7 @@
 #include "../core/types.hpp"
 #include "model_storage.hpp"
 #include "tiny_obj_loader.h"
+// tiny_obj_loader.h is provided via the precompiled header
 
 
 class AssetsLoader {

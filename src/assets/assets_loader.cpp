@@ -13,7 +13,6 @@ static std::vector<char> readFile(const std::string &filename) {
     file.seekg(0, std::ios::beg);
     file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
     file.close();
-
     return buffer;
 }
 

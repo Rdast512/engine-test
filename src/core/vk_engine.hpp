@@ -1,18 +1,14 @@
 #pragma once
-#include <SDL3/SDL.h>
-#include "imgui.h"
-#include "imgui_impl_sdl3.h"
-#include "imgui_impl_vulkan.h"
-#include <memory>
-#include <chrono>
 #include "vk_device.hpp"
 #include "vk_swapchain.hpp"
 #include "vk_resource_manager.hpp"
 #include "vk_descriptors.hpp"
+#include "../util/vk_tracy.hpp"
 #include "../assets/texture_manager.hpp"
 #include "../assets/assets_loader.hpp"
 #include "../assets/model_storage.hpp"
 #include "../render/vk_pipeline.hpp"
+#include "../render/vk_renderer.hpp"
 #include "vk_allocator.hpp"
 
 
@@ -24,12 +20,11 @@ class Engine{
     std::unique_ptr<ModelStorage> modelStorage;
     std::unique_ptr<AssetsLoader> assetsLoader;
     std::unique_ptr<ResourceManager> resourceManager;
+    std::unique_ptr<VkTracyContext> tracyContext;
     std::unique_ptr<TextureManager> textureManager;
     std::unique_ptr<DescriptorManager> descriptorManager;
     std::unique_ptr<Pipeline> pipeline;
-    uint32_t currentFrame = 0;
-    uint32_t semaphoreIndex = 0;
-    bool framebufferResized = false;
+    std::unique_ptr<Renderer> renderer;
     bool initialized = false;
     std::chrono::high_resolution_clock::time_point lastTime;
     std::chrono::high_resolution_clock::time_point fpsTime;
@@ -41,8 +36,6 @@ class Engine{
     VkFormat imguiDepthFormat = VK_FORMAT_UNDEFINED;
     VkPipelineRenderingCreateInfoKHR imguiPipelineRenderingInfo{};
 
-    void drawFrame();
-    void recordCommandBuffer(uint32_t imageIndex);
     void createImGuiDescriptorPool();
 
 public:

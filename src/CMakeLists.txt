@@ -2,10 +2,37 @@
 
 set(PCH_HEADER ${CMAKE_SOURCE_DIR}/src/pch.h)
 
+# [COVERAGE] Directory-scoped link flag — applies to every engine_* shared lib AND
+# the engine executable defined below.
+#
+# WHY all targets (not just the exe):
+#   -fprofile-instr-generate at *compile* time instruments the code and emits
+#   counter arrays. But without the SAME flag at *link* time, the linker never
+#   emits the CRT initializer (__llvm_profile_init / .CRT$XCOV entry) that
+#   registers those arrays with the profile runtime at DLL load time.
+#   Result without it: engine_core.dll counters exist but are never seen by
+#   the runtime → absent from the .profraw → absent from the coverage report.
+#
+# WHY not linking the runtime into each DLL:
+#   -fprofile-instr-generate on an *executable* link automatically pulls in
+#   libclang_rt.profile (static or shared depending on the toolchain). On a
+#   *shared library* link, Clang emits only the registration hooks and skips
+#   the runtime library itself — so each DLL registers with whichever runtime
+#   is loaded (the exe’s), instead of bringing its own conflicting copy.
+#
+# LLVM_PROFILE_FILE=%m.profraw (set in the CLion run config) is recommended.
+# %m expands to a per-module magic number, creating one .profraw per DLL + exe
+# so each module flushes independently. CLion then merges them before calling
+# llvm-cov export.
+if(WIN32)
+    add_link_options("$<$<CONFIG:Debug>:-fprofile-instr-generate>")
+endif()
+
 add_library(engine_build_config INTERFACE)
 target_include_directories(engine_build_config INTERFACE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(engine_build_config INTERFACE ${CMAKE_SOURCE_DIR}/src/static_headers)
 target_compile_definitions(engine_build_config INTERFACE
+    TRACY_ENABLE
     ENGINE_SHADER_DIR="${ENGINE_SHADER_DIR_PATH}"
     ENGINE_MODELS_DIR="${ENGINE_MODELS_DIR_PATH}"
     ENGINE_TEXTURES_DIR="${ENGINE_TEXTURES_DIR_PATH}"
@@ -26,6 +53,7 @@ target_link_libraries(engine_runtime
         engine_assets
         engine_render
         engine_util
+        engine_postprocessing
         ThirdParty::all
 )
 
@@ -51,7 +79,7 @@ if(WIN32)
         Boost::log_setup
         Boost::thread
         Boost::atomic
-        TracyProfiler
+        Tracy::TracyClient
     )
 
     foreach(_LIB ${SHARED_LIBS_TO_COPY})
@@ -107,7 +135,7 @@ else()
         Boost::chrono
         Boost::container
         Boost::date_time
-        TracyProfiler
+        Tracy::TracyClient
     )
 
     foreach(_LIB ${SHARED_LIBS_TO_COPY})

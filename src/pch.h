@@ -1,5 +1,5 @@
 #pragma once
-
+// everything included here will be seen by all source files in the project, and will be precompiled into a single header for faster compilation times
 // Standard Library
 #include <vector>
 #include <string>
@@ -14,7 +14,9 @@
 #include <fstream>
 #include <filesystem>
 #include <cstdint>
-#include <assert.h>
+#include <cassert>
+#include <algorithm>
+#include <chrono>
 
 // Third Party
 #include <SDL3/SDL.h>
@@ -30,8 +32,12 @@
 #define VULKAN_HPP_NO_STD_MODULE
 #include <vulkan/vulkan_raii.hpp>
 #include <vulkan/vk_platform.h>
+#include <rapidjson/document.h>
+#include <rapidjson/prettywriter.h>
+#include <rapidjson/rapidjson.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
-
+#include "vma/vk_mem_alloc.h"
 #include "../ThirdParty/termcolor.hpp"
-#include "../ThirdParty/tiny_obj_loader.h"
-#include "../ThirdParty/stb_image.h"
+#include "tiny_gltf.h"

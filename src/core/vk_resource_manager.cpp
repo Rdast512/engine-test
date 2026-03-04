@@ -1,6 +1,7 @@
 #include "vk_resource_manager.hpp"
 #include "vk_device.hpp"
 #include "../Constants.h"
+#include "../util/vk_tracy.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include "../util/debug.hpp"
 #include "../static_headers/logger.hpp"
@@ -78,6 +79,7 @@ ResourceManager::~ResourceManager()
 
 void ResourceManager::init()
 {
+    ZoneScopedN("ResourceManager::init");
     log_info("ResourceManager::init() started");
     createCommandPool();
     createCommandBuffers();
@@ -88,6 +90,7 @@ void ResourceManager::init()
 
 void ResourceManager::createSyncObjects()
 {
+    ZoneScopedN("ResourceManager::createSyncObjects");
     log_info("ResourceManager::createSyncObjects() started");
     presentCompleteSemaphore.clear();
     renderFinishedSemaphore.clear();
@@ -106,6 +109,7 @@ void ResourceManager::createSyncObjects()
 
 void ResourceManager::updateUniformBuffer(uint32_t currentImage)
 {
+    ZoneScoped;
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -123,6 +127,7 @@ void ResourceManager::updateUniformBuffer(uint32_t currentImage)
 
 void ResourceManager::createCommandPool()
 {
+    ZoneScopedN("ResourceManager::createCommandPool");
     log_info("ResourceManager::createCommandPool() started");
     vk::CommandPoolCreateInfo poolInfo{
         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer, .queueFamilyIndex = graphicsIndex
@@ -141,6 +146,7 @@ void ResourceManager::createCommandPool()
 
 void ResourceManager::createCommandBuffers()
 {
+    ZoneScopedN("ResourceManager::createCommandBuffers");
     log_info("ResourceManager::createCommandBuffers() started");
     commandBuffers.clear();
     vk::CommandBufferAllocateInfo allocInfo{
@@ -181,6 +187,7 @@ void ResourceManager::createCommandBuffers()
 void ResourceManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
                                    vk::raii::Buffer& buffer, VmaAllocation& bufferMemory)
 {
+    ZoneScopedN("ResourceManager::createBuffer");
     log_info("ResourceManager::createBuffer() started");
     vk::BufferCreateInfo bufferInfo{
         .size = size, .usage = usage, .sharingMode = vk::SharingMode::eConcurrent,
@@ -202,6 +209,7 @@ void ResourceManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usa
 
 void ResourceManager::copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& dstBuffer, vk::DeviceSize size)
 {
+    ZoneScopedN("ResourceManager::copyBuffer");
     log_info("ResourceManager::copyBuffer() started");
     transferCommandBuffer[0].begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
@@ -222,6 +230,7 @@ void ResourceManager::copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& 
 
 void ResourceManager::endCommandBuffer(vk::raii::CommandBuffer& commandBuffer, const vk::raii::Queue& queue)
 {
+    ZoneScopedN("ResourceManager::endCommandBuffer");
     log_info("ResourceManager::endCommandBuffer() started");
     commandBuffer.end();
     vk::SubmitInfo submitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandBuffer};
@@ -231,6 +240,7 @@ void ResourceManager::endCommandBuffer(vk::raii::CommandBuffer& commandBuffer, c
 
 void ResourceManager::createVertexBuffer()
 {
+    ZoneScopedN("ResourceManager::createVertexBuffer");
     log_info("ResourceManager::createVertexBuffer() started");
     log_info(std::format("Creating vertex buffer with {} vertices", vertices.size()));
 
@@ -271,6 +281,7 @@ void ResourceManager::createVertexBuffer()
 
 void ResourceManager::createIndexBuffer()
 {
+    ZoneScopedN("ResourceManager::createIndexBuffer");
     log_info("ResourceManager::createIndexBuffer() started");
     log_info(std::format("Creating index buffer with {} indices", indices.size()));
     vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
@@ -310,6 +321,7 @@ void ResourceManager::createIndexBuffer()
 
 void ResourceManager::createUniformBuffers()
 {
+    ZoneScopedN("ResourceManager::createUniformBuffers");
     log_info("ResourceManager::createUniformBuffers() started");
     uniformBuffers.clear();
     uniformBuffersMemory.clear();
@@ -385,6 +397,7 @@ vk::raii::ImageView ResourceManager::createImageView(vk::raii::Image& image, vk:
 
 void ResourceManager::createColorResources()
 {
+    ZoneScopedN("ResourceManager::createColorResources");
     log_info("ResourceManager::createColorResources() started");
     if (swapChainImageFormat == vk::Format::eUndefined)
     {
@@ -419,6 +432,7 @@ void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipL
                                   vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::raii::Image& image,
                                   VmaAllocation& imageMemory)
 {
+    ZoneScopedN("ResourceManager::createImage");
     log_info("ResourceManager::createImage() started");
     // Determine sharing mode based on usage
     vk::SharingMode sharingMode = vk::SharingMode::eExclusive;
@@ -471,6 +485,7 @@ void ResourceManager::updateSwapChainExtent(const vk::Extent2D newExtent)
 
 void ResourceManager::createDepthResources()
 {
+    ZoneScopedN("ResourceManager::createDepthResources");
     log_info("ResourceManager::createDepthResources() started");
     vk::Format depthFormat = findDepthFormat();
     log_info(std::format("Depth format selected: {}", vk::to_string(depthFormat)));
@@ -505,6 +520,7 @@ bool ResourceManager::hasStencilComponent(vk::Format format)
 void ResourceManager::copyBufferToImage(const vk::raii::Buffer& buffer, vk::raii::Image& image, uint32_t width,
                                         uint32_t height)
 {
+    ZoneScopedN("ResourceManager::copyBufferToImage");
     log_info("ResourceManager::copyBufferToImage() started");
 
     vk::BufferImageCopy region{
@@ -519,6 +535,7 @@ void ResourceManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFo
                                       int32_t texHeight,
                                       uint32_t mipLevels)
 {
+    ZoneScopedN("ResourceManager::generateMipmaps");
     log_info("ResourceManager::generateMipmaps() started");
     // Check for blit support
     vk::FormatProperties formatProperties = physicalDevice.getFormatProperties2(imageFormat).formatProperties;
@@ -608,6 +625,8 @@ void ResourceManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFo
     endCommandBuffer(graphicsCmd, graphicsQueue);
 }
 
+
+//
 void ResourceManager::transitionImageLayout(
     vk::raii::CommandBuffer* commandBuffer,
     vk::Image image,
@@ -623,6 +642,7 @@ void ResourceManager::transitionImageLayout(
     std::optional<vk::AccessFlags2> dstAccessMaskOverride
 )
 {
+    ZoneScoped;
     vk::ImageMemoryBarrier2 barrier{
         .srcQueueFamilyIndex = srcQueueFamily,
         .dstQueueFamilyIndex = dstQueueFamily,

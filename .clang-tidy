@@ -22,7 +22,7 @@ Checks: >
 HeaderFilterRegex: '.*/src/.*'
 
 # Skip generated build outputs and external dependencies
-ExcludePaths: '(^|.*/)build/.*|(^|.*/)third_party/.*|(^|.*/)tests/.*'
+ExcludePaths: '(^|.*/)build/.*|(^|.*/)Third_party/.*|(^|.*/)tests/.*'
 
 # Make automatic fixes use your .clang-format if present
 FormatStyle: file

@@ -2,17 +2,9 @@
 #include "../Constants.h"
 #include "../static_headers/logger.hpp"
 #include "../util/vk_tracy.hpp"
-
-
-// Helper to rebuild swapchain-dependent resources (color/depth) after swapchain changes.
-static void rebuildSwapchainResources(ResourceManager& resourceManager, SwapChain& swapChain)
-{
-    resourceManager.updateSwapChainExtent(swapChain.swapChainExtent);
-    resourceManager.updateSwapChainImageFormat(swapChain.swapChainImageFormat);
-    resourceManager.setSwapChainImageCount(static_cast<uint32_t>(swapChain.swapChainImages.size()));
-    resourceManager.createColorResources();
-    resourceManager.createDepthResources();
-}
+#include "imgui.h"
+#include "imgui_impl_sdl3.h"
+#include "imgui_impl_vulkan.h"
 
 
 Engine::~Engine() { cleanup(); }
@@ -55,7 +47,18 @@ void Engine::initialize()
     resourceManager =
         std::make_unique<ResourceManager>(*device, *allocator, assetsLoader->getVertices(), assetsLoader->getIndices());
     resourceManager->init();
-    rebuildSwapchainResources(*resourceManager, *swapChain);
+
+    tracyContext = std::make_unique<VkTracyContext>();
+    {
+        const vk::CommandBufferAllocateInfo tracySetupCommandBufferAllocateInfo{
+            .commandPool = *resourceManager->commandPool,
+            .level = vk::CommandBufferLevel::ePrimary,
+            .commandBufferCount = 1,
+        };
+        vk::raii::CommandBuffers tracySetupCommandBuffers(device->getDevice(), tracySetupCommandBufferAllocateInfo);
+        tracyContext->init(device->getInstance(), device->getPhysicalDevice(), device->getDevice(),
+                           device->getGraphicsQueue(), tracySetupCommandBuffers.front(), "Graphics Queue");
+    }
 
     textureManager = std::make_unique<TextureManager>(*device, *resourceManager, *allocator);
     textureManager->init();
@@ -70,6 +73,14 @@ void Engine::initialize()
     pipeline = std::make_unique<Pipeline>(resourceManager.get(), device->getDevice(), swapChain->swapChainExtent,
                                           swapChain->swapChainImageFormat, descriptorManager->getDescriptorSetLayout());
     pipeline->init();
+
+    renderer = std::make_unique<Renderer>(*device,
+                                          *swapChain,
+                                          *resourceManager,
+                                          *descriptorManager,
+                                          *pipeline,
+                                          tracyContext.get());
+    renderer->rebuildSwapchainResources();
 
     // Setup Platform/Renderer backends
     ImGui_ImplSDL3_InitForVulkan(window);
@@ -164,44 +175,50 @@ void Engine::run()
             SDL_SetWindowTitle(window, title.c_str());
         }
 
-        SDL_Event e{};
-        while (SDL_PollEvent(&e) != 0)
         {
-            ImGui_ImplSDL3_ProcessEvent(&e);
+            ZoneScopedN("EventPoll");
+            SDL_Event e{};
+            while (SDL_PollEvent(&e) != 0)
+            {
+                ImGui_ImplSDL3_ProcessEvent(&e);
 
-            if (e.type == SDL_EVENT_QUIT)
-            {
-                quit = true;
-            }
-            else if (e.type == SDL_EVENT_WINDOW_RESIZED)
-            {
-                if (swapChain && resourceManager)
+                if (e.type == SDL_EVENT_QUIT)
                 {
-                    swapChain->recreateSwapChain();
-                    rebuildSwapchainResources(*resourceManager, *swapChain);
+                    quit = true;
                 }
-            }
-            else if (e.type == SDL_EVENT_WINDOW_MINIMIZED)
-            {
-                minimized = true;
-            }
-            else if (e.type == SDL_EVENT_WINDOW_RESTORED)
-            {
-                minimized = false;
+                else if (e.type == SDL_EVENT_WINDOW_RESIZED)
+                {
+                    if (swapChain && renderer)
+                    {
+                        swapChain->recreateSwapChain();
+                        renderer->rebuildSwapchainResources();
+                    }
+                }
+                else if (e.type == SDL_EVENT_WINDOW_MINIMIZED)
+                {
+                    minimized = true;
+                }
+                else if (e.type == SDL_EVENT_WINDOW_RESTORED)
+                {
+                    minimized = false;
+                }
             }
         }
 
-
-        // Start ImGui frame
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        ImGui::NewFrame();
-        ImGui::ShowDemoWindow();
-        ImGui::Render();
+        {
+            ZoneScopedN("ImGuiNewFrame");
+            // Start ImGui frame
+            ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplSDL3_NewFrame();
+            ImGui::NewFrame();
+            ImGui::ShowDemoWindow();
+            ImGui::Render();
+        }
 
         if (!minimized && !quit)
         {
-            drawFrame();
+            ZoneScopedN("DrawFrame");
+            renderer->drawFrame();
         }
         else
         {
@@ -214,149 +231,18 @@ void Engine::run()
         {
             SDL_Delay(static_cast<Uint32>(targetMs - frameDuration));
         }
+        FrameMark;
     }
     deviceRef.waitIdle();
 }
 
-void Engine::drawFrame()
+void Engine::render()
 {
-    auto& deviceRef = device->getDevice();
-    auto& graphicsQueue = device->getGraphicsQueue();
-    auto& presentQueue = device->getPresentQueue();
-    auto& swapChainKHR = swapChain->swapChain;
-    auto& fence = *resourceManager->inFlightFences[currentFrame];
-    auto& presentSemaphore = *resourceManager->presentCompleteSemaphore[currentFrame];
-    auto& commandBuffer = resourceManager->commandBuffers[currentFrame];
-
-    while (vk::Result::eTimeout == deviceRef.waitForFences(fence, vk::True, UINT64_MAX))
-        ;
-
-    auto [result, imageIndex] = swapChainKHR.acquireNextImage(UINT64_MAX, presentSemaphore, nullptr);
-
-    if (result == vk::Result::eErrorOutOfDateKHR)
+    if (renderer)
     {
-        swapChain->recreateSwapChain();
-        rebuildSwapchainResources(*resourceManager, *swapChain);
-        return;
+        renderer->drawFrame();
     }
-
-    if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
-    {
-        throw std::runtime_error("failed to acquire swap chain image!");
-    }
-
-    deviceRef.resetFences(fence);
-    commandBuffer.reset();
-    recordCommandBuffer(imageIndex);
-
-    vk::SemaphoreSubmitInfo waitSemaphoreInfo = {.semaphore = presentSemaphore,
-                                                 .stageMask = vk::PipelineStageFlagBits2::eTopOfPipe};
-
-    vk::CommandBufferSubmitInfo commandBufferInfo = {.commandBuffer = *commandBuffer};
-
-    auto& renderSemaphore = *resourceManager->renderFinishedSemaphore[imageIndex];
-    vk::SemaphoreSubmitInfo signalSemaphoreInfo = {.semaphore = renderSemaphore,
-                                                   .stageMask = vk::PipelineStageFlagBits2::eBottomOfPipe};
-
-    resourceManager->updateUniformBuffer(currentFrame);
-
-    const vk::SubmitInfo2 submitInfo{.waitSemaphoreInfoCount = 1,
-                                     .pWaitSemaphoreInfos = &waitSemaphoreInfo,
-                                     .commandBufferInfoCount = 1,
-                                     .pCommandBufferInfos = &commandBufferInfo,
-                                     .signalSemaphoreInfoCount = 1,
-                                     .pSignalSemaphoreInfos = &signalSemaphoreInfo};
-
-    graphicsQueue.submit2(submitInfo, fence);
-
-    const vk::PresentInfoKHR presentInfoKHR{.waitSemaphoreCount = 1,
-                                            .pWaitSemaphores = &renderSemaphore,
-                                            .swapchainCount = 1,
-                                            .pSwapchains = &*swapChainKHR,
-                                            .pImageIndices = &imageIndex};
-    result = presentQueue.presentKHR(presentInfoKHR);
-
-    if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR)
-    {
-        swapChain->recreateSwapChain();
-        rebuildSwapchainResources(*resourceManager, *swapChain);
-    }
-    else if (result != vk::Result::eSuccess)
-    {
-        throw std::runtime_error("failed to present swap chain image!");
-    }
-
-    semaphoreIndex = (semaphoreIndex + 1) % resourceManager->presentCompleteSemaphore.size();
-    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
-
-void Engine::recordCommandBuffer(uint32_t imageIndex)
-{
-    ZoneScoped;
-    auto& commandBuffers = resourceManager->commandBuffers;
-
-    auto indexCount = (resourceManager->indices.size());
-    commandBuffers[currentFrame].begin({});
-
-    const vk::ImageSubresourceRange colorRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1};
-    resourceManager->transitionImageLayout(
-        &commandBuffers[currentFrame], swapChain->swapChainImages[imageIndex], 1, vk::ImageLayout::eUndefined,
-        vk::ImageLayout::eColorAttachmentOptimal, colorRange, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-        vk::PipelineStageFlagBits2::eTopOfPipe, vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-        vk::AccessFlagBits2::eNone, vk::AccessFlagBits2::eColorAttachmentWrite);
-
-    vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
-    vk::ClearValue clearDepth = vk::ClearDepthStencilValue(1.0f, 0);
-    vk::RenderingAttachmentInfo colorAttachmentInfo = {.imageView = resourceManager->colorImageView,
-                                                       .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                                                       .resolveMode = vk::ResolveModeFlagBits::eAverage,
-                                                       .resolveImageView = swapChain->swapChainImageViews[imageIndex],
-                                                       .resolveImageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                                                       .loadOp = vk::AttachmentLoadOp::eClear,
-                                                       .storeOp = vk::AttachmentStoreOp::eStore,
-                                                       .clearValue = clearColor};
-    vk::RenderingAttachmentInfo depthAttachmentInfo = {.imageView = resourceManager->depthImageView,
-                                                       .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-                                                       .loadOp = vk::AttachmentLoadOp::eClear,
-                                                       .storeOp = vk::AttachmentStoreOp::eDontCare,
-                                                       .clearValue = clearDepth};
-
-    vk::RenderingInfo renderingInfo = {.renderArea = {.offset = {0, 0}, .extent = swapChain->swapChainExtent},
-                                       .layerCount = 1,
-                                       .colorAttachmentCount = 1,
-                                       .pColorAttachments = &colorAttachmentInfo,
-                                       .pDepthAttachment = &depthAttachmentInfo};
-
-    commandBuffers[currentFrame].beginRendering(renderingInfo);
-    commandBuffers[currentFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline->graphicsPipeline);
-    commandBuffers[currentFrame].bindVertexBuffers(0, *resourceManager->vertexBuffer, {0});
-    commandBuffers[currentFrame].bindIndexBuffer(*resourceManager->indexBuffer, 0, vk::IndexType::eUint32);
-    commandBuffers[currentFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline->pipelineLayout, 0,
-                                                    *descriptorManager->descriptorSets[currentFrame], nullptr);
-    commandBuffers[currentFrame].setViewport(
-        0,
-        vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChain->swapChainExtent.width),
-                     static_cast<float>(swapChain->swapChainExtent.height), 0.0f, 1.0f));
-    commandBuffers[currentFrame].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain->swapChainExtent));
-    commandBuffers[currentFrame].drawIndexed(static_cast<uint32_t>(indexCount), 1, 0, 0, 0);
-
-    // Render ImGui
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *commandBuffers[currentFrame]);
-
-    commandBuffers[currentFrame].endRendering();
-    // After rendering, transition the swapchain image to PRESENT_SRC
-    resourceManager->transitionImageLayout(&commandBuffers[currentFrame], swapChain->swapChainImages[imageIndex], 1,
-                                           vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR,
-                                           colorRange, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-                                           vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
-                                           vk::PipelineStageFlagBits2::eBottomOfPipe, // dstStage
-                                           vk::AccessFlagBits2::eColorAttachmentWrite, // srcAccessMask
-                                           {} // dstAccessMask
-    );
-    commandBuffers[currentFrame].end();
-}
-
-void Engine::render() { drawFrame(); }
 
 void Engine::shutdown() { cleanup(); }
 
@@ -366,6 +252,12 @@ void Engine::cleanup()
         return;
     auto& deviceRef = device->getDevice();
     deviceRef.waitIdle();
+
+    if (tracyContext)
+    {
+        tracyContext->shutdown();
+        tracyContext.reset();
+    }
 
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplSDL3_Shutdown();
@@ -379,6 +271,7 @@ void Engine::cleanup()
         resourceManager->transferCommandBuffer.clear();
     }
 
+    renderer.reset();
     pipeline.reset();
     descriptorManager.reset();
     textureManager.reset();

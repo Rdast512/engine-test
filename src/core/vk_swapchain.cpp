@@ -1,9 +1,10 @@
 #include "vk_swapchain.hpp"
 
-#include <SDL3/SDL.h>
 #include "../util/debug.hpp"
 #include "../static_headers/logger.hpp"
+#include "../util/vk_tracy.hpp"
 
+// TODO use swapchain maintenance1 special fence so i can remove other present fences
 
 SwapChain::SwapChain(SDL_Window *window, const Device &device)
     : window(window),
@@ -14,6 +15,7 @@ SwapChain::SwapChain(SDL_Window *window, const Device &device)
       queueFamilyIndices(device.getQueueFamilyIndices()) {}
 
 void SwapChain::init() {
+    ZoneScopedN("SwapChain::init");
     log_info("Initialized SwapChain");
     createSwapChain();
     createImageViews();
@@ -33,7 +35,7 @@ vk::SurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(
 vk::PresentModeKHR SwapChain::chooseSwapPresentMode(
     const std::vector<vk::PresentModeKHR> &availablePresentModes) {
     for (const auto &availablePresentMode : availablePresentModes) {
-        if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
+        if (availablePresentMode == vk::PresentModeKHR::eFifoLatestReady) {
             return availablePresentMode;
         }
     }
@@ -58,6 +60,7 @@ vk::Extent2D SwapChain::chooseSwapExtent(
 
 
 void SwapChain::createSwapChain() {
+    ZoneScopedN("SwapChain::createSwapChain");
 
     auto surfaceCapabilities =
         physicalDevice.getSurfaceCapabilitiesKHR(surface);
@@ -71,10 +74,53 @@ void SwapChain::createSwapChain() {
                      minImageCount > surfaceCapabilities.maxImageCount)
                         ? surfaceCapabilities.maxImageCount
                         : minImageCount;
+    // Choose the present mode first; the compatible-modes query below depends on it.
+    const vk::PresentModeKHR chosenPresentMode =
+        chooseSwapPresentMode(physicalDevice.getSurfacePresentModesKHR(*surface));
+
+    // VK_KHR_swapchain_maintenance1 validation requires that the present modes listed in
+    // VkSwapchainPresentModesCreateInfoKHR::pPresentModes are a subset of those returned by
+    // VkSurfacePresentModeCompatibilityKHR for the *chosen* present mode – passing the full
+    // set from vkGetPhysicalDeviceSurfacePresentModesKHR is incorrect and triggers a
+    // validation error.  We query the compatible modes via the two-step
+    // vkGetPhysicalDeviceSurfaceCapabilities2KHR pattern, injecting the chosen mode through
+    // a VkSurfacePresentModeKHR pNext chain on VkPhysicalDeviceSurfaceInfo2KHR.
+    vk::SurfacePresentModeKHR surfacePresentModeKHR{.presentMode = chosenPresentMode};
+    vk::PhysicalDeviceSurfaceInfo2KHR surfaceInfo2{.surface = *surface};
+    surfaceInfo2.pNext = &surfacePresentModeKHR;
+
+    // Step 1: get the compatible mode count via the high-level template API.
+    // The StructureChain correctly wires SurfaceCapabilities2KHR→SurfacePresentModeCompatibilityKHR;
+    // the driver fills in presentModeCount while pPresentModes remains null.
+    auto caps2Chain = physicalDevice.getSurfaceCapabilities2KHR<
+        vk::SurfaceCapabilities2KHR, vk::SurfacePresentModeCompatibilityKHR>(surfaceInfo2);
+
+    // Step 2: allocate the array, inject the pointer into the already-linked chain, and re-query.
+    // getSurfaceCapabilities2KHR always allocates a fresh StructureChain internally and has no
+    // overload that accepts a pre-allocated output array, so the raw dispatcher call is required
+    // for this fill step only.
+    std::vector<vk::PresentModeKHR> compatibleModes(
+        caps2Chain.get<vk::SurfacePresentModeCompatibilityKHR>().presentModeCount);
+    caps2Chain.get<vk::SurfacePresentModeCompatibilityKHR>().pPresentModes = compatibleModes.data();
+    physicalDevice.getDispatcher()->vkGetPhysicalDeviceSurfaceCapabilities2KHR(
+        *physicalDevice,
+        reinterpret_cast<const VkPhysicalDeviceSurfaceInfo2KHR*>(&surfaceInfo2),
+        reinterpret_cast<VkSurfaceCapabilities2KHR*>(&caps2Chain.get<vk::SurfaceCapabilities2KHR>()));
+
+    log_info(std::format("Chosen present mode: {} | compatible modes:", vk::to_string(chosenPresentMode)));
+    for (const auto& mode : compatibleModes) {
+        log_info(std::format("  {}", vk::to_string(mode)));
+    }
+
+    vk::SwapchainPresentModesCreateInfoKHR modesInfo{
+        .presentModeCount = static_cast<uint32_t>(compatibleModes.size()),
+        .pPresentModes = compatibleModes.data()
+    };
 
     vk::SwapchainCreateInfoKHR swapChainCreateInfo{
+        .pNext = &modesInfo,
         .flags = vk::SwapchainCreateFlagsKHR(),
-        .surface = surface,
+        .surface = *surface,
         .minImageCount = minImageCount,
         .imageFormat = swapChainSurfaceFormat.format,
         .imageColorSpace = swapChainSurfaceFormat.colorSpace,
@@ -89,8 +135,7 @@ void SwapChain::createSwapChain() {
         .pQueueFamilyIndices = queueFamilyIndices.data(),
         .preTransform = surfaceCapabilities.currentTransform,
         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
-        .presentMode = chooseSwapPresentMode(
-            physicalDevice.getSurfacePresentModesKHR(surface)),
+        .presentMode = chosenPresentMode,
         .clipped = true,
         .oldSwapchain = nullptr};
 
@@ -103,6 +148,7 @@ void SwapChain::createSwapChain() {
 
 
  void SwapChain::createImageViews() {
+     ZoneScopedN("SwapChain::createImageViews");
      vk::ImageViewCreateInfo imageViewCreateInfo{
          .viewType = vk::ImageViewType::e2D,
          .format = swapChainImageFormat,
@@ -115,11 +161,13 @@ void SwapChain::createSwapChain() {
  }
 
 void SwapChain::cleanupSwapChain() {
+    ZoneScopedN("SwapChain::cleanupSwapChain");
     swapChainImageViews.clear();
     swapChain = nullptr;
 }
 
 void SwapChain::recreateSwapChain() {
+    ZoneScopedN("SwapChain::recreateSwapChain");
     vkdevice.waitIdle();
 
     cleanupSwapChain();

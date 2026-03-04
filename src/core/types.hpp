@@ -45,3 +45,57 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
 };
+
+
+struct EngineSettings
+{
+    uint8_t x_resolution;
+    uint8_t y_resolution;
+    uint8_t mipmapLevel;
+    bool hdr;
+    bool fullscreen;
+    bool vsync;
+    bool debug;
+    bool windowed;
+};
+
+struct HardwareCapabilities
+{
+    // Core/core-promoted properties
+    vk::PhysicalDeviceProperties2 properties2;
+    vk::PhysicalDeviceVulkan11Properties vulkan11;
+    vk::PhysicalDeviceVulkan12Properties vulkan12;
+    vk::PhysicalDeviceVulkan13Properties vulkan13;
+    vk::PhysicalDeviceVulkan14Properties vulkan14;
+
+    // Extension / advanced properties (as requested)
+    vk::PhysicalDeviceBlendOperationAdvancedPropertiesEXT blendOperationAdvanced;
+    vk::PhysicalDeviceDescriptorHeapPropertiesEXT descriptorHeap;
+    vk::PhysicalDeviceDescriptorIndexingPropertiesEXT descriptorIndexing;
+    vk::PhysicalDeviceMeshShaderPropertiesEXT meshShader;
+    vk::PhysicalDeviceDeviceGeneratedCommandsPropertiesEXT deviceGeneratedCommands;
+    vk::PhysicalDeviceMultiDrawPropertiesEXT multiDraw;
+    vk::PhysicalDeviceHostImageCopyPropertiesEXT hostImageCopy;
+    vk::PhysicalDeviceTexelBufferAlignmentPropertiesEXT texelBufferAlignment;
+
+    // KHR / other properties
+    vk::PhysicalDeviceFragmentShadingRatePropertiesKHR fragmentShadingRate;
+    vk::PhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructure;
+    vk::PhysicalDeviceDepthStencilResolveProperties depthStencilResolve;
+    vk::PhysicalDeviceDriverProperties driverProperties;
+    vk::PhysicalDeviceMaintenance3Properties maintenance3;
+    vk::PhysicalDeviceMaintenance4Properties maintenance4;
+    vk::PhysicalDeviceMaintenance5Properties maintenance5;
+    vk::PhysicalDeviceMaintenance6Properties maintenance6;
+    vk::PhysicalDeviceMaintenance7PropertiesKHR maintenance7;
+    vk::PhysicalDeviceMaintenance9PropertiesKHR maintenance9;
+    vk::PhysicalDeviceMaintenance10PropertiesKHR maintenance10;
+    vk::PhysicalDevicePipelineBinaryPropertiesKHR pipelineBinary;
+    vk::PhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipeline;
+};
+
+struct EngineContext
+{
+    EngineSettings settings;
+    HardwareCapabilities hardwareCapabilities;
+};

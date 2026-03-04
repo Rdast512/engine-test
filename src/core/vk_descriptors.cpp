@@ -2,6 +2,7 @@
 #include "../Constants.h"
 #include "../core/types.hpp"
 #include "../util/debug.hpp"
+#include "../util/vk_tracy.hpp"
 
 
 DescriptorManager::DescriptorManager(const vk::raii::Device& device,
@@ -17,6 +18,7 @@ DescriptorManager::DescriptorManager(const vk::raii::Device& device,
 // New: perform descriptor-related initialization after construction
 void DescriptorManager::init()
 {
+    ZoneScopedN("DescriptorManager::init");
     createDescriptorSetLayout();
     createDescriptorPool();
     createDescriptorSets();
@@ -24,6 +26,7 @@ void DescriptorManager::init()
 
 void DescriptorManager::createDescriptorSetLayout()
 {
+    ZoneScopedN("DescriptorManager::createDescriptorSetLayout");
     std::array bindings = {vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1,
                                                           vk::ShaderStageFlagBits::eVertex, nullptr),
                            vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1,
@@ -37,6 +40,7 @@ void DescriptorManager::createDescriptorSetLayout()
 
 void DescriptorManager::createDescriptorPool()
 {
+    ZoneScopedN("DescriptorManager::createDescriptorPool");
     std::array poolSize{vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, MAX_FRAMES_IN_FLIGHT),
                         vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, MAX_FRAMES_IN_FLIGHT)};
     vk::DescriptorPoolCreateInfo poolInfo{.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
@@ -50,7 +54,8 @@ void DescriptorManager::createDescriptorPool()
 
 void DescriptorManager::createDescriptorSets()
 {
-    // new extension usage
+    ZoneScopedN("DescriptorManager::createDescriptorSets");
+    // // new extension usage
     // VkBufferDeviceAddressInfo bufferAddressInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = *uniformBuffers[0]};
     // VkDeviceAddress uboBaseAddress = vkGetBufferDeviceAddress(*device, &bufferAddressInfo);
     // vk::DeviceAddressRangeEXT uboAddressRange = {.address = uboBaseAddress, .size = sizeof(UniformBufferObject)};
@@ -85,6 +90,7 @@ void DescriptorManager::createDescriptorSets()
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
+        ZoneScopedN("DescriptorManager::writeDescriptorSet");
         const std::string setName = "DescriptorSet_" + std::to_string(i);
         setDebugName(device, descriptorSets[i], setName);
         vk::DescriptorBufferInfo bufferInfo{

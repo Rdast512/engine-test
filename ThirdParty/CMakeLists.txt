@@ -80,7 +80,7 @@ target_link_libraries(VulkanMemoryAllocator INTERFACE Vulkan::Vulkan)
 # ------------------------------------------------------------------------------
 # 1. Slang (Manual Download & Extract)
 # ------------------------------------------------------------------------------
-set(SLANG_TAG "v2025.24")
+set(SLANG_TAG "v2026.3.1")
 string(REGEX REPLACE "^v" "" SLANG_VERSION "${SLANG_TAG}")
 set(SLANG_RELEASE_URL "https://github.com/shader-slang/slang/releases/download")
 
@@ -113,20 +113,12 @@ if (NOT EXISTS "${SLANG_EXTRACT_DIR}/README.md")
     file(REMOVE_RECURSE "${SLANG_DOWNLOAD_DIR}")
 endif ()
 
-# ------------------------------------------------------------------------------
-# 2. GLM (Header Only)
-# ------------------------------------------------------------------------------
-FetchContent_Declare(
-        glm
-        GIT_REPOSITORY https://github.com/g-truc/glm.git
-        GIT_TAG 1.0.2
-)
-message(STATUS "Downloading GLM...")
-FetchContent_MakeAvailable(glm)
+# ==============================================================================
+# FetchContent — Options set BEFORE declare/populate so they are visible
+# when CMake configures each sub-project during MakeAvailable.
+# ==============================================================================
 
-# ------------------------------------------------------------------------------
-# 3. SDL3 (Build from source)
-# ------------------------------------------------------------------------------
+# --- SDL3 ---
 set(SDL_SHARED ON CACHE BOOL "" FORCE)
 set(SDL_STATIC OFF CACHE BOOL "" FORCE)
 set(SDL_TESTS OFF CACHE BOOL "" FORCE)
@@ -138,91 +130,103 @@ if (UNIX AND NOT APPLE)
     set(SDL_X11 ON CACHE BOOL "" FORCE)
 endif ()
 
-FetchContent_Declare(
-        SDL3
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG release-3.4.0
-)
-message(STATUS "Downloading SDL3...")
-FetchContent_MakeAvailable(SDL3)
-
-
-# ------------------------------------------------------------------------------
-# 4. volk
-# ------------------------------------------------------------------------------
-#FetchContent_Declare(
-#    volk
-#        GIT_REPOSITORY https://github.com/zeux/volk.git
-#)
-#message(STATUS "Downloading volk...")
-#FetchContent_MakeAvailable(volk)
-
-# ------------------------------------------------------------------------------
-FetchContent_Declare(
-        fmt
-        GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-        GIT_TAG 12.1.0
-)
+# --- fmt ---
 set(FMT_SHARED ON CACHE BOOL "" FORCE)
 set(FMT_DOC OFF CACHE BOOL "" FORCE)
 set(FMT_TEST OFF CACHE BOOL "" FORCE)
-message(STATUS "Downloading fmt...")
-FetchContent_MakeAvailable(fmt)
 
-# ------------------------------------------------------------------------------
-# 5. spdlog
-# ------------------------------------------------------------------------------
-FetchContent_Declare(
-        spdlog
-        GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.16.0
-)
+# --- spdlog ---
 set(SPDLOG_BUILD_SHARED ON CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_PIC ON CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(SPDLOG_FMT_EXTERNAL OFF CACHE BOOL "" FORCE)
-message(STATUS "Downloading spdlog...")
-FetchContent_MakeAvailable(spdlog)
 
-
-# ------------------------------------------------------------------------------
-# 6. Boost (Compiled from Source)
-# ------------------------------------------------------------------------------
-message(STATUS "Fetching Boost (selected libraries only)...")
-
-# Only build these libraries (and their dependencies)
+# --- Boost ---
 set(BOOST_INCLUDE_LIBRARIES filesystem algorithm thread log asio CACHE STRING "" FORCE)
-
-# Disable external compression dependencies
 set(BOOST_IOSTREAMS_ENABLE_ZLIB OFF CACHE BOOL "" FORCE)
 set(BOOST_IOSTREAMS_ENABLE_BZIP2 OFF CACHE BOOL "" FORCE)
 set(BOOST_IOSTREAMS_ENABLE_LZMA OFF CACHE BOOL "" FORCE)
 set(BOOST_IOSTREAMS_ENABLE_ZSTD OFF CACHE BOOL "" FORCE)
 
+# ==============================================================================
+# FetchContent Declares — ALL declared before MakeAvailable so CMake can
+# resolve them as a batch and avoid redundant network/disk operations.
+# ==============================================================================
+
+# 2. GLM (Header Only)
+FetchContent_Declare(
+        glm
+        GIT_REPOSITORY https://github.com/g-truc/glm.git
+        GIT_TAG 1.0.2
+        GIT_SHALLOW TRUE
+)
+
+# 3. SDL3
+FetchContent_Declare(
+        SDL3
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG release-3.4.2
+        GIT_SHALLOW TRUE
+)
+
+# 4. fmt
+FetchContent_Declare(
+        fmt
+        GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+        GIT_TAG 12.1.0
+        GIT_SHALLOW TRUE
+)
+
+# 5. spdlog
+FetchContent_Declare(
+        spdlog
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.16.0
+        GIT_SHALLOW TRUE
+)
+
+# 6. Boost
 FetchContent_Declare(
         Boost
         URL "https://github.com/boostorg/boost/releases/download/boost-1.90.0/boost-1.90.0-cmake.tar.xz"
 )
 
-message(STATUS "Downloading Boost...")
-FetchContent_MakeAvailable(Boost)
-
-
-# ------------------------------------------------------------------------------
 # 7. ImGui
-# ------------------------------------------------------------------------------
 FetchContent_Declare(
         ImGui
         GIT_REPOSITORY https://github.com/ocornut/imgui.git
-        GIT_TAG v1.92.5
+        GIT_TAG v1.92.6
+        GIT_SHALLOW TRUE
 )
 
-message(STATUS "Downloading ImGui...")
-FetchContent_MakeAvailable(ImGui)
+# 8. Taskflow
+FetchContent_Declare(
+        taskflow
+        GIT_REPOSITORY https://github.com/taskflow/taskflow.git
+        GIT_TAG v4.0.0
+        GIT_SHALLOW TRUE
+)
+
+# 9. RapidJSON (header-only)
+set(RAPIDJSON_BUILD_DOC OFF CACHE BOOL "" FORCE)
+set(RAPIDJSON_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(RAPIDJSON_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+        rapidjson
+        GIT_REPOSITORY https://github.com/Tencent/rapidjson.git
+        GIT_TAG master
+        GIT_SHALLOW TRUE
+)
+
+# ==============================================================================
+# Populate all dependencies in a single batch call.
+# Tracy is declared and populated separately below (after GIT_SHALLOW/PROGRESS).
+# ==============================================================================
+message(STATUS "Fetching ThirdParty dependencies (glm, SDL3, fmt, spdlog, Boost, ImGui, taskflow, rapidjson)...")
+FetchContent_MakeAvailable(glm SDL3 fmt spdlog Boost ImGui taskflow rapidjson)
 
 # ------------------------------------------------------------------------------
-
 set(IMGUI_SOURCES
         ${imgui_SOURCE_DIR}/imgui.cpp
         ${imgui_SOURCE_DIR}/imgui_demo.cpp
@@ -238,8 +242,12 @@ set(IMGUI_SOURCES
 # Exporting ImGui symbols across DLL boundaries requires complex configuration.
 add_library(imgui STATIC ${IMGUI_SOURCES})
 
-# Build ImGui with PIC so it can link into shared libraries
-set_target_properties(imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# UNITY_BUILD merges all 7 imgui .cpp files into one TU — ~3-4x faster compile.
+# PIC required so imgui can link into shared engine libraries.
+set_target_properties(imgui PROPERTIES
+        UNITY_BUILD ON
+        POSITION_INDEPENDENT_CODE ON
+)
 
 target_include_directories(imgui PUBLIC
         ${imgui_SOURCE_DIR}
@@ -265,29 +273,16 @@ FetchContent_Declare(
 message(STATUS "Downloading Tracy...")
 FetchContent_MakeAvailable(tracy)
 
-# Create TracyProfiler DLL as requested for multi-DLL usage
-add_library(TracyProfiler SHARED "${tracy_SOURCE_DIR}/public/TracyClient.cpp")
-
-# Definitions:
-# TRACY_ENABLE: Enable profiling
-# TRACY_EXPORTS: Building the DLL (export symbols)
-target_compile_definitions(TracyProfiler PRIVATE TRACY_ENABLE TRACY_EXPORTS)
-
-# Interface Definitions (for consumers):
-# TRACY_ENABLE: Enable profiling macros
-# TRACY_IMPORTS: Use imported symbols from the DLL
-target_compile_definitions(TracyProfiler INTERFACE TRACY_ENABLE TRACY_IMPORTS)
-
-target_include_directories(TracyProfiler SYSTEM PUBLIC "${tracy_SOURCE_DIR}/public")
+# Use upstream Tracy target to keep a single Tracy client library.
+# Disable system tracing globally for this workspace's Tracy integration.
+if (TARGET TracyClient)
+        target_compile_definitions(TracyClient PUBLIC TRACY_NO_SYSTEM_TRACING)
+endif ()
 
 if (WIN32)
-    # Fix for MinGW/Clang missing CONTROLTRACE_ID
-    # _WIN32_WINNT=0x0A00 targets Windows 10
-    # TRACY_NO_SYSTEM_TRACING: MinGW/Clang headers are missing ETW definitions (SYSTEM_PROCESS_KW_THREAD, etc.)
-    # CONTROLTRACE_ID=TRACEHANDLE
-    target_compile_definitions(TracyProfiler PRIVATE WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
-    # Tracy needs system libs on Windows
-    target_link_libraries(TracyProfiler PRIVATE ws2_32 dbghelp user32)
+        # Keep Windows target compatibility and required system libs for Tracy.
+        target_compile_definitions(TracyClient PRIVATE WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
+        target_link_libraries(TracyClient PRIVATE ws2_32 dbghelp user32)
 endif ()
 
 
@@ -300,6 +295,7 @@ add_library(ThirdPartyHeaders INTERFACE)
 target_include_directories(ThirdPartyHeaders INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${SLANG_EXTRACT_DIR}/include>
+        $<BUILD_INTERFACE:${rapidjson_SOURCE_DIR}/include>
 )
 add_library(ThirdParty::headers ALIAS ThirdPartyHeaders)
 
@@ -314,12 +310,15 @@ target_link_libraries(ThirdPartyLibs INTERFACE
         SDL3::SDL3
         #  vk-bootstrap::vk-bootstrap
         spdlog::spdlog
-        TracyProfiler
+        Tracy::TracyClient
         fmt::fmt
         # Boost Targets
         imgui
         Boost::filesystem
         Boost::log
         Boost::system
+        Taskflow::Taskflow
 )
+
+
 add_library(ThirdParty::all ALIAS ThirdPartyLibs)

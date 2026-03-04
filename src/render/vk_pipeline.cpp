@@ -1,5 +1,6 @@
 #include "vk_pipeline.hpp"
 #include "../Constants.h"
+#include "../util/vk_tracy.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <array>
@@ -10,6 +11,7 @@
 namespace {
 // Local shader loader identical to original Utils helper.
 std::vector<char> readFile(const std::string &filename) {
+    ZoneScopedN("Pipeline::readFile");
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
     if (!file.is_open()) {
@@ -36,10 +38,12 @@ Pipeline::Pipeline(ResourceManager *resourceManager,
       resourceManager(resourceManager) {}
 
 void Pipeline::init() {
+    ZoneScopedN("Pipeline::init");
     createGraphicsPipeline();
 }
 
 void Pipeline::createGraphicsPipeline() {
+    ZoneScopedN("Pipeline::createGraphicsPipeline");
     const auto shaderDir = std::filesystem::path(ENGINE_SHADER_DIR);
     const auto shaderPath = (shaderDir / "shader.spv").string();
     vk::raii::ShaderModule shaderModule = resourceManager->createShaderModule(readFile(shaderPath));
