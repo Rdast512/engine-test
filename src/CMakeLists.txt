@@ -32,7 +32,7 @@ add_library(engine_build_config INTERFACE)
 target_include_directories(engine_build_config INTERFACE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(engine_build_config INTERFACE ${CMAKE_SOURCE_DIR}/src/static_headers)
 target_compile_definitions(engine_build_config INTERFACE
-    TRACY_ENABLE
+    $<$<NOT:$<CONFIG:Release>>:TRACY_ENABLE>
     ENGINE_SHADER_DIR="${ENGINE_SHADER_DIR_PATH}"
     ENGINE_MODELS_DIR="${ENGINE_MODELS_DIR_PATH}"
     ENGINE_TEXTURES_DIR="${ENGINE_TEXTURES_DIR_PATH}"
@@ -79,8 +79,11 @@ if(WIN32)
         Boost::log_setup
         Boost::thread
         Boost::atomic
-        Tracy::TracyClient
     )
+
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+        list(APPEND SHARED_LIBS_TO_COPY Tracy::TracyClient)
+    endif()
 
     foreach(_LIB ${SHARED_LIBS_TO_COPY})
         if(TARGET ${_LIB})
@@ -135,8 +138,11 @@ else()
         Boost::chrono
         Boost::container
         Boost::date_time
-        Tracy::TracyClient
     )
+
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+        list(APPEND SHARED_LIBS_TO_COPY Tracy::TracyClient)
+    endif()
 
     foreach(_LIB ${SHARED_LIBS_TO_COPY})
         if(TARGET ${_LIB})

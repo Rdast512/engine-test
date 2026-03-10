@@ -263,6 +263,28 @@ target_link_libraries(imgui PUBLIC
 # 8. Tracy
 # ------------------------------------------------------------------------------
 
+# Tracy build-time options — must be set before MakeAvailable so Tracy's
+# own CMakeLists.txt picks them up when it is first configured.
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        # Keep current Debug behavior unchanged.
+        set(TRACY_ON_DEMAND   ON CACHE BOOL "Tracy: connect/profile on demand" FORCE)
+        set(TRACY_CALLSTACK   ON CACHE BOOL "Tracy: capture call stacks"        FORCE)
+        set(TRACY_NO_EXIT     ON CACHE BOOL "Tracy: keep client alive on exit"  FORCE)
+        set(TRACY_FIBERS      ON CACHE BOOL "Tracy: fiber support"              FORCE)
+        set(TRACY_VERBOSE     ON CACHE BOOL "Tracy: verbose output"             FORCE)
+        set(TRACY_DEMANGLE    ON CACHE BOOL "Tracy: demangle symbol names"      FORCE)
+        set(TRACY_NO_SYSTEM_TRACING ON CACHE BOOL "Tracy: disable system tracing" FORCE)
+else ()
+        # Lower overhead profile for Release/RelWithDebInfo/MinSizeRel.
+        set(TRACY_ON_DEMAND   ON  CACHE BOOL "Tracy: connect/profile on demand" FORCE)
+        set(TRACY_CALLSTACK   OFF CACHE BOOL "Tracy: capture call stacks"       FORCE)
+        set(TRACY_NO_EXIT     OFF CACHE BOOL "Tracy: keep client alive on exit" FORCE)
+        set(TRACY_FIBERS      OFF CACHE BOOL "Tracy: fiber support"             FORCE)
+        set(TRACY_VERBOSE     OFF CACHE BOOL "Tracy: verbose output"            FORCE)
+        set(TRACY_DEMANGLE    OFF CACHE BOOL "Tracy: demangle symbol names"     FORCE)
+        set(TRACY_NO_SYSTEM_TRACING ON CACHE BOOL "Tracy: disable system tracing" FORCE)
+endif ()
+
 FetchContent_Declare(
         tracy
         GIT_REPOSITORY https://github.com/wolfpld/tracy.git
@@ -273,11 +295,6 @@ FetchContent_Declare(
 message(STATUS "Downloading Tracy...")
 FetchContent_MakeAvailable(tracy)
 
-# Use upstream Tracy target to keep a single Tracy client library.
-# Disable system tracing globally for this workspace's Tracy integration.
-if (TARGET TracyClient)
-        target_compile_definitions(TracyClient PUBLIC TRACY_NO_SYSTEM_TRACING)
-endif ()
 
 if (WIN32)
         # Keep Windows target compatibility and required system libs for Tracy.
@@ -310,7 +327,7 @@ target_link_libraries(ThirdPartyLibs INTERFACE
         SDL3::SDL3
         #  vk-bootstrap::vk-bootstrap
         spdlog::spdlog
-        Tracy::TracyClient
+        $<$<NOT:$<CONFIG:Release>>:Tracy::TracyClient>
         fmt::fmt
         # Boost Targets
         imgui
