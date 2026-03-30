@@ -10,8 +10,7 @@ public:
     Pipeline(ResourceManager *resourceManager,
              const vk::raii::Device &device,
              const vk::Extent2D &swapChainExtent,
-             const vk::Format &swapChainImageFormat,
-             const vk::raii::DescriptorSetLayout &descriptorSetLayout);
+             const vk::Format &swapChainImageFormat);
     ~Pipeline() = default;
 
     void init();
@@ -20,7 +19,6 @@ public:
     const vk::raii::Device &device;
     const vk::Extent2D &swapChainExtent;
     const vk::Format &swapChainImageFormat;
-    const vk::raii::DescriptorSetLayout &descriptorSetLayout;
     ResourceManager *resourceManager;
     vk::raii::PipelineLayout pipelineLayout = nullptr;
     vk::raii::Pipeline graphicsPipeline = nullptr;

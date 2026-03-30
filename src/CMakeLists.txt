@@ -72,6 +72,7 @@ if(WIN32)
     # Copy third-party DLLs needed at runtime next to the executable
     set(SHARED_LIBS_TO_COPY
         SDL3::SDL3
+        ktx
         fmt::fmt
         spdlog::spdlog
         Boost::filesystem
@@ -126,6 +127,7 @@ else()
     # On Linux copy third-party shared libs next to the executable
     set(SHARED_LIBS_TO_COPY
         SDL3::SDL3
+        ktx
         fmt::fmt
         spdlog::spdlog
         glm::glm

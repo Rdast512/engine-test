@@ -7,7 +7,6 @@
 #include "../static_headers/logger.hpp"
 #include <chrono>
 #include <format>
-#include <cstring>
 #include <stdexcept>
 
 ResourceManager::ResourceManager(
@@ -196,12 +195,18 @@ void ResourceManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usa
     };
     
     VmaAllocationCreateInfo allocInfo{};
+    allocInfo.preferredFlags = static_cast<VkMemoryPropertyFlags>(properties);
+
     if (properties & vk::MemoryPropertyFlagBits::eHostVisible) {
         allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
         // Keep host access but avoid CREATE_MAPPED to prevent double map/unmap; we map explicitly where needed.
         allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     } else {
         allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        if (properties & vk::MemoryPropertyFlagBits::eDeviceLocal) {
+            allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        }
     }
     
     allocator.alocateBuffer(bufferInfo, allocInfo, buffer, bufferMemory);
@@ -285,7 +290,6 @@ void ResourceManager::createIndexBuffer()
     log_info("ResourceManager::createIndexBuffer() started");
     log_info(std::format("Creating index buffer with {} indices", indices.size()));
     vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
     // Ensure previous staging allocation is released before reusing the member buffer
     if (stagingBufferMemory != nullptr)
     {
@@ -332,7 +336,8 @@ void ResourceManager::createUniformBuffers()
         vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
         vk::raii::Buffer buffer({});
         VmaAllocation bufferMem = nullptr;
-        createBuffer(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
+        createBuffer(bufferSize,
+                 vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress,
                      vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
                      bufferMem);
         uniformBuffers.emplace_back(std::move(buffer));

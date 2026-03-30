@@ -63,15 +63,21 @@ void Engine::initialize()
     textureManager = std::make_unique<TextureManager>(*device, *resourceManager, *allocator);
     textureManager->init();
 
-    descriptorManager =
-        std::make_unique<DescriptorManager>(device->getDevice(), resourceManager->getUniformBuffers(),
-                                            textureManager->getTextureSampler(), textureManager->getTextureImageView(), textureManager->gettextureImageViewCreateInfo());
+    descriptorManager = std::make_unique<DescriptorManager>(device->getDevice(),
+                                                            *resourceManager,
+                                                            resourceManager->getUniformBuffers(),
+                                                            textureManager->getTextureSampler(),
+                                                            textureManager->getTextureImageView(),
+                                                            textureManager->gettextureImageViewCreateInfo(),
+                                                            device->getHardwareCapabilities());
     descriptorManager->init();
 
     createImGuiDescriptorPool();
 
-    pipeline = std::make_unique<Pipeline>(resourceManager.get(), device->getDevice(), swapChain->swapChainExtent,
-                                          swapChain->swapChainImageFormat, descriptorManager->getDescriptorSetLayout());
+    pipeline = std::make_unique<Pipeline>(resourceManager.get(),
+                                          device->getDevice(),
+                                          swapChain->swapChainExtent,
+                                          swapChain->swapChainImageFormat);
     pipeline->init();
 
     renderer = std::make_unique<Renderer>(*device,

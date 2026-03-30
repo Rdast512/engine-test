@@ -5,6 +5,15 @@
 #include "imgui.h"
 #include "imgui_impl_vulkan.h"
 
+struct PushData {
+    uint32_t uboIndex;
+    uint32_t textureIndex;
+    uint32_t samplerIndex;
+};
+
+static_assert(alignof(PushData) % 4 == 0, "PushData alignment must be a multiple of 4");
+static_assert(sizeof(PushData) % 4 == 0, "PushData size must be a multiple of 4");
+
 Renderer::Renderer(Device& device,
 				   SwapChain& swapChain,
 				   ResourceManager& resourceManager,
@@ -205,15 +214,32 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 			TracyVkZone(tracyContext->handle(), *commandBuffers[currentFrame], "GPU_DrawCalls");
 		}
 #endif
+		PushData pushData = {
+			.uboIndex = static_cast<uint32_t>(descriptorManager.uboDescriptorOffsets[currentFrame] /
+										  descriptorManager.bufferDescriptorSize),
+			.textureIndex = static_cast<uint32_t>(descriptorManager.textureDescriptorOffset /
+											  descriptorManager.imageDescriptorSize),
+			.samplerIndex = static_cast<uint32_t>(descriptorManager.samplerDescriptorOffset /
+											  descriptorManager.samplerDescriptorSize)
+		};
+		if (sizeof(PushData) > descriptorManager.capabilities.descriptorHeap.maxPushDataSize)
+		{
+			throw std::runtime_error("PushData exceeds maxPushDataSize for descriptor heap");
+		}
 		commandBuffers[currentFrame].beginRendering(renderingInfo);
 		commandBuffers[currentFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline.graphicsPipeline);
 		commandBuffers[currentFrame].bindVertexBuffers(0, *resourceManager.vertexBuffer, {0});
 		commandBuffers[currentFrame].bindIndexBuffer(*resourceManager.indexBuffer, 0, vk::IndexType::eUint32);
-		commandBuffers[currentFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-														pipeline.pipelineLayout,
-														0,
-														*descriptorManager.descriptorSets[currentFrame],
-														nullptr);
+		commandBuffers[currentFrame].bindResourceHeapEXT(descriptorManager.resourceHeapInfo);
+		commandBuffers[currentFrame].bindSamplerHeapEXT(descriptorManager.samplerHeapInfo);
+		vk::PushDataInfoEXT pushDataInfo = {
+			.sType = vk::StructureType::ePushDataInfoEXT,
+			.pNext = nullptr,
+			.offset = 0,
+			.data = vk::HostAddressRangeConstEXT{.address = &pushData, .size = sizeof(PushData)}
+		};
+		commandBuffers[currentFrame].pushDataEXT(pushDataInfo);
+
 		commandBuffers[currentFrame].setViewport(0,
 												 vk::Viewport(0.0f,
 															  0.0f,
@@ -223,6 +249,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 															  1.0f));
 		commandBuffers[currentFrame].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain.swapChainExtent));
 		commandBuffers[currentFrame].drawIndexed(static_cast<uint32_t>(indexCount), 1, 0, 0, 0);
+
 	}
 
 	{

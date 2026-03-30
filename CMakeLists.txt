@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.29)
 
 project(engine)
-if(POLICY CMP0167)
+if (POLICY CMP0167)
     cmake_policy(SET CMP0167 OLD)
-endif()
+endif ()
 
 
 # --- Standard Configuration ---
@@ -35,10 +35,10 @@ message(STATUS "Make program:   ${CMAKE_MAKE_PROGRAM}")
 message(STATUS "CXX flags:      ${CMAKE_CXX_FLAGS}")
 message(STATUS "C flags:        ${CMAKE_C_FLAGS}")
 message(STATUS "==============================")
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     message(STATUS "Detected Clang/GCC compiler: ${CMAKE_CXX_COMPILER_ID}")
 
-    if(WIN32)
+    if (WIN32)
         message(STATUS "Configuring compiler flags for Clang on Windows")
 
         # [TRACY-FIX] Generate PDB file for the linker
@@ -65,7 +65,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${COMMON_DEBUG_FLAGS}")
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${COMMON_RELEASE_FLAGS}")
 
-    else()
+    else ()
         message(STATUS "Configuring compiler flags for Clang/GCC on Linux")
 
         # [TRACY-FIX] Removed -D_GLIBCXX_DEBUG for profiling reliability.
@@ -81,10 +81,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${COMMON_RELEASE_FLAGS}")
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${COMMON_DEBUG_FLAGS}")
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${COMMON_RELEASE_FLAGS}")
-    endif()
-else()
+    endif ()
+else ()
     message(FATAL_ERROR "Unsupported compiler: ${CMAKE_CXX_COMPILER_ID}")
-endif()
+endif ()
 
 
 ## --- Compiler Setup ---
@@ -102,18 +102,18 @@ endif()
 #    endforeach()
 #endif()
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     message(FATAL_ERROR "This project targets Clang toolchains. Please configure CMake with clang.")
-endif()
+endif ()
 
 find_program(CCACHE_PROGRAM ccache HINTS "C:/msys64/clang64/bin" "C:/msys64/usr/bin")
-if(CCACHE_PROGRAM)
+if (CCACHE_PROGRAM)
     message(STATUS "Using ccache: ${CCACHE_PROGRAM}")
     set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
     set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
-else()
+else ()
     message(WARNING "ccache not found. Install it to speed up recompilation (e.g., 'pacman -S mingw-w64-clang-x86_64-ccache' in MSYS2).")
-endif()
+endif ()
 
 # --- Vulkan SDK Setup ---
 # Vulkan setup is now handled inside ThirdParty/CMakeLists.txt
@@ -133,42 +133,43 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 # Place all runtime and library outputs in the build root so DLLs sit next to the executable
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-foreach(CONFIG DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+foreach (CONFIG DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
     string(TOUPPER ${CONFIG} CONFIG_UPPER)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_BINARY_DIR})
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_BINARY_DIR})
-endforeach()
+endforeach ()
 
 # --- Shader Compilation ---
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
 file(GLOB SLANG_SHADERS "${CMAKE_SOURCE_DIR}/shaders/shader.slang")
 
-if(WIN32)
+if (WIN32)
     set(SLANGC_EXECUTABLE "ThirdParty/Slang-win/bin/slangc.exe")
-else()
+else ()
     set(SLANGC_EXECUTABLE "ThirdParty/Slang-linux/bin/slangc")
-endif()
+endif ()
 
 set(COMPILED_SHADERS)
-foreach(SLANG ${SLANG_SHADERS})
+foreach (SLANG ${SLANG_SHADERS})
     get_filename_component(NAME_WE ${SLANG} NAME_WE)
     set(SPV_OUT "${CMAKE_BINARY_DIR}/shaders/${NAME_WE}.spv")
 
     add_custom_command(
-        OUTPUT      ${SPV_OUT}
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMAND     ${SLANGC_EXECUTABLE}
-        shaders/${NAME_WE}.slang
-        -target spirv
-        -profile spirv_1_6
-        -fvk-use-entrypoint-name
-        -entry vertMain -entry fragMain
-        -o ${SPV_OUT}
-        DEPENDS     shaders/${NAME_WE}.slang
-        COMMENT     "Compiling shader ${NAME_WE}.slang -> ${NAME_WE}.spv"
+            OUTPUT ${SPV_OUT}
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMAND ${SLANGC_EXECUTABLE}
+            shaders/${NAME_WE}.slang
+            -target spirv
+            -profile sm_6_10
+            -capability SPIRV_1_6+SPV_KHR_untyped_pointers+spvDescriptorHeapEXT
+            -fvk-use-entrypoint-name
+            -entry vertMain -entry fragMain
+            -o ${SPV_OUT}
+            DEPENDS shaders/${NAME_WE}.slang
+            COMMENT "Compiling shader ${NAME_WE}.slang -> ${NAME_WE}.spv"
     )
     list(APPEND COMPILED_SHADERS ${SPV_OUT})
-endforeach()
+endforeach ()
 
 add_custom_target(Shaders ALL DEPENDS ${COMPILED_SHADERS})
 

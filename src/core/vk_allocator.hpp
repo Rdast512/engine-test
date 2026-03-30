@@ -21,6 +21,7 @@ public:
 
         VmaAllocatorCreateInfo allocatorInfo = {};
         allocatorInfo.flags =
+            VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT |
             VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT |
             VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT |
             VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT |
@@ -46,7 +47,7 @@ public:
     void alocateBuffer(const vk::BufferCreateInfo &bufferInfo, const VmaAllocationCreateInfo &allocInfo,
                        vk::raii::Buffer &buffer, VmaAllocation &allocation) const {
         VkBuffer rawBuffer{};
-        if (vmaCreateBuffer(allocator, reinterpret_cast<const VkBufferCreateInfo*>(&bufferInfo), &allocInfo,
+        if (vmaCreateBuffer(allocator, bufferInfo, &allocInfo,
                             &rawBuffer, &allocation, nullptr) != VK_SUCCESS) {
             throw std::runtime_error("Failed to allocate buffer with VMA");
         }
@@ -56,7 +57,7 @@ public:
     void alocateImage(const vk::ImageCreateInfo &imageInfo, const VmaAllocationCreateInfo &allocInfo,
                       vk::raii::Image &image, VmaAllocation &allocation) const {
         VkImage rawImage{};
-        if (vmaCreateImage(allocator, reinterpret_cast<const VkImageCreateInfo*>(&imageInfo), &allocInfo,
+        if (vmaCreateImage(allocator, imageInfo, &allocInfo,
                            &rawImage, &allocation, nullptr) != VK_SUCCESS) {
             throw std::runtime_error("Failed to allocate image with VMA");
         }

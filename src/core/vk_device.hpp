@@ -47,9 +47,12 @@ class Device{
         vk::KHRCalibratedTimestampsExtensionName,  // required by EXT_present_timing
         vk::KHRPipelineLibraryExtensionName,       // required by EXT_graphics_pipeline_library
         vk::KHRPresentModeFifoLatestReadyExtensionName,
+        vk::KHRCopyMemoryIndirectExtensionName,
+        vk::KHRShaderUntypedPointersExtensionName,
         //EXT
         vk::EXTMemoryBudgetExtensionName,
         vk::EXTMemoryPriorityExtensionName,
+        vk::EXTMemoryDecompressionExtensionName,
         vk::EXTDescriptorHeapExtensionName,
         vk::EXTBlendOperationAdvancedExtensionName,
         vk::EXTMeshShaderExtensionName,
@@ -59,7 +62,8 @@ class Device{
         vk::EXTShaderObjectExtensionName,
         vk::EXTGraphicsPipelineLibraryExtensionName,
         vk::EXTPresentTimingExtensionName,
-        vk::EXTRayTracingInvocationReorderExtensionName
+        vk::EXTRayTracingInvocationReorderExtensionName,
+        vk::EXTDescriptorBufferExtensionName
     };
 
     SDL_Window* window = nullptr;              ///< Non-owning pointer to the SDL3 window used for surface creation.
@@ -168,6 +172,7 @@ public:
     const vk::raii::Queue& getPresentQueue()  const { return presentQueue; }
     const vk::raii::Queue& getTransferQueue() const { return transferQueue; }
     const vk::raii::Queue& getComputeQueue()  const { return computeQueue; }
+    const HardwareCapabilities getHardwareCapabilities() const { return capabilities; }
 
     /// Returns the deduplicated list of queue family indices used by this device.
     const std::vector<uint32_t>& getQueueFamilyIndices() const { return queueFamilyIndices; }

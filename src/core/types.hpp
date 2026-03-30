@@ -75,8 +75,10 @@ struct HardwareCapabilities
     vk::PhysicalDeviceMeshShaderPropertiesEXT meshShader;
     vk::PhysicalDeviceDeviceGeneratedCommandsPropertiesEXT deviceGeneratedCommands;
     vk::PhysicalDeviceMultiDrawPropertiesEXT multiDraw;
+    vk::PhysicalDeviceMemoryDecompressionPropertiesEXT memoryDecompression;
     vk::PhysicalDeviceHostImageCopyPropertiesEXT hostImageCopy;
     vk::PhysicalDeviceTexelBufferAlignmentPropertiesEXT texelBufferAlignment;
+    vk::PhysicalDeviceDescriptorBufferPropertiesEXT descriptorBuffer;
 
     // KHR / other properties
     vk::PhysicalDeviceFragmentShadingRatePropertiesKHR fragmentShadingRate;

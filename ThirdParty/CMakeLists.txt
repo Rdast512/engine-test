@@ -80,7 +80,7 @@ target_link_libraries(VulkanMemoryAllocator INTERFACE Vulkan::Vulkan)
 # ------------------------------------------------------------------------------
 # 1. Slang (Manual Download & Extract)
 # ------------------------------------------------------------------------------
-set(SLANG_TAG "v2026.3.1")
+set(SLANG_TAG "v2026.5.1")
 string(REGEX REPLACE "^v" "" SLANG_VERSION "${SLANG_TAG}")
 set(SLANG_RELEASE_URL "https://github.com/shader-slang/slang/releases/download")
 
@@ -148,6 +148,22 @@ set(BOOST_IOSTREAMS_ENABLE_ZLIB OFF CACHE BOOL "" FORCE)
 set(BOOST_IOSTREAMS_ENABLE_BZIP2 OFF CACHE BOOL "" FORCE)
 set(BOOST_IOSTREAMS_ENABLE_LZMA OFF CACHE BOOL "" FORCE)
 set(BOOST_IOSTREAMS_ENABLE_ZSTD OFF CACHE BOOL "" FORCE)
+
+# --- Taskflow ---
+set(TF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(TF_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(TF_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+set(TF_BUILD_PROFILER ON CACHE BOOL "" FORCE)
+
+# --- KTX-Software (lib only) ---
+set(KTX_FEATURE_TESTS OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_TOOLS OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_DOC OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_JNI OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_PY OFF CACHE BOOL "" FORCE)
+set(BASISU_SUPPORT_SSE OFF CACHE BOOL "" FORCE)
+set(LIBKTX_FEATURE_VK_UPLOAD ON CACHE BOOL "" FORCE)
+set(LIBKTX_FEATURE_GL_UPLOAD OFF CACHE BOOL "" FORCE)
 
 # ==============================================================================
 # FetchContent Declares — ALL declared before MakeAvailable so CMake can
@@ -219,12 +235,28 @@ FetchContent_Declare(
         GIT_SHALLOW TRUE
 )
 
+# 10. KTX-Software (library only)
+FetchContent_Declare(
+        KTXSoftware
+        GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
+        GIT_TAG v4.4.2
+        GIT_SHALLOW TRUE
+)
+
 # ==============================================================================
 # Populate all dependencies in a single batch call.
 # Tracy is declared and populated separately below (after GIT_SHALLOW/PROGRESS).
 # ==============================================================================
-message(STATUS "Fetching ThirdParty dependencies (glm, SDL3, fmt, spdlog, Boost, ImGui, taskflow, rapidjson)...")
-FetchContent_MakeAvailable(glm SDL3 fmt spdlog Boost ImGui taskflow rapidjson)
+message(STATUS "Fetching ThirdParty dependencies (glm, SDL3, fmt, spdlog, Boost, ImGui, taskflow, rapidjson, KTX)...")
+FetchContent_MakeAvailable(glm SDL3 fmt spdlog Boost ImGui taskflow rapidjson KTXSoftware)
+
+if (TARGET ktx)
+        add_library(ThirdParty::ktx ALIAS ktx)
+elseif (TARGET KTX::ktx)
+        add_library(ThirdParty::ktx ALIAS KTX::ktx)
+else ()
+        message(FATAL_ERROR "KTX target not found after FetchContent_MakeAvailable(KTXSoftware).")
+endif ()
 
 # ------------------------------------------------------------------------------
 set(IMGUI_SOURCES
@@ -323,6 +355,7 @@ target_link_libraries(ThirdPartyLibs INTERFACE
         Vulkan::Vulkan
         Vulkan::cppm
         VulkanMemoryAllocator
+        ThirdParty::ktx
         glm::glm
         SDL3::SDL3
         #  vk-bootstrap::vk-bootstrap
