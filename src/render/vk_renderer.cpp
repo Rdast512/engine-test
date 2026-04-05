@@ -6,13 +6,20 @@
 #include "imgui_impl_vulkan.h"
 
 struct PushData {
-    uint32_t uboIndex;
-    uint32_t textureIndex;
-    uint32_t samplerIndex;
+	struct alignas(8) DescriptorHandlePush {
+		uint32_t x;
+		uint32_t y;
+	};
+
+	DescriptorHandlePush ubo;
+	DescriptorHandlePush texture;
+	DescriptorHandlePush samplerHandle;
 };
 
 static_assert(alignof(PushData) % 4 == 0, "PushData alignment must be a multiple of 4");
 static_assert(sizeof(PushData) % 4 == 0, "PushData size must be a multiple of 4");
+static_assert(sizeof(PushData::DescriptorHandlePush) == sizeof(uint32_t) * 2,
+			  "Descriptor handle push layout must be uint2");
 
 Renderer::Renderer(Device& device,
 				   SwapChain& swapChain,
@@ -214,31 +221,34 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 			TracyVkZone(tracyContext->handle(), *commandBuffers[currentFrame], "GPU_DrawCalls");
 		}
 #endif
-		PushData pushData = {
-			.uboIndex = static_cast<uint32_t>(descriptorManager.uboDescriptorOffsets[currentFrame] /
-										  descriptorManager.bufferDescriptorSize),
-			.textureIndex = static_cast<uint32_t>(descriptorManager.textureDescriptorOffset /
-											  descriptorManager.imageDescriptorSize),
-			.samplerIndex = static_cast<uint32_t>(descriptorManager.samplerDescriptorOffset /
-											  descriptorManager.samplerDescriptorSize)
-		};
-		if (sizeof(PushData) > descriptorManager.capabilities.descriptorHeap.maxPushDataSize)
-		{
-			throw std::runtime_error("PushData exceeds maxPushDataSize for descriptor heap");
-		}
 		commandBuffers[currentFrame].beginRendering(renderingInfo);
 		commandBuffers[currentFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline.graphicsPipeline);
 		commandBuffers[currentFrame].bindVertexBuffers(0, *resourceManager.vertexBuffer, {0});
 		commandBuffers[currentFrame].bindIndexBuffer(*resourceManager.indexBuffer, 0, vk::IndexType::eUint32);
-		commandBuffers[currentFrame].bindResourceHeapEXT(descriptorManager.resourceHeapInfo);
-		commandBuffers[currentFrame].bindSamplerHeapEXT(descriptorManager.samplerHeapInfo);
-		vk::PushDataInfoEXT pushDataInfo = {
-			.sType = vk::StructureType::ePushDataInfoEXT,
-			.pNext = nullptr,
-			.offset = 0,
-			.data = vk::HostAddressRangeConstEXT{.address = &pushData, .size = sizeof(PushData)}
-		};
-		commandBuffers[currentFrame].pushDataEXT(pushDataInfo);
+
+		if (descriptorManager.usesDescriptorHeaps()) {
+			commandBuffers[currentFrame].bindResourceHeapEXT(descriptorManager.getResourceHeapInfo());
+			commandBuffers[currentFrame].bindSamplerHeapEXT(descriptorManager.getSamplerHeapInfo());
+
+			PushData pushData{};
+			pushData.ubo = {descriptorManager.getUboDescriptorIndex(currentFrame), 0};
+			pushData.texture = {descriptorManager.getTextureDescriptorIndex(), 0};
+			pushData.samplerHandle = {descriptorManager.getSamplerDescriptorIndex(), 0};
+
+			vk::PushDataInfoEXT pushDataInfo = {
+				.sType = vk::StructureType::ePushDataInfoEXT,
+				.pNext = nullptr,
+				.offset = 0,
+				.data = vk::HostAddressRangeConstEXT{.address = &pushData, .size = sizeof(PushData)}
+			};
+			commandBuffers[currentFrame].pushDataEXT(pushDataInfo);
+		} else {
+			commandBuffers[currentFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+												   *pipeline.pipelineLayout,
+												   0,
+												   *descriptorManager.descriptorSets[currentFrame],
+												   {});
+		}
 
 		commandBuffers[currentFrame].setViewport(0,
 												 vk::Viewport(0.0f,

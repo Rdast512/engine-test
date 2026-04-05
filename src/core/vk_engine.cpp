@@ -69,12 +69,14 @@ void Engine::initialize()
                                                             textureManager->getTextureSampler(),
                                                             textureManager->getTextureImageView(),
                                                             textureManager->gettextureImageViewCreateInfo(),
-                                                            device->getHardwareCapabilities());
+                                                            device->getHardwareCapabilities(),
+                                                            device->getDescriptorBindingMode());
     descriptorManager->init();
 
     createImGuiDescriptorPool();
 
     pipeline = std::make_unique<Pipeline>(resourceManager.get(),
+                                          descriptorManager.get(),
                                           device->getDevice(),
                                           swapChain->swapChainExtent,
                                           swapChain->swapChainImageFormat);

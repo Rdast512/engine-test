@@ -141,32 +141,79 @@ endforeach ()
 
 # --- Shader Compilation ---
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
-file(GLOB SLANG_SHADERS "${CMAKE_SOURCE_DIR}/shaders/shader.slang")
+file(GLOB_RECURSE SLANG_SHADERS CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/shaders/*.slang")
+file(GLOB_RECURSE GLSL_SHADERS CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/shaders/*.vert"
+    "${CMAKE_SOURCE_DIR}/shaders/*.frag"
+    "${CMAKE_SOURCE_DIR}/shaders/*.comp"
+    "${CMAKE_SOURCE_DIR}/shaders/*.geom"
+    "${CMAKE_SOURCE_DIR}/shaders/*.tesc"
+    "${CMAKE_SOURCE_DIR}/shaders/*.tese"
+    "${CMAKE_SOURCE_DIR}/shaders/*.rgen"
+    "${CMAKE_SOURCE_DIR}/shaders/*.rchit"
+    "${CMAKE_SOURCE_DIR}/shaders/*.rmiss"
+    "${CMAKE_SOURCE_DIR}/shaders/*.rahit"
+    "${CMAKE_SOURCE_DIR}/shaders/*.mesh"
+    "${CMAKE_SOURCE_DIR}/shaders/*.task"
+)
 
 if (WIN32)
-    set(SLANGC_EXECUTABLE "ThirdParty/Slang-win/bin/slangc.exe")
+    set(SLANGC_EXECUTABLE "${CMAKE_SOURCE_DIR}/ThirdParty/Slang-win/bin/slangc.exe")
 else ()
-    set(SLANGC_EXECUTABLE "ThirdParty/Slang-linux/bin/slangc")
+    set(SLANGC_EXECUTABLE "${CMAKE_SOURCE_DIR}/ThirdParty/Slang-linux/bin/slangc")
 endif ()
+
+find_program(GLSLC_EXECUTABLE NAMES glslc REQUIRED)
+message(STATUS "Using glslc: ${GLSLC_EXECUTABLE}")
 
 set(COMPILED_SHADERS)
 foreach (SLANG ${SLANG_SHADERS})
-    get_filename_component(NAME_WE ${SLANG} NAME_WE)
-    set(SPV_OUT "${CMAKE_BINARY_DIR}/shaders/${NAME_WE}.spv")
+    file(RELATIVE_PATH SLANG_REL_PATH "${CMAKE_SOURCE_DIR}/shaders" ${SLANG})
+    get_filename_component(SLANG_REL_DIR ${SLANG_REL_PATH} DIRECTORY)
+    get_filename_component(SLANG_NAME_WE ${SLANG} NAME_WE)
+    if (SLANG_REL_DIR STREQUAL "")
+        set(SLANG_OUT_DIR "${CMAKE_BINARY_DIR}/shaders")
+    else ()
+        set(SLANG_OUT_DIR "${CMAKE_BINARY_DIR}/shaders/${SLANG_REL_DIR}")
+    endif ()
+    set(SPV_OUT "${SLANG_OUT_DIR}/${SLANG_NAME_WE}.spv")
 
     add_custom_command(
             OUTPUT ${SPV_OUT}
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${SLANG_OUT_DIR}
             COMMAND ${SLANGC_EXECUTABLE}
-            shaders/${NAME_WE}.slang
+            ${SLANG}
             -target spirv
             -profile sm_6_10
             -capability SPIRV_1_6+SPV_KHR_untyped_pointers+spvDescriptorHeapEXT
             -fvk-use-entrypoint-name
             -entry vertMain -entry fragMain
             -o ${SPV_OUT}
-            DEPENDS shaders/${NAME_WE}.slang
-            COMMENT "Compiling shader ${NAME_WE}.slang -> ${NAME_WE}.spv"
+            DEPENDS ${SLANG}
+            COMMENT "Compiling Slang shader ${SLANG_REL_PATH}"
+            VERBATIM
+    )
+    list(APPEND COMPILED_SHADERS ${SPV_OUT})
+endforeach ()
+
+foreach (GLSL ${GLSL_SHADERS})
+    file(RELATIVE_PATH GLSL_REL_PATH "${CMAKE_SOURCE_DIR}/shaders" ${GLSL})
+    get_filename_component(GLSL_REL_DIR ${GLSL_REL_PATH} DIRECTORY)
+    get_filename_component(GLSL_FILE_NAME ${GLSL} NAME)
+    if (GLSL_REL_DIR STREQUAL "")
+        set(GLSL_OUT_DIR "${CMAKE_BINARY_DIR}/shaders")
+    else ()
+        set(GLSL_OUT_DIR "${CMAKE_BINARY_DIR}/shaders/${GLSL_REL_DIR}")
+    endif ()
+    set(SPV_OUT "${GLSL_OUT_DIR}/${GLSL_FILE_NAME}.spv")
+
+    add_custom_command(
+            OUTPUT ${SPV_OUT}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${GLSL_OUT_DIR}
+            COMMAND ${GLSLC_EXECUTABLE} --target-env=vulkan1.4 -std=460core ${GLSL} -o ${SPV_OUT}
+            DEPENDS ${GLSL}
+            COMMENT "Compiling GLSL shader ${GLSL_REL_PATH}"
+            VERBATIM
     )
     list(APPEND COMPILED_SHADERS ${SPV_OUT})
 endforeach ()

@@ -94,6 +94,7 @@ class Device{
     uint32_t presentIndex  = 0; ///< Queue family index of the present queue.
 
     HardwareCapabilities capabilities = HardwareCapabilities{}; ///< Cached hardware capability support flags (e.g., ray-tracing, mesh shaders).
+    DescriptorBindingMode descriptorBindingMode = DescriptorBindingMode::LegacySets; ///< Runtime-selected descriptor binding path.
 
     /** @brief Creates the Vulkan instance with required SDL3 and debug extensions. */
     void createInstance();
@@ -172,7 +173,9 @@ public:
     const vk::raii::Queue& getPresentQueue()  const { return presentQueue; }
     const vk::raii::Queue& getTransferQueue() const { return transferQueue; }
     const vk::raii::Queue& getComputeQueue()  const { return computeQueue; }
-    const HardwareCapabilities getHardwareCapabilities() const { return capabilities; }
+    const HardwareCapabilities& getHardwareCapabilities() const { return capabilities; }
+    DescriptorBindingMode getDescriptorBindingMode() const { return descriptorBindingMode; }
+    bool usesDescriptorHeaps() const { return descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps; }
 
     /// Returns the deduplicated list of queue family indices used by this device.
     const std::vector<uint32_t>& getQueueFamilyIndices() const { return queueFamilyIndices; }

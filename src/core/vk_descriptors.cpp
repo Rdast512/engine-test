@@ -19,30 +19,187 @@ DescriptorManager::DescriptorManager(const vk::raii::Device& device, ResourceMan
                                      const vk::raii::Sampler& textureSampler,
                                      const vk::raii::ImageView& textureImageView,
                                      const vk::ImageViewCreateInfo& textureImageViewCreateInfo,
-                                     const HardwareCapabilities& capabilities) :
+                                     const HardwareCapabilities& capabilities,
+                                     DescriptorBindingMode descriptorBindingMode) :
     device(device), resourceManager(resourceManager), uniformBuffers(uniformBuffers), textureSampler(textureSampler),
     textureImageView(textureImageView), textureImageViewCreateInfo(textureImageViewCreateInfo),
-    capabilities(capabilities)
+    capabilities(capabilities), descriptorBindingMode(descriptorBindingMode)
 {
-    ZoneScopedN("DescriptorManager::DescriptorManager");
-    // hardcoded for now since only one copy of things
+    minResourceHeapReservedRange = capabilities.descriptorHeap.minResourceHeapReservedRange;
+    minSamplerHeapReservedRange = capabilities.descriptorHeap.minSamplerHeapReservedRange;
+
+    bufferDescriptorSize = capabilities.descriptorHeap.bufferDescriptorSize;
+    samplerDescriptorSize = capabilities.descriptorHeap.samplerDescriptorSize;
+    imageDescriptorSize = capabilities.descriptorHeap.imageDescriptorSize;
+
+    bufferDescriptorAlignment = capabilities.descriptorHeap.bufferDescriptorAlignment;
+    samplerDescriptorAlignment = capabilities.descriptorHeap.samplerDescriptorAlignment;
+    imageDescriptorAlignment = capabilities.descriptorHeap.imageDescriptorAlignment;
+}
+
+DescriptorManager::~DescriptorManager()
+{
+    if (mappedResourceHeapPtr != nullptr && resourceHeapMemory != nullptr) {
+        vmaUnmapMemory(resourceManager.allocator.allocator, resourceHeapMemory);
+        mappedResourceHeapPtr = nullptr;
+    }
+    if (mappedSamplerHeapPtr != nullptr && samplerHeapMemory != nullptr) {
+        vmaUnmapMemory(resourceManager.allocator.allocator, samplerHeapMemory);
+        mappedSamplerHeapPtr = nullptr;
+    }
+
+    if (resourceHeapMemory != nullptr) {
+        VkBuffer rawResourceHeap = resourceHeapBuffer.release();
+        vmaDestroyBuffer(resourceManager.allocator.allocator, rawResourceHeap, resourceHeapMemory);
+        resourceHeapMemory = nullptr;
+    }
+    if (samplerHeapMemory != nullptr) {
+        VkBuffer rawSamplerHeap = samplerHeapBuffer.release();
+        vmaDestroyBuffer(resourceManager.allocator.allocator, rawSamplerHeap, samplerHeapMemory);
+        samplerHeapMemory = nullptr;
+    }
+}
+
+// New: perform descriptor-related initialization after construction
+void DescriptorManager::init()
+{
+    ZoneScopedN("DescriptorManager::init");
+    if (usesDescriptorHeaps()) {
+        createHeaps();
+    } else {
+        createDescriptorSetLayout();
+        createDescriptorPool();
+        createDescriptorSets();
+    }
+}
+
+
+void DescriptorManager::createHeaps()
+{
+    ZoneScopedN("DescriptorManager::createHeaps");
+
+    if (bufferDescriptorSize == 0 || samplerDescriptorSize == 0 || imageDescriptorSize == 0 ||
+        bufferDescriptorAlignment == 0 || samplerDescriptorAlignment == 0 || imageDescriptorAlignment == 0) {
+        throw std::runtime_error("Descriptor heap properties are invalid for heap mode");
+    }
+
     vk::DeviceSize resourceHeapSize = 0;
     resourceHeapSize = alignUp(resourceHeapSize, bufferDescriptorAlignment);
-    resourceHeapSize += 2 * bufferDescriptorSize;
+    resourceHeapSize += MAX_FRAMES_IN_FLIGHT * bufferDescriptorSize;
     resourceHeapSize = alignUp(resourceHeapSize, imageDescriptorAlignment);
-    resourceHeapSize += 1 * imageDescriptorSize;
+    resourceHeapSize += imageDescriptorSize;
     resourceHeapSize += minResourceHeapReservedRange;
 
     log_info(std::format("Creating resource descriptor heap: size={} bufferDesc={} imageDesc={} reserve={}",
                          resourceHeapSize, bufferDescriptorSize, imageDescriptorSize, minResourceHeapReservedRange));
 
+    vk::DeviceSize samplerHeapSize = 0;
+    samplerHeapSize = alignUp(samplerHeapSize, samplerDescriptorAlignment);
+    samplerHeapSize += samplerDescriptorSize;
+    samplerHeapSize += minSamplerHeapReservedRange;
+
+    log_info(std::format("Creating sampler descriptor heap: size={} samplerDesc={} reserve={}", samplerHeapSize,
+                         samplerDescriptorSize, minSamplerHeapReservedRange));
+
+    createHeapBuffers(resourceHeapSize, samplerHeapSize);
+
+    auto resources = std::vector<vk::ResourceDescriptorInfoEXT>();
+    auto descriptors = std::vector<vk::HostAddressRangeEXT>();
+    uboDescriptorOffsets.clear();
+    uboDescriptorOffsets.reserve(MAX_FRAMES_IN_FLIGHT);
+
+    vk::DeviceSize currentResOffset = 0;
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        ZoneScopedN("DescriptorManager::createHeaps::UniformBufferDescriptor");
+        currentResOffset = alignUp(currentResOffset, bufferDescriptorAlignment);
+
+        VkBufferDeviceAddressInfo bufferAddressInfo = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+            .pNext = nullptr,
+            .buffer = *uniformBuffers[i],
+        };
+        VkDeviceAddress uboBaseAddress = vkGetBufferDeviceAddress(*device, &bufferAddressInfo);
+        vk::DeviceAddressRangeEXT uboAddressRange = {.address = uboBaseAddress, .size = sizeof(UniformBufferObject)};
+        auto uboInfo = vk::ResourceDescriptorInfoEXT{
+            .sType = vk::StructureType::eResourceDescriptorInfoEXT,
+            .pNext = nullptr,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .data = vk::ResourceDescriptorDataEXT{&uboAddressRange},
+        };
+        uboDescriptorOffsets.push_back(currentResOffset);
+        auto uboWrite = vk::HostAddressRangeEXT{
+            .address = static_cast<uint8_t*>(mappedResourceHeapPtr) + currentResOffset,
+            .size = bufferDescriptorSize,
+        };
+        resources.push_back(uboInfo);
+        descriptors.push_back(uboWrite);
+        currentResOffset += bufferDescriptorSize;
+    }
+
+    currentResOffset = alignUp(currentResOffset, imageDescriptorAlignment);
+    textureDescriptorOffset = currentResOffset;
+    auto descriptorImageInfo = vk::ImageDescriptorInfoEXT{
+        .sType = vk::StructureType::eImageDescriptorInfoEXT,
+        .pNext = nullptr,
+        .pView = &textureImageViewCreateInfo,
+        .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
+    auto imageInfo = vk::ResourceDescriptorInfoEXT{
+        .sType = vk::StructureType::eResourceDescriptorInfoEXT,
+        .pNext = nullptr,
+        .type = vk::DescriptorType::eSampledImage,
+        .data = vk::ResourceDescriptorDataEXT{&descriptorImageInfo},
+    };
+    auto imageWrite = vk::HostAddressRangeEXT{
+        .address = static_cast<uint8_t*>(mappedResourceHeapPtr) + currentResOffset,
+        .size = imageDescriptorSize,
+    };
+    resources.push_back(imageInfo);
+    descriptors.push_back(imageWrite);
+
+    {
+        ZoneScopedN("DescriptorManager::createHeaps::writeResourceDescriptorsEXT");
+        device.writeResourceDescriptorsEXT(resources, descriptors);
+    }
+
+    vk::DeviceSize currentSampOffset = 0;
+    currentSampOffset = alignUp(currentSampOffset, samplerDescriptorAlignment);
+    samplerDescriptorOffset = currentSampOffset;
+
+    const auto maxSamplerAnisotropy = capabilities.properties2.properties.limits.maxSamplerAnisotropy;
+    const auto mipLevels = textureImageViewCreateInfo.subresourceRange.levelCount;
+
+    vk::SamplerCreateInfo samplerInfo{.magFilter = vk::Filter::eLinear,
+                                      .minFilter = vk::Filter::eLinear,
+                                      .mipmapMode = vk::SamplerMipmapMode::eLinear,
+                                      .addressModeU = vk::SamplerAddressMode::eRepeat,
+                                      .addressModeV = vk::SamplerAddressMode::eRepeat,
+                                      .addressModeW = vk::SamplerAddressMode::eRepeat,
+                                      .mipLodBias = 0.0f,
+                                      .anisotropyEnable = vk::True,
+                                      .maxAnisotropy = maxSamplerAnisotropy,
+                                      .compareEnable = vk::False,
+                                      .compareOp = vk::CompareOp::eAlways,
+                                      .minLod = 0.0f,
+                                      .maxLod = static_cast<float>(mipLevels)};
+    vk::HostAddressRangeEXT samplerWrite = {
+        .address = static_cast<uint8_t*>(mappedSamplerHeapPtr) + currentSampOffset,
+        .size = samplerDescriptorSize,
+    };
+    {
+        ZoneScopedN("DescriptorManager::createHeaps::writeSamplerDescriptorsEXT");
+        device.writeSamplerDescriptorsEXT(samplerInfo, samplerWrite);
+    }
+}
+
+void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::DeviceSize samplerHeapSize)
+{
     resourceManager.createBuffer(resourceHeapSize,
                                  vk::BufferUsageFlagBits::eResourceDescriptorBufferEXT |
                                      vk::BufferUsageFlagBits::eStorageBuffer |
-                                     vk::BufferUsageFlagBits::eShaderDeviceAddress
-                                     | vk::BufferUsageFlagBits::eDescriptorHeapEXT,
-                                 vk::MemoryPropertyFlagBits::eHostVisible |
-                                 vk::MemoryPropertyFlagBits::eHostCoherent,
+                                     vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                                     vk::BufferUsageFlagBits::eDescriptorHeapEXT,
+                                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                                  resourceHeapBuffer, resourceHeapMemory);
     const VkResult resourceHeapMapResult =
         vmaMapMemory(resourceManager.allocator.allocator, resourceHeapMemory, &mappedResourceHeapPtr);
@@ -68,19 +225,11 @@ DescriptorManager::DescriptorManager(const vk::raii::Device& device, ResourceMan
     log_info(std::format("Resource heap GPU address=0x{:016x}, reservedOffset={}, reservedSize={}", resourceHeapAddress,
                          resourceHeapInfo.reservedRangeOffset, resourceHeapInfo.reservedRangeSize));
 
-    vk::DeviceSize samplerHeapSize = 0;
-    samplerHeapSize = alignUp(samplerHeapSize, samplerDescriptorAlignment);
-    samplerHeapSize += 1 * samplerDescriptorSize;
-    samplerHeapSize += minSamplerHeapReservedRange;
-
-    log_info(std::format("Creating sampler descriptor heap: size={} samplerDesc={} reserve={}", samplerHeapSize,
-                         samplerDescriptorSize, minSamplerHeapReservedRange));
-
     resourceManager.createBuffer(samplerHeapSize,
                                  vk::BufferUsageFlagBits::eSamplerDescriptorBufferEXT |
                                      vk::BufferUsageFlagBits::eStorageBuffer |
-                                     vk::BufferUsageFlagBits::eShaderDeviceAddress
-                                     | vk::BufferUsageFlagBits::eDescriptorHeapEXT,
+                                     vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                                     vk::BufferUsageFlagBits::eDescriptorHeapEXT,
                                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
                                  samplerHeapBuffer, samplerHeapMemory);
     const VkResult samplerHeapMapResult =
@@ -108,167 +257,88 @@ DescriptorManager::DescriptorManager(const vk::raii::Device& device, ResourceMan
                          samplerHeapInfo.reservedRangeOffset, samplerHeapInfo.reservedRangeSize));
 }
 
-// New: perform descriptor-related initialization after construction
-void DescriptorManager::init()
+void DescriptorManager::createDescriptorSetLayout()
 {
-    ZoneScopedN("DescriptorManager::init");
-    createHeaps();
+    ZoneScopedN("DescriptorManager::createDescriptorSetLayout");
+    std::array bindings = {vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1,
+                                                          vk::ShaderStageFlagBits::eVertex, nullptr),
+                           vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1,
+                                                          vk::ShaderStageFlagBits::eFragment, nullptr)};
 
-    // createDescriptorSetLayout();
-    // createDescriptorPool();
-    // createDescriptorSets();
+    vk::DescriptorSetLayoutCreateInfo layoutInfo{.bindingCount = static_cast<uint32_t>(bindings.size()),
+                                                 .pBindings = bindings.data()};
+    descriptorSetLayout = vk::raii::DescriptorSetLayout(device, layoutInfo);
+    setDebugName(device, descriptorSetLayout, "DescriptorSetLayout");
 }
 
-
-void DescriptorManager::createHeaps()
+void DescriptorManager::createDescriptorPool()
 {
-    ZoneScopedN("DescriptorManager::createHeaps");
-    // new extension usage
-    auto resources = std::vector<vk::ResourceDescriptorInfoEXT>();
-    auto descriptors = std::vector<vk::HostAddressRangeEXT>();
-    uboDescriptorOffsets.clear();
-    uboDescriptorOffsets.reserve(MAX_FRAMES_IN_FLIGHT);
-
-    vk::DeviceSize currentResOffset = 0;
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        ZoneScopedN("DescriptorManager::createHeaps::UniformBufferDescriptor");
-        currentResOffset = alignUp(currentResOffset, bufferDescriptorAlignment);
-
-        VkBufferDeviceAddressInfo bufferAddressInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                                                       .buffer = *uniformBuffers[i]};
-        VkDeviceAddress uboBaseAddress = vkGetBufferDeviceAddress(*device, &bufferAddressInfo);
-        log_info(std::format("Uniform buffer device address: 0x{:016x}", uboBaseAddress));
-        vk::DeviceAddressRangeEXT uboAddressRange = {.address = uboBaseAddress, .size = sizeof(UniformBufferObject)};
-        auto uboInfo = vk::ResourceDescriptorInfoEXT{
-            .sType = vk::StructureType::eResourceDescriptorInfoEXT,
-            .pNext = nullptr,
-            .type = vk::DescriptorType::eUniformBuffer,
-            .data = vk::ResourceDescriptorDataEXT{&uboAddressRange},
-        };
-        uboDescriptorOffsets.push_back(currentResOffset);
-        auto uboWrite = vk::HostAddressRangeEXT{
-            .address = static_cast<uint8_t*>(mappedResourceHeapPtr) + currentResOffset, .size = bufferDescriptorSize};
-        log_info(std::format("UBO descriptor[{}] heapOffset={} writeSize={}", i, currentResOffset, uboWrite.size));
-        resources.push_back(uboInfo);
-        descriptors.push_back(uboWrite);
-        currentResOffset += bufferDescriptorSize;
-    }
-
-    currentResOffset = alignUp(currentResOffset, imageDescriptorAlignment);
-    textureDescriptorOffset = currentResOffset;
-    auto descriptorImageInfo = vk::ImageDescriptorInfoEXT{.sType = vk::StructureType::eImageDescriptorInfoEXT,
-                                                          .pNext = nullptr,
-                                                          .pView = &textureImageViewCreateInfo,
-                                                          .layout = vk::ImageLayout::eShaderReadOnlyOptimal};
-    auto imageInfo = vk::ResourceDescriptorInfoEXT{
-        .sType = vk::StructureType::eResourceDescriptorInfoEXT,
-        .pNext = nullptr,
-        .type = vk::DescriptorType::eSampledImage,
-        .data = vk::ResourceDescriptorDataEXT{&descriptorImageInfo},
-    };
-    auto imageWrite = vk::HostAddressRangeEXT{
-        .address = static_cast<uint8_t*>(mappedResourceHeapPtr) + currentResOffset, .size = imageDescriptorSize};
-    log_info(std::format("Texture descriptor heapOffset={} writeSize={}", textureDescriptorOffset, imageWrite.size));
-    resources.push_back(imageInfo);
-    descriptors.push_back(imageWrite);
-
-    {
-        ZoneScopedN("DescriptorManager::createHeaps::writeResourceDescriptorsEXT");
-        log_info(std::format("Writing {} resource descriptors", resources.size()));
-        device.writeResourceDescriptorsEXT(resources, descriptors);
-    }
-
-    vk::DeviceSize currentSampOffset = 0;
-
-    currentSampOffset = alignUp(currentSampOffset, samplerDescriptorAlignment);
-    samplerDescriptorOffset = currentSampOffset;
-
-    const auto maxSamplerAnisotropy = capabilities.properties2.properties.limits.maxSamplerAnisotropy;
-    const auto mipLevels = textureImageViewCreateInfo.subresourceRange.levelCount;
-
-    vk::SamplerCreateInfo samplerInfo{.magFilter = vk::Filter::eLinear,
-                                      .minFilter = vk::Filter::eLinear,
-                                      .mipmapMode = vk::SamplerMipmapMode::eLinear,
-                                      .addressModeU = vk::SamplerAddressMode::eRepeat,
-                                      .addressModeV = vk::SamplerAddressMode::eRepeat,
-                                      .addressModeW = vk::SamplerAddressMode::eRepeat,
-                                      .mipLodBias = 0.0f,
-                                      .anisotropyEnable = vk::True,
-                                      .maxAnisotropy = maxSamplerAnisotropy,
-                                      .compareEnable = vk::False,
-                                      .compareOp = vk::CompareOp::eAlways,
-                                      .minLod = 0.0f,
-                                      .maxLod = static_cast<float>(mipLevels)};
-    vk::HostAddressRangeEXT samplerWrite = {.address = static_cast<uint8_t*>(mappedSamplerHeapPtr) + currentSampOffset,
-                                            .size = samplerDescriptorSize};
-    {
-        ZoneScopedN("DescriptorManager::createHeaps::writeSamplerDescriptorsEXT");
-        log_info(std::format("Writing sampler descriptor heapOffset={} writeSize={} mipLevels={} maxAniso={}",
-                             samplerDescriptorOffset, samplerWrite.size, mipLevels, maxSamplerAnisotropy));
-        device.writeSamplerDescriptorsEXT(samplerInfo, samplerWrite);
-    }
-
-    log_info(std::format("Descriptor heaps ready: uboCount={} textureOffset={} samplerOffset={}",
-                         uboDescriptorOffsets.size(), textureDescriptorOffset, samplerDescriptorOffset));
-    // end
+    ZoneScopedN("DescriptorManager::createDescriptorPool");
+    std::array poolSize{vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, MAX_FRAMES_IN_FLIGHT),
+                        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, MAX_FRAMES_IN_FLIGHT)};
+    vk::DescriptorPoolCreateInfo poolInfo{.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+                                          .maxSets = MAX_FRAMES_IN_FLIGHT,
+                                          .poolSizeCount = static_cast<uint32_t>(poolSize.size()),
+                                          .pPoolSizes = poolSize.data()};
+    descriptorPool = vk::raii::DescriptorPool(device, poolInfo);
+    setDebugName(device, descriptorPool, "DescriptorPool");
 }
-
-// void DescriptorManager::createDescriptorSetLayout()
-// {
-//     ZoneScopedN("DescriptorManager::createDescriptorSetLayout");
-//     std::array bindings = {vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1,
-//                                                           vk::ShaderStageFlagBits::eVertex, nullptr),
-//                            vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eCombinedImageSampler, 1,
-//                                                           vk::ShaderStageFlagBits::eFragment, nullptr)};
-//
-//     vk::DescriptorSetLayoutCreateInfo layoutInfo{.bindingCount = static_cast<uint32_t>(bindings.size()),
-//                                                  .pBindings = bindings.data()};
-//     descriptorSetLayout = vk::raii::DescriptorSetLayout(device, layoutInfo);
-//     setDebugName(device, descriptorSetLayout, "DescriptorSetLayout");
-// }
-
-// void DescriptorManager::createDescriptorPool()
-// {
-//     ZoneScopedN("DescriptorManager::createDescriptorPool");
-//     std::array poolSize{vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, MAX_FRAMES_IN_FLIGHT),
-//                         vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, MAX_FRAMES_IN_FLIGHT)};
-//     vk::DescriptorPoolCreateInfo poolInfo{.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-//                                           .maxSets = MAX_FRAMES_IN_FLIGHT,
-//                                           .poolSizeCount = static_cast<uint32_t>(poolSize.size()),
-//                                           .pPoolSizes = poolSize.data()};
-//     descriptorPool = vk::raii::DescriptorPool(device, poolInfo);
-//     setDebugName(device, descriptorPool, "DescriptorPool");
-// }
 
 
 void DescriptorManager::createDescriptorSets()
 {
     ZoneScopedN("DescriptorManager::createDescriptorSets");
 
+    std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, *descriptorSetLayout);
+    vk::DescriptorSetAllocateInfo allocInfo{.descriptorPool = *descriptorPool,
+                                            .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+                                            .pSetLayouts = layouts.data()};
+    descriptorSets = device.allocateDescriptorSets(allocInfo);
 
-    // for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    // {
-    //     ZoneScopedN("DescriptorManager::writeDescriptorSet");
-    //     const std::string setName = "DescriptorSet_" + std::to_string(i);
-    //     setDebugName(device, descriptorSets[i], setName);
-    //     vk::DescriptorBufferInfo bufferInfo{
-    //         .buffer = uniformBuffers[i], .offset = 0, .range = sizeof(UniformBufferObject)};
-    //     vk::DescriptorImageInfo imageInfo{.sampler = textureSampler,
-    //                                       .imageView = textureImageView,
-    //                                       .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal};
-    //     std::array descriptorWrites{vk::WriteDescriptorSet{.dstSet = descriptorSets[i],
-    //                                                        .dstBinding = 0,
-    //                                                        .dstArrayElement = 0,
-    //                                                        .descriptorCount = 1,
-    //                                                        .descriptorType = vk::DescriptorType::eUniformBuffer,
-    //                                                        .pBufferInfo = &bufferInfo},
-    //                                 vk::WriteDescriptorSet{.dstSet = descriptorSets[i],
-    //                                                        .dstBinding = 1,
-    //                                                        .dstArrayElement = 0,
-    //                                                        .descriptorCount = 1,
-    //                                                        .descriptorType =
-    //                                                        vk::DescriptorType::eCombinedImageSampler, .pImageInfo =
-    //                                                        &imageInfo}};
-    //     device.updateDescriptorSets(descriptorWrites, {});
-    // }
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        ZoneScopedN("DescriptorManager::writeDescriptorSet");
+        vk::DescriptorBufferInfo bufferInfo{
+            .buffer = *uniformBuffers[i], .offset = 0, .range = sizeof(UniformBufferObject)};
+        vk::DescriptorImageInfo imageInfo{.sampler = *textureSampler,
+                                          .imageView = *textureImageView,
+                                          .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal};
+        std::array descriptorWrites{vk::WriteDescriptorSet{.dstSet = *descriptorSets[i],
+                                                           .dstBinding = 0,
+                                                           .dstArrayElement = 0,
+                                                           .descriptorCount = 1,
+                                                           .descriptorType = vk::DescriptorType::eUniformBuffer,
+                                                           .pBufferInfo = &bufferInfo},
+                        vk::WriteDescriptorSet{.dstSet = *descriptorSets[i],
+                                                           .dstBinding = 1,
+                                                           .dstArrayElement = 0,
+                                                           .descriptorCount = 1,
+                                                           .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+                                                           .pImageInfo = &imageInfo}};
+        device.updateDescriptorSets(descriptorWrites, {});
+    }
+}
+
+uint32_t DescriptorManager::getUboDescriptorIndex(uint32_t frameIndex) const
+{
+    if (frameIndex >= uboDescriptorOffsets.size() || bufferDescriptorSize == 0) {
+        return 0;
+    }
+    return static_cast<uint32_t>(uboDescriptorOffsets[frameIndex] / bufferDescriptorSize);
+}
+
+uint32_t DescriptorManager::getTextureDescriptorIndex() const
+{
+    if (imageDescriptorSize == 0) {
+        return 0;
+    }
+    return static_cast<uint32_t>(textureDescriptorOffset / imageDescriptorSize);
+}
+
+uint32_t DescriptorManager::getSamplerDescriptorIndex() const
+{
+    if (samplerDescriptorSize == 0) {
+        return 0;
+    }
+    return static_cast<uint32_t>(samplerDescriptorOffset / samplerDescriptorSize);
 }

@@ -337,7 +337,8 @@ void ResourceManager::createUniformBuffers()
         vk::raii::Buffer buffer({});
         VmaAllocation bufferMem = nullptr;
         createBuffer(bufferSize,
-                 vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                 vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
+                     vk::BufferUsageFlagBits::eShaderDeviceAddress,
                      vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
                      bufferMem);
         uniformBuffers.emplace_back(std::move(buffer));

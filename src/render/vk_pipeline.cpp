@@ -1,4 +1,6 @@
 #include "vk_pipeline.hpp"
+#include "../core/vk_descriptors.hpp"
+#include "../util/debug.hpp"
 #include "../util/vk_tracy.hpp"
 
 #include <array>
@@ -27,10 +29,12 @@ namespace
     }
 } // namespace
 
-Pipeline::Pipeline(ResourceManager* resourceManager, const vk::raii::Device& device,
+Pipeline::Pipeline(ResourceManager* resourceManager,
+                   DescriptorManager* descriptorManager,
+                   const vk::raii::Device& device,
                    const vk::Extent2D& swapChainExtent, const vk::Format& swapChainImageFormat) :
     device(device), swapChainExtent(swapChainExtent), swapChainImageFormat(swapChainImageFormat),
-    resourceManager(resourceManager)
+    resourceManager(resourceManager), descriptorManager(descriptorManager)
 {
 }
 
@@ -44,40 +48,18 @@ void Pipeline::createGraphicsPipeline()
 {
     ZoneScopedN("Pipeline::createGraphicsPipeline");
     const auto shaderDir = std::filesystem::path(ENGINE_SHADER_DIR);
-    const auto shaderPath = (shaderDir / "shader.spv").string();
+    const auto shaderPath = (shaderDir / "base" / "shader.spv").string();
     vk::raii::ShaderModule shaderModule = resourceManager->createShaderModule(readFile(shaderPath));
     auto bindingDescription = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
-    auto code = readFile(shaderPath);
     vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .pNext = nullptr,
         .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule, .pName = "vertMain"};
     vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .pNext = nullptr,
         .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain"};
-    vk::ShaderCreateInfoEXT fragShaderCreateInfo = {
-        .flags      = vk::ShaderCreateFlagBitsEXT::eDescriptorHeap, // Tell the driver this shader uses the heap
-        .stage      = vk::ShaderStageFlagBits::eFragment,
-        .codeType   = vk::ShaderCodeTypeEXT::eSpirv,
-        .codeSize   = code.size() * sizeof(char),
-        .pCode      = reinterpret_cast<const uint32_t*>(code.data()),
-        .pName      = "fragMain",
-        // pNext is completely NULL or points to other modern extensions.
-        // DO NOT attach vk::ShaderDescriptorSetAndBindingMappingInfoEXT here!
-    };
-    vk::ShaderCreateInfoEXT vertShaderCreateInfo = {
-        .flags      = vk::ShaderCreateFlagBitsEXT::eDescriptorHeap, // Tell the driver this shader uses the heap
-        .stage      = vk::ShaderStageFlagBits::eVertex,
-        .codeType   = vk::ShaderCodeTypeEXT::eSpirv,
-        .codeSize   = code.size() * sizeof(char),
-        .pCode      = reinterpret_cast<const uint32_t*>(code.data()),
-        .pName      = "vertMain",
-        // pNext is completely NULL or points to other modern extensions.
-        // DO NOT attach vk::ShaderDescriptorSetAndBindingMappingInfoEXT here!
-    };
-    vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+    std::array shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
+
     std::vector dynamicStates = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
 
-    vk::ShaderEXT fragShader = device.createShaderEXT(vertShaderCreateInfo);
-    vk::ShaderEXT vertShader = device.createShaderEXT(fragShaderCreateInfo);
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &bindingDescription,
@@ -112,18 +94,25 @@ void Pipeline::createGraphicsPipeline()
                                                         .logicOp = vk::LogicOp::eCopy,
                                                         .attachmentCount = 1,
                                                         .pAttachments = &colorBlendAttachment};
+    const bool useDescriptorHeaps = descriptorManager->usesDescriptorHeaps();
     vk::PushConstantRange pushDataRange{
         .stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
-        .size = static_cast<uint32_t>(sizeof(uint32_t) * 3),
+        .size = static_cast<uint32_t>(sizeof(uint32_t) * 6),
     };
 
-    vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
-        .setLayoutCount = 0,         // No Descriptor Sets anymore!
-        .pSetLayouts = nullptr,
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &pushDataRange
-    };
+    vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
+    if (useDescriptorHeaps) {
+        pipelineLayoutInfo.setLayoutCount = 0;
+        pipelineLayoutInfo.pSetLayouts = nullptr;
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        pipelineLayoutInfo.pPushConstantRanges = &pushDataRange;
+    } else {
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = &*descriptorManager->descriptorSetLayout;
+        pipelineLayoutInfo.pushConstantRangeCount = 0;
+        pipelineLayoutInfo.pPushConstantRanges = nullptr;
+    }
 
     vk::PipelineDepthStencilStateCreateInfo depthStencil{.depthTestEnable = vk::True,
                                                          .depthWriteEnable = vk::True,
@@ -132,30 +121,44 @@ void Pipeline::createGraphicsPipeline()
                                                          .stencilTestEnable = vk::False};
     vk::Format depthFormat = resourceManager->findDepthFormat();
 
-
-    pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
+    if (useDescriptorHeaps) {
+        pipelineLayout = VK_NULL_HANDLE;
+    } else {
+        pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
+    }
+    setDebugName(device, shaderModule, "ShaderModule_Main");
+    setDebugName(device, pipelineLayout, "PipelineLayout_Main");
     vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo{.colorAttachmentCount = 1,
                                                                 .pColorAttachmentFormats = &swapChainImageFormat,
                                                                 .depthAttachmentFormat = depthFormat};
-    VkPipelineCreateFlags2CreateInfo pipelineFlags2CreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO,
+
+    vk::PipelineCreateFlags2CreateInfoKHR pipelineFlags2CreateInfo{
         .pNext = &pipelineRenderingCreateInfo,
-        .flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT,
+        .flags = vk::PipelineCreateFlagBits2KHR::eDescriptorHeapEXT
     };
-    vk::GraphicsPipelineCreateInfo pipelineInfo{.pNext = &pipelineFlags2CreateInfo,
-                                                .stageCount = 2,
-                                                .pStages = shaderStages,
-                                                .pVertexInputState = &vertexInputInfo,
-                                                .pInputAssemblyState = &inputAssembly,
-                                                .pViewportState = &viewportState,
-                                                .pRasterizationState = &rasterizer,
-                                                .pMultisampleState = &multisampling,
-                                                .pDepthStencilState = &depthStencil,
-                                                .pColorBlendState = &colorBlending,
-                                                .pDynamicState = &dynamicState,
-                                                .layout = *pipelineLayout,
-                                                .renderPass = nullptr};
+    const void* pipelinePNext = useDescriptorHeaps
+        ? static_cast<const void*>(&pipelineFlags2CreateInfo)
+        : static_cast<const void*>(&pipelineRenderingCreateInfo);
+
+
+    vk::GraphicsPipelineCreateInfo pipelineInfo{
+        .pNext               = pipelinePNext,
+        .stageCount          = static_cast<uint32_t>(shaderStages.size()),
+        .pStages             = shaderStages.data(),
+        .pVertexInputState   = &vertexInputInfo,
+        .pInputAssemblyState = &inputAssembly,
+        .pViewportState      = &viewportState,
+        .pRasterizationState = &rasterizer,
+        .pMultisampleState   = &multisampling,
+        .pDepthStencilState  = &depthStencil,
+        .pColorBlendState    = &colorBlending,
+        .pDynamicState       = &dynamicState,
+        .layout              = *pipelineLayout,
+        .renderPass          = nullptr
+    };
+
     graphicsPipeline = vk::raii::Pipeline(device, nullptr, pipelineInfo);
+    setDebugName(device, graphicsPipeline, "GraphicsPipeline_Main");
 }
 
 #ifndef ENGINE_SHADER_DIR

@@ -15,15 +15,27 @@ public:
                       const vk::raii::Sampler& textureSampler,
                       const vk::raii::ImageView& textureImageView,
                       const vk::ImageViewCreateInfo& textureImageViewCreateInfo,
-                      const HardwareCapabilities& capabilities);
+                      const HardwareCapabilities& capabilities,
+                      DescriptorBindingMode descriptorBindingMode);
 
-    ~DescriptorManager() = default;
+    ~DescriptorManager();
 
     void init();
 
     void createDescriptorSetLayout();
     void createDescriptorPool();
     void createDescriptorSets();
+    void createHeaps();
+    void createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::DeviceSize samplerHeapSize);
+
+    bool usesDescriptorHeaps() const { return descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps; }
+    DescriptorBindingMode getDescriptorBindingMode() const { return descriptorBindingMode; }
+
+    const vk::BindHeapInfoEXT& getResourceHeapInfo() const { return resourceHeapInfo; }
+    const vk::BindHeapInfoEXT& getSamplerHeapInfo() const { return samplerHeapInfo; }
+    uint32_t getUboDescriptorIndex(uint32_t frameIndex) const;
+    uint32_t getTextureDescriptorIndex() const;
+    uint32_t getSamplerDescriptorIndex() const;
 
     const vk::raii::Device& device;
     ResourceManager& resourceManager;
@@ -32,21 +44,18 @@ public:
     const vk::raii::ImageView& textureImageView;
     const vk::ImageViewCreateInfo& textureImageViewCreateInfo;
     const HardwareCapabilities& capabilities;
+    DescriptorBindingMode descriptorBindingMode = DescriptorBindingMode::LegacySets;
 
-    void createHeaps();
-    void writeDescriptors();
+    vk::DeviceSize minResourceHeapReservedRange = 0;
+    vk::DeviceSize minSamplerHeapReservedRange = 0;
 
-    // Cached descriptor sizes from device properties
-    uint32_t minResourceHeapReservedRange = capabilities.descriptorHeap.minResourceHeapReservedRange;
-    uint32_t minSamplerHeapReservedRange = capabilities.descriptorHeap.minSamplerHeapReservedRange;
+    vk::DeviceSize bufferDescriptorSize = 0;
+    vk::DeviceSize samplerDescriptorSize = 0;
+    vk::DeviceSize imageDescriptorSize = 0;
 
-    uint32_t bufferDescriptorSize = capabilities.descriptorHeap.bufferDescriptorSize;
-    uint32_t samplerDescriptorSize = capabilities.descriptorHeap.samplerDescriptorSize;
-    uint32_t imageDescriptorSize = capabilities.descriptorHeap.imageDescriptorSize;
-
-    uint32_t bufferDescriptorAlignment = capabilities.descriptorHeap.bufferDescriptorAlignment;
-    uint32_t samplerDescriptorAlignment = capabilities.descriptorHeap.samplerDescriptorAlignment;
-    uint32_t imageDescriptorAlignment = capabilities.descriptorHeap.imageDescriptorAlignment;
+    vk::DeviceSize bufferDescriptorAlignment = 0;
+    vk::DeviceSize samplerDescriptorAlignment = 0;
+    vk::DeviceSize imageDescriptorAlignment = 0;
 
     vk::raii::Buffer resourceHeapBuffer = nullptr;
     vk::raii::Buffer samplerHeapBuffer = nullptr;
@@ -63,8 +72,8 @@ public:
     std::vector<vk::DeviceSize> uboDescriptorOffsets;
     vk::DeviceSize textureDescriptorOffset = 0;
     vk::DeviceSize samplerDescriptorOffset = 0;
-    // vk::raii::DescriptorSetLayout descriptorSetLayout = nullptr;
-    // vk::raii::DescriptorPool descriptorPool = nullptr;
-    // std::vector<vk::raii::DescriptorSet> descriptorSets;
+    vk::raii::DescriptorSetLayout descriptorSetLayout = nullptr;
+    vk::raii::DescriptorPool descriptorPool = nullptr;
+    std::vector<vk::raii::DescriptorSet> descriptorSets;
 
 };

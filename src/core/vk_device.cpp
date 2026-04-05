@@ -451,6 +451,13 @@ void Device::createLogicalDevice()
     capabilities.pipelineBinary = propertiesChain.get<vk::PhysicalDevicePipelineBinaryPropertiesKHR>();
     capabilities.rayTracingPipeline = propertiesChain.get<vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
 
+    const auto descriptorHeapFeatureQuery =
+        physicalDevice.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceDescriptorHeapFeaturesEXT>();
+    const bool descriptorHeapFeatureSupported =
+        descriptorHeapFeatureQuery.get<vk::PhysicalDeviceDescriptorHeapFeaturesEXT>().descriptorHeap == vk::True;
+    descriptorBindingMode =
+        descriptorHeapFeatureSupported ? DescriptorBindingMode::DescriptorHeaps : DescriptorBindingMode::LegacySets;
+
     // Build a pNext feature chain covering every extension the engine depends on.
     // Each structure is zero-initialised by default; only fields set to `true` here
     // are required – the driver will reject device creation if any are unsupported.
@@ -497,7 +504,7 @@ void Device::createLogicalDevice()
                         // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
                         {.extendedDynamicState = true},
                         // vk::PhysicalDeviceDescriptorHeapFeaturesEXT
-                        {.descriptorHeap = true},
+                        {.descriptorHeap = descriptorHeapFeatureSupported},
                         // vk::PhysicalDeviceBlendOperationAdvancedFeaturesEXT
                         {.advancedBlendCoherentOperations = false},
                         // vk::PhysicalDeviceMeshShaderFeaturesEXT
@@ -590,6 +597,12 @@ void Device::createLogicalDevice()
                                           .ppEnabledExtensionNames = requiredDeviceExtension.data()};
 
     vkdevice = vk::raii::Device(physicalDevice, deviceCreateInfo);
+
+    if (descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps) {
+        log_info("Descriptor binding mode: DescriptorHeaps (descriptor heap feature supported)");
+    } else {
+        log_info("Descriptor binding mode: LegacySets (descriptor heap feature unsupported on this GPU)");
+    }
 
     setDebugName(vkdevice, instance, "Instance");
     setDebugName(vkdevice, physicalDevice, "PhysicalDevice");

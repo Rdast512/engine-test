@@ -59,6 +59,12 @@ struct EngineSettings
     bool windowed;
 };
 
+enum class DescriptorBindingMode : uint8_t
+{
+    LegacySets = 0,
+    DescriptorHeaps = 1,
+};
+
 struct HardwareCapabilities
 {
     // Core/core-promoted properties
