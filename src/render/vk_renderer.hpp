@@ -16,7 +16,8 @@ public:
 			 ResourceManager& resourceManager,
 			 DescriptorManager& descriptorManager,
 			 Pipeline& pipeline,
-			 VkTracyContext* tracyContext = nullptr);
+			 VkTracyContext* tracyContext = nullptr,
+			 bool imguiEnabled = true);
 
 	void setTracyContext(VkTracyContext* tracyContextIn);
 	void rebuildSwapchainResources();
@@ -32,6 +33,7 @@ private:
 	DescriptorManager& descriptorManager;
 	Pipeline& pipeline;
 	VkTracyContext* tracyContext = nullptr;
+	bool imguiEnabled = true;
 
 	uint32_t currentFrame = 0;
 	uint32_t semaphoreIndex = 0;

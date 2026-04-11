@@ -8,6 +8,7 @@
 
 #include <vulkan/vulkan_raii.hpp>
 #include <cstdint>
+#include <string_view>
 
 // Handles loading a single texture and exposes sampler + view for pipelines.
 class TextureManager {
@@ -29,10 +30,12 @@ private:
 
     auto findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) -> uint32_t;
     void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-                      vk::raii::Buffer &buffer, VmaAllocation &bufferMemory);
+                      vk::raii::Buffer &buffer, VmaAllocation &bufferMemory,
+                      std::string_view memoryDebugBaseName = "TextureBufferMemory");
     void createImage(uint32_t width, uint32_t height, uint32_t mipLevelsIn, vk::Format format,
                      vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
-                     vk::raii::Image &image, VmaAllocation &imageMemory);
+                     vk::raii::Image &image, VmaAllocation &imageMemory,
+                     std::string_view memoryDebugBaseName = "TextureImageMemory");
 
     auto beginSingleTimeCommands(const vk::raii::Queue &queue) -> vk::raii::CommandBuffer;
     void endSingleTimeCommands(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Queue &queue);

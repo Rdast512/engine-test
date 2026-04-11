@@ -485,7 +485,7 @@ void Device::createLogicalDevice()
                         {.features = {.geometryShader = true,
                                       .sampleRateShading = true,
                                       .multiDrawIndirect = true,
-                                      .samplerAnisotropy = true}},
+                                      .samplerAnisotropy = true,}},
                         // vk::PhysicalDeviceVulkan11Features
                         {.shaderDrawParameters = true},
                         // vk::PhysicalDeviceVulkan12Features
@@ -496,13 +496,15 @@ void Device::createLogicalDevice()
                          .descriptorBindingPartiallyBound = true,
                          .descriptorBindingVariableDescriptorCount = true,
                          .runtimeDescriptorArray = true,
-                         .bufferDeviceAddress = true},
+                         .bufferDeviceAddress = true,
+                        .vulkanMemoryModel = true,
+                        .vulkanMemoryModelDeviceScope = true,},
                         // vk::PhysicalDeviceVulkan13Features
                         {.synchronization2 = true, .dynamicRendering = true},
                         // vk::PhysicalDeviceVulkan14Features
                         {.dynamicRenderingLocalRead = true},
-                        // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
-                        {.extendedDynamicState = true},
+                        // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT (disabled: extension not enabled)
+                        {},
                         // vk::PhysicalDeviceDescriptorHeapFeaturesEXT
                         {.descriptorHeap = descriptorHeapFeatureSupported},
                         // vk::PhysicalDeviceBlendOperationAdvancedFeaturesEXT
@@ -521,14 +523,14 @@ void Device::createLogicalDevice()
                         {.pageableDeviceLocalMemory = true},
                         // vk::PhysicalDeviceShaderObjectFeaturesEXT
                         {.shaderObject = true},
-                        // vk::PhysicalDeviceGraphicsPipelineLibraryFeaturesEXT
-                        {.graphicsPipelineLibrary = true},
-                        // vk::PhysicalDevicePresentTimingFeaturesEXT
-                        {.presentTiming = true},
+                        // vk::PhysicalDeviceGraphicsPipelineLibraryFeaturesEXT (disabled: extension not enabled)
+                        {},
+                        // vk::PhysicalDevicePresentTimingFeaturesEXT (disabled: extension not enabled)
+                        {},
                         // vk::PhysicalDeviceRayTracingInvocationReorderFeaturesEXT
                         {.rayTracingInvocationReorder = true},
-                        // vk::PhysicalDeviceTexelBufferAlignmentFeaturesEXT
-                        {.texelBufferAlignment = true},
+                        // vk::PhysicalDeviceTexelBufferAlignmentFeaturesEXT (disabled: extension not enabled)
+                        {},
                         // vk::PhysicalDeviceFragmentShadingRateFeaturesKHR
                         {.pipelineFragmentShadingRate = true,
                          .primitiveFragmentShadingRate = true,
@@ -541,8 +543,8 @@ void Device::createLogicalDevice()
                         {.rayQuery = true},
                         // vk::PhysicalDeviceRayTracingMaintenance1FeaturesKHR
                         {.rayTracingMaintenance1 = true, .rayTracingPipelineTraceRaysIndirect2 = true},
-                        // vk::PhysicalDevicePipelineBinaryFeaturesKHR
-                        {.pipelineBinaries = true},
+                        // vk::PhysicalDevicePipelineBinaryFeaturesKHR (disabled: extension not enabled)
+                        {},
                         // vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR
                         {.swapchainMaintenance1 = true},
                         // vk::PhysicalDeviceMaintenance7FeaturesKHR

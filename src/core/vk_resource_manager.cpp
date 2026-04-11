@@ -113,8 +113,10 @@ void ResourceManager::updateUniformBuffer(uint32_t currentImage)
 
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float>(currentTime - startTime).count();
+    static float fakeTime = 0.0f;
+    fakeTime += 0.005f; // Fixed increment per frame
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = glm::rotate(glm::mat4(1.0f), time  * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f),
                                 static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.
@@ -184,7 +186,9 @@ void ResourceManager::createCommandBuffers()
 }
 
 void ResourceManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-                                   vk::raii::Buffer& buffer, VmaAllocation& bufferMemory)
+                                   vk::raii::Buffer& buffer, VmaAllocation& bufferMemory,
+                                   std::string_view memoryDebugBaseName,
+                                   VmaAllocationCreateFlags extraAllocationFlags)
 {
     ZoneScopedN("ResourceManager::createBuffer");
     log_info("ResourceManager::createBuffer() started");
@@ -208,8 +212,9 @@ void ResourceManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usa
             allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         }
     }
+    allocInfo.flags |= extraAllocationFlags;
     
-    allocator.alocateBuffer(bufferInfo, allocInfo, buffer, bufferMemory);
+    allocator.alocateBuffer(bufferInfo, allocInfo, buffer, bufferMemory, memoryDebugBaseName);
 }
 
 void ResourceManager::copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& dstBuffer, vk::DeviceSize size)
@@ -261,7 +266,7 @@ void ResourceManager::createVertexBuffer()
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                 stagingBuffer, stagingBufferMemory);
+                 stagingBuffer, stagingBufferMemory, "VertexStagingBufferMemory");
     setDebugName(device, stagingBuffer, "VertexStagingBuffer");
 
     void* dataStaging = nullptr;
@@ -270,7 +275,8 @@ void ResourceManager::createVertexBuffer()
     vmaUnmapMemory(allocator.allocator, stagingBufferMemory);
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-                 vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory);
+                 vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory,
+                 "VertexBufferMemory");
     setDebugName(device, vertexBuffer, "VertexBuffer");
 
     copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
@@ -300,7 +306,7 @@ void ResourceManager::createIndexBuffer()
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                 stagingBuffer, stagingBufferMemory);
+                 stagingBuffer, stagingBufferMemory, "IndexStagingBufferMemory");
     setDebugName(device, stagingBuffer, "IndexStagingBuffer");
 
     void* data = nullptr;
@@ -309,7 +315,8 @@ void ResourceManager::createIndexBuffer()
     vmaUnmapMemory(allocator.allocator, stagingBufferMemory);
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-                 vk::MemoryPropertyFlagBits::eDeviceLocal, indexBuffer, indexBufferMemory);
+                 vk::MemoryPropertyFlagBits::eDeviceLocal, indexBuffer, indexBufferMemory,
+                 "IndexBufferMemory");
     setDebugName(device, indexBuffer, "IndexBuffer");
 
     copyBuffer(stagingBuffer, indexBuffer, bufferSize);
@@ -340,7 +347,7 @@ void ResourceManager::createUniformBuffers()
                  vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
                      vk::BufferUsageFlagBits::eShaderDeviceAddress,
                      vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
-                     bufferMem);
+                     bufferMem, std::format("UniformBufferMemory_{}", i));
         uniformBuffers.emplace_back(std::move(buffer));
         uniformBuffersMemory.emplace_back(bufferMem);
         
@@ -423,7 +430,7 @@ void ResourceManager::createColorResources()
     createImage(swapChainExtent.width, swapChainExtent.height, 1,
                 msaaSamples, colorFormat, vk::ImageTiling::eOptimal,
                 vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment,
-                vk::MemoryPropertyFlagBits::eDeviceLocal, colorImage, colorImageMemory);
+                vk::MemoryPropertyFlagBits::eDeviceLocal, colorImage, colorImageMemory, "ColorImageMemory");
     setDebugName(device, colorImage, "ColorImage");
     commandBuffers[0].begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     transitionImageLayout(&commandBuffers[0], colorImage, 1,
@@ -436,7 +443,7 @@ void ResourceManager::createColorResources()
 void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipLevels,
                                   vk::SampleCountFlagBits Samples, vk::Format format, vk::ImageTiling tiling,
                                   vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::raii::Image& image,
-                                  VmaAllocation& imageMemory)
+                                  VmaAllocation& imageMemory, std::string_view memoryDebugBaseName)
 {
     ZoneScopedN("ResourceManager::createImage");
     log_info("ResourceManager::createImage() started");
@@ -472,7 +479,7 @@ void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipL
         allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     }
     
-    allocator.alocateImage(imageInfo, allocInfo, image, imageMemory);
+    allocator.alocateImage(imageInfo, allocInfo, image, imageMemory, memoryDebugBaseName);
 }
 
 vk::Format ResourceManager::findDepthFormat()
@@ -506,7 +513,7 @@ void ResourceManager::createDepthResources()
     }
     createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, depthFormat, vk::ImageTiling::eOptimal,
                 vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal,
-                depthImage, depthImageMemory);
+                depthImage, depthImageMemory, "DepthImageMemory");
     setDebugName(device, depthImage, "DepthImage");
     depthImageView = createImageView(depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth, 1);
     commandBuffers[0].begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});

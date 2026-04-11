@@ -184,9 +184,10 @@ foreach (SLANG ${SLANG_SHADERS})
             COMMAND ${SLANGC_EXECUTABLE}
             ${SLANG}
             -target spirv
-            -profile sm_6_10
-            -capability SPIRV_1_6+SPV_KHR_untyped_pointers+spvDescriptorHeapEXT
-            -fvk-use-entrypoint-name
+            -profile sm_6_9
+            -capability SPIRV_1_6+SPV_KHR_untyped_pointers+spvDescriptorHeapEXT+GL_EXT_buffer_reference
+            -capability vk_mem_model
+            -fvk-use-entrypoint-name -g -O0
             -entry vertMain -entry fragMain
             -o ${SPV_OUT}
             DEPENDS ${SLANG}

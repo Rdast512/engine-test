@@ -4,6 +4,7 @@
 #include "../util/vk_tracy.hpp"
 
 #include <array>
+#include <limits>
 #include <fstream>
 #include <stdexcept>
 #include <vector>
@@ -52,10 +53,80 @@ void Pipeline::createGraphicsPipeline()
     vk::raii::ShaderModule shaderModule = resourceManager->createShaderModule(readFile(shaderPath));
     auto bindingDescription = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
+    const bool useDescriptorHeaps = descriptorManager->usesDescriptorHeaps();
     vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .pNext = nullptr,
         .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule, .pName = "vertMain"};
     vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .pNext = nullptr,
         .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain"};
+
+    // TODO rewiew code, understand it and decide if add or not
+    // std::array<vk::DescriptorSetAndBindingMappingEXT, 1> vertMappings{};
+    // vk::ShaderDescriptorSetAndBindingMappingInfoEXT vertMappingInfo{};
+    // std::array<vk::DescriptorSetAndBindingMappingEXT, 2> fragMappings{};
+    // vk::ShaderDescriptorSetAndBindingMappingInfoEXT fragMappingInfo{};
+    //
+    // if (useDescriptorHeaps) {
+    //     if (descriptorManager->bufferDescriptorSize > std::numeric_limits<uint32_t>::max() ||
+    //         descriptorManager->imageDescriptorSize > std::numeric_limits<uint32_t>::max() ||
+    //         descriptorManager->samplerDescriptorSize > std::numeric_limits<uint32_t>::max()) {
+    //         throw std::runtime_error("Descriptor size exceeds supported push-index stride range");
+    //     }
+    //
+    //     constexpr uint32_t descriptorHandleStride = sizeof(uint32_t) * 2;
+    //     constexpr uint32_t uboPushOffset = 0;
+    //     constexpr uint32_t texturePushOffset = descriptorHandleStride;
+    //     constexpr uint32_t samplerPushOffset = descriptorHandleStride * 2;
+    //
+    //     const auto makeHeapPushIndexMapping = [](uint32_t descriptorSet,
+    //                                              vk::SpirvResourceTypeFlagsEXT resourceMask,
+    //                                              uint32_t pushOffset,
+    //                                              uint32_t heapIndexStride) {
+    //         vk::DescriptorSetAndBindingMappingEXT mapping{};
+    //         mapping.descriptorSet = descriptorSet;
+    //         mapping.firstBinding = 0;
+    //         mapping.bindingCount = 1;
+    //         mapping.resourceMask = resourceMask;
+    //         mapping.source = vk::DescriptorMappingSourceEXT::eHeapWithPushIndex;
+    //         mapping.sourceData.pushIndex = {
+    //             .heapOffset = 0,
+    //             .pushOffset = pushOffset,
+    //             .heapIndexStride = heapIndexStride,
+    //             .heapArrayStride = 0,
+    //             .pEmbeddedSampler = nullptr,
+    //             .useCombinedImageSamplerIndex = vk::False,
+    //             .samplerHeapOffset = 0,
+    //             .samplerPushOffset = 0,
+    //             .samplerHeapIndexStride = 0,
+    //             .samplerHeapArrayStride = 0,
+    //         };
+    //         return mapping;
+    //     };
+    //
+    //     vertMappings[0] = makeHeapPushIndexMapping(
+    //         100,
+    //         vk::SpirvResourceTypeFlagBitsEXT::eUniformBuffer,
+    //         uboPushOffset,
+    //         static_cast<uint32_t>(descriptorManager->bufferDescriptorSize));
+    //     vertMappingInfo.mappingCount = static_cast<uint32_t>(vertMappings.size());
+    //     vertMappingInfo.pMappings = vertMappings.data();
+    //
+    //     fragMappings[0] = makeHeapPushIndexMapping(
+    //         100,
+    //         vk::SpirvResourceTypeFlagBitsEXT::eSampledImage,
+    //         texturePushOffset,
+    //         static_cast<uint32_t>(descriptorManager->imageDescriptorSize));
+    //     fragMappings[1] = makeHeapPushIndexMapping(
+    //         101,
+    //         vk::SpirvResourceTypeFlagBitsEXT::eSampler,
+    //         samplerPushOffset,
+    //         static_cast<uint32_t>(descriptorManager->samplerDescriptorSize));
+    //     fragMappingInfo.mappingCount = static_cast<uint32_t>(fragMappings.size());
+    //     fragMappingInfo.pMappings = fragMappings.data();
+    //
+    //     vertShaderStageInfo.pNext = &vertMappingInfo;
+    //     fragShaderStageInfo.pNext = &fragMappingInfo;
+    // }
+
     std::array shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
 
     std::vector dynamicStates = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
@@ -94,7 +165,6 @@ void Pipeline::createGraphicsPipeline()
                                                         .logicOp = vk::LogicOp::eCopy,
                                                         .attachmentCount = 1,
                                                         .pAttachments = &colorBlendAttachment};
-    const bool useDescriptorHeaps = descriptorManager->usesDescriptorHeaps();
     vk::PushConstantRange pushDataRange{
         .stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
         .offset = 0,

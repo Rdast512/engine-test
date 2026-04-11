@@ -1,18 +1,11 @@
-struct UniformBuffer
-{
-    float4x4 model;
-    float4x4 view;
-    float4x4 proj;
-};
-
 struct PushData
 {
-    DescriptorHandle<StructuredBuffer<float4x4>> ubo;
+    DescriptorHandle<StructuredBuffer<float4x4>> matrices;
     DescriptorHandle<Texture2D> texture;
     DescriptorHandle<SamplerState> samplerHandle;
 };
 
-[[vk::push_constant]] PushData push;
+[[vk::push_constant]] ConstantBuffer<PushData> push;
 
 struct VSInput
 {
@@ -33,10 +26,10 @@ VSOutput vertMain(VSInput input)
 {
     VSOutput output;
 
-    StructuredBuffer<float4x4> transforms = getDescriptorFromHandle(push.ubo);
-    float4x4 model = transforms[0];
-    float4x4 view  = transforms[1];
-    float4x4 proj  = transforms[2];
+    StructuredBuffer<float4x4> matrices = getDescriptorFromHandle(push.matrices);
+    float4x4 model = matrices[0];
+    float4x4 view  = matrices[1];
+    float4x4 proj  = matrices[2];
 
     output.pos =
         mul(proj,

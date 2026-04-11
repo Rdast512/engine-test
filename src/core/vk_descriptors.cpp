@@ -8,6 +8,7 @@
 #include "logger.hpp"
 #include "vk_allocator.hpp"
 #include "vk_resource_manager.hpp"
+#include <numeric>
 
 constexpr vk::DeviceSize alignUp(vk::DeviceSize size, vk::DeviceSize alignment)
 {
@@ -83,11 +84,15 @@ void DescriptorManager::createHeaps()
         throw std::runtime_error("Descriptor heap properties are invalid for heap mode");
     }
 
+    const vk::DeviceSize resourceReservedOffsetAlignment =
+        std::lcm(bufferDescriptorAlignment, imageDescriptorAlignment);
+
     vk::DeviceSize resourceHeapSize = 0;
     resourceHeapSize = alignUp(resourceHeapSize, bufferDescriptorAlignment);
     resourceHeapSize += MAX_FRAMES_IN_FLIGHT * bufferDescriptorSize;
     resourceHeapSize = alignUp(resourceHeapSize, imageDescriptorAlignment);
     resourceHeapSize += imageDescriptorSize;
+    resourceHeapSize = alignUp(resourceHeapSize, resourceReservedOffsetAlignment);
     resourceHeapSize += minResourceHeapReservedRange;
 
     log_info(std::format("Creating resource descriptor heap: size={} bufferDesc={} imageDesc={} reserve={}",
@@ -96,6 +101,7 @@ void DescriptorManager::createHeaps()
     vk::DeviceSize samplerHeapSize = 0;
     samplerHeapSize = alignUp(samplerHeapSize, samplerDescriptorAlignment);
     samplerHeapSize += samplerDescriptorSize;
+    samplerHeapSize = alignUp(samplerHeapSize, samplerDescriptorAlignment);
     samplerHeapSize += minSamplerHeapReservedRange;
 
     log_info(std::format("Creating sampler descriptor heap: size={} samplerDesc={} reserve={}", samplerHeapSize,
@@ -190,6 +196,19 @@ void DescriptorManager::createHeaps()
         ZoneScopedN("DescriptorManager::createHeaps::writeSamplerDescriptorsEXT");
         device.writeSamplerDescriptorsEXT(samplerInfo, samplerWrite);
     }
+
+    // T1
+    log_info(std::format(
+        "[T1] Descriptor heap layout bufferDescSize={} imageDescSize={} samplerDescSize={} bufferAlign={} imageAlign={} samplerAlign={} uboIndex0={} textureIndex={} samplerIndex={}",
+        bufferDescriptorSize,
+        imageDescriptorSize,
+        samplerDescriptorSize,
+        bufferDescriptorAlignment,
+        imageDescriptorAlignment,
+        samplerDescriptorAlignment,
+        getUboDescriptorIndex(0),
+        getTextureDescriptorIndex(),
+        getSamplerDescriptorIndex()));
 }
 
 void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::DeviceSize samplerHeapSize)
@@ -200,7 +219,8 @@ void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::D
                                      vk::BufferUsageFlagBits::eShaderDeviceAddress |
                                      vk::BufferUsageFlagBits::eDescriptorHeapEXT,
                                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                                 resourceHeapBuffer, resourceHeapMemory);
+                                 resourceHeapBuffer, resourceHeapMemory, "DescriptorHeapResourceMemory",
+                                 VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
     const VkResult resourceHeapMapResult =
         vmaMapMemory(resourceManager.allocator.allocator, resourceHeapMemory, &mappedResourceHeapPtr);
     if (resourceHeapMapResult != VK_SUCCESS || mappedResourceHeapPtr == nullptr) {
@@ -231,7 +251,8 @@ void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::D
                                      vk::BufferUsageFlagBits::eShaderDeviceAddress |
                                      vk::BufferUsageFlagBits::eDescriptorHeapEXT,
                                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                                 samplerHeapBuffer, samplerHeapMemory);
+                                 samplerHeapBuffer, samplerHeapMemory, "DescriptorHeapSamplerMemory",
+                                 VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
     const VkResult samplerHeapMapResult =
         vmaMapMemory(resourceManager.allocator.allocator, samplerHeapMemory, &mappedSamplerHeapPtr);
     if (samplerHeapMapResult != VK_SUCCESS || mappedSamplerHeapPtr == nullptr) {

@@ -13,6 +13,9 @@
 
 
 class Engine{
+    // Manual code toggle: set false to disable all ImGui setup and rendering paths.
+    bool enableImGui = false;
+
     SDL_Window *window = nullptr;
     std::unique_ptr<Device> device;
     std::unique_ptr<VkAllocator> allocator;

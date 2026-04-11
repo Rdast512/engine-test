@@ -1,38 +1,46 @@
 #include "vk_renderer.hpp"
 
 #include "../Constants.h"
+#include "../static_headers/logger.hpp"
 #include "../util/vk_tracy.hpp"
 #include "imgui.h"
 #include "imgui_impl_vulkan.h"
 
-struct PushData {
-	struct alignas(8) DescriptorHandlePush {
-		uint32_t x;
-		uint32_t y;
-	};
+#include <format>
 
-	DescriptorHandlePush ubo;
-	DescriptorHandlePush texture;
-	DescriptorHandlePush samplerHandle;
+struct alignas(8) SlangHandle {
+    uint32_t resourceIndex;
+    uint32_t samplerIndex; // Usually 0 unless using CombinedTextureSampler
+};
+
+// Must perfectly match the PushData struct in Slang
+struct PushData {
+	SlangHandle matrices;      // 8 bytes
+	SlangHandle texture;      // 8 bytes
+	SlangHandle samplerHandle; // 8 bytes
 };
 
 static_assert(alignof(PushData) % 4 == 0, "PushData alignment must be a multiple of 4");
 static_assert(sizeof(PushData) % 4 == 0, "PushData size must be a multiple of 4");
-static_assert(sizeof(PushData::DescriptorHandlePush) == sizeof(uint32_t) * 2,
+static_assert(sizeof(SlangHandle) == sizeof(uint32_t) * 2,
 			  "Descriptor handle push layout must be uint2");
+static_assert(std::is_trivially_copyable_v<PushData>);
+static_assert(sizeof(SlangHandle) == 8);
 
 Renderer::Renderer(Device& device,
 				   SwapChain& swapChain,
 				   ResourceManager& resourceManager,
 				   DescriptorManager& descriptorManager,
 				   Pipeline& pipeline,
-				   VkTracyContext* tracyContext) :
+				   VkTracyContext* tracyContext,
+				   bool imguiEnabled) :
 	device(device),
 	swapChain(swapChain),
 	resourceManager(resourceManager),
 	descriptorManager(descriptorManager),
 	pipeline(pipeline),
-	tracyContext(tracyContext)
+	tracyContext(tracyContext),
+	imguiEnabled(imguiEnabled)
 {
 }
 
@@ -225,15 +233,35 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 		commandBuffers[currentFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline.graphicsPipeline);
 		commandBuffers[currentFrame].bindVertexBuffers(0, *resourceManager.vertexBuffer, {0});
 		commandBuffers[currentFrame].bindIndexBuffer(*resourceManager.indexBuffer, 0, vk::IndexType::eUint32);
-
+	    commandBuffers[currentFrame].setViewport(0,
+                                                 vk::Viewport(0.0f,
+                                                              0.0f,
+                                                              static_cast<float>(swapChain.swapChainExtent.width),
+                                                              static_cast<float>(swapChain.swapChainExtent.height),
+                                                              0.0f,
+                                                              1.0f));
+	    commandBuffers[currentFrame].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain.swapChainExtent));
 		if (descriptorManager.usesDescriptorHeaps()) {
-			commandBuffers[currentFrame].bindResourceHeapEXT(descriptorManager.getResourceHeapInfo());
-			commandBuffers[currentFrame].bindSamplerHeapEXT(descriptorManager.getSamplerHeapInfo());
+			const auto& resourceHeapInfo = descriptorManager.getResourceHeapInfo();
+			const auto& samplerHeapInfo = descriptorManager.getSamplerHeapInfo();
+			commandBuffers[currentFrame].bindResourceHeapEXT(resourceHeapInfo);
+			commandBuffers[currentFrame].bindSamplerHeapEXT(samplerHeapInfo);
 
 			PushData pushData{};
-			pushData.ubo = {descriptorManager.getUboDescriptorIndex(currentFrame), 0};
-			pushData.texture = {descriptorManager.getTextureDescriptorIndex(), 0};
-			pushData.samplerHandle = {descriptorManager.getSamplerDescriptorIndex(), 0};
+			// Slang lowers DescriptorHandle<T> to uint2; descriptor index is in the first lane.
+			pushData.matrices = {
+				.resourceIndex = descriptorManager.getUboDescriptorIndex(currentFrame),
+				.samplerIndex = 0,
+			};
+			pushData.texture = {
+				.resourceIndex = descriptorManager.getTextureDescriptorIndex(),
+				.samplerIndex = 0,
+			};
+			pushData.samplerHandle = {
+				.resourceIndex = descriptorManager.getSamplerDescriptorIndex(),
+				.samplerIndex = 0,
+			};
+
 
 			vk::PushDataInfoEXT pushDataInfo = {
 				.sType = vk::StructureType::ePushDataInfoEXT,
@@ -242,6 +270,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 				.data = vk::HostAddressRangeConstEXT{.address = &pushData, .size = sizeof(PushData)}
 			};
 			commandBuffers[currentFrame].pushDataEXT(pushDataInfo);
+
 		} else {
 			commandBuffers[currentFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
 												   *pipeline.pipelineLayout,
@@ -250,18 +279,12 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 												   {});
 		}
 
-		commandBuffers[currentFrame].setViewport(0,
-												 vk::Viewport(0.0f,
-															  0.0f,
-															  static_cast<float>(swapChain.swapChainExtent.width),
-															  static_cast<float>(swapChain.swapChainExtent.height),
-															  0.0f,
-															  1.0f));
-		commandBuffers[currentFrame].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain.swapChainExtent));
+
 		commandBuffers[currentFrame].drawIndexed(static_cast<uint32_t>(indexCount), 1, 0, 0, 0);
 
 	}
 
+    if (imguiEnabled)
 	{
 		ZoneScopedN("RenderImGui");
 #ifdef TRACY_ENABLE

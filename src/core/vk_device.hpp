@@ -38,17 +38,18 @@ class Device{
         vk::KHRDeferredHostOperationsExtensionName, // required by KHR_acceleration_structure
         vk::KHRAccelerationStructureExtensionName,
         vk::KHRRayTracingPipelineExtensionName,
-        vk::KHRPipelineBinaryExtensionName,
+        // vk::KHRPipelineBinaryExtensionName,
         vk::KHRFragmentShadingRateExtensionName,
         vk::KHRRayQueryExtensionName,
         vk::KHRSwapchainMaintenance1ExtensionName,
         vk::KHRRayTracingMaintenance1ExtensionName,
-        vk::KHRPresentId2ExtensionName,           // required by EXT_present_timing
-        vk::KHRCalibratedTimestampsExtensionName,  // required by EXT_present_timing
-        vk::KHRPipelineLibraryExtensionName,       // required by EXT_graphics_pipeline_library
+        // vk::KHRPresentId2ExtensionName,           // required by EXT_present_timing
+        // vk::KHRCalibratedTimestampsExtensionName,  // required by EXT_present_timing
+        // vk::KHRPipelineLibraryExtensionName,       // required by EXT_graphics_pipeline_library
         vk::KHRPresentModeFifoLatestReadyExtensionName,
         vk::KHRCopyMemoryIndirectExtensionName,
         vk::KHRShaderUntypedPointersExtensionName,
+        vk::KHRVulkanMemoryModelExtensionName,
         //EXT
         vk::EXTMemoryBudgetExtensionName,
         vk::EXTMemoryPriorityExtensionName,
@@ -60,8 +61,8 @@ class Device{
         vk::EXTMultiDrawExtensionName,
         vk::EXTPageableDeviceLocalMemoryExtensionName,
         vk::EXTShaderObjectExtensionName,
-        vk::EXTGraphicsPipelineLibraryExtensionName,
-        vk::EXTPresentTimingExtensionName,
+        // vk::EXTGraphicsPipelineLibraryExtensionName,
+        // vk::EXTPresentTimingExtensionName,
         vk::EXTRayTracingInvocationReorderExtensionName,
         vk::EXTDescriptorBufferExtensionName
     };

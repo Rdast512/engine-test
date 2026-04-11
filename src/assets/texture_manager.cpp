@@ -82,7 +82,7 @@ void TextureManager::createTextureImage()
 
     createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc,
                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer,
-                 stagingBufferMemory);
+                 stagingBufferMemory, "TextureStagingBufferMemory");
     setDebugName(device, stagingBuffer, "TextureStagingBuffer");
 
     // void *data = stagingBufferMemory.mapMemory(0, imageSize);
@@ -99,7 +99,8 @@ void TextureManager::createTextureImage()
                 vk::ImageTiling::eOptimal,
                 vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst |
                     vk::ImageUsageFlagBits::eSampled,
-                vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureImageMemory);
+                vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureImageMemory,
+                "TextureImageMemory");
     setDebugName(device, textureImage, "TextureImage");
 
     auto commandBuffer = beginSingleTimeCommands(graphicsQueue);
@@ -160,7 +161,8 @@ uint32_t TextureManager::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyF
 }
 
 void TextureManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-                                  vk::raii::Buffer& buffer, VmaAllocation& bufferMemory)
+                                  vk::raii::Buffer& buffer, VmaAllocation& bufferMemory,
+                                  std::string_view memoryDebugBaseName)
 {
     ZoneScopedN("TextureManager::createBuffer");
     log_info("TextureManager::createBuffer() started");
@@ -193,12 +195,13 @@ void TextureManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usag
         allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     }
 
-    allocator.alocateBuffer(bufferInfo, allocInfo, buffer, bufferMemory);
+    allocator.alocateBuffer(bufferInfo, allocInfo, buffer, bufferMemory, memoryDebugBaseName);
 }
 
 void TextureManager::createImage(uint32_t width, uint32_t height, uint32_t mipLevelsIn, vk::Format format,
                                  vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
-                                 vk::raii::Image& image, VmaAllocation& imageMemory)
+                                 vk::raii::Image& image, VmaAllocation& imageMemory,
+                                 std::string_view memoryDebugBaseName)
 {
     ZoneScopedN("TextureManager::createImage");
     log_info("TextureManager::createImage() started");
@@ -227,7 +230,7 @@ void TextureManager::createImage(uint32_t width, uint32_t height, uint32_t mipLe
         allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     }
 
-    allocator.alocateImage(imageInfo, allocInfo, image, imageMemory);
+    allocator.alocateImage(imageInfo, allocInfo, image, imageMemory, memoryDebugBaseName);
     // image = vk::raii::Image(device, imageInfo);
     // vk::MemoryRequirements memRequirements = image.getMemoryRequirements();
     // vk::MemoryAllocateInfo allocInfo{

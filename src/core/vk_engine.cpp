@@ -1,6 +1,7 @@
 #include "vk_engine.hpp"
 #include "../Constants.h"
 #include "../static_headers/logger.hpp"
+#include "../util/debug.hpp"
 #include "../util/vk_tracy.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -25,12 +26,19 @@ void Engine::initialize()
     }
 
 
-    // Setup Platform/Renderer backends
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
+    if (enableImGui)
+    {
+        // Setup Platform/Renderer backends
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
+    }
+    else
+    {
+        log_info("ImGui disabled by Engine::enableImGui toggle");
+    }
 
 
     device = std::make_unique<Device>(window, false);
@@ -73,7 +81,10 @@ void Engine::initialize()
                                                             device->getDescriptorBindingMode());
     descriptorManager->init();
 
-    createImGuiDescriptorPool();
+    if (enableImGui)
+    {
+        createImGuiDescriptorPool();
+    }
 
     pipeline = std::make_unique<Pipeline>(resourceManager.get(),
                                           descriptorManager.get(),
@@ -87,38 +98,42 @@ void Engine::initialize()
                                           *resourceManager,
                                           *descriptorManager,
                                           *pipeline,
-                                          tracyContext.get());
+                                          tracyContext.get(),
+                                          enableImGui);
     renderer->rebuildSwapchainResources();
 
-    // Setup Platform/Renderer backends
-    ImGui_ImplSDL3_InitForVulkan(window);
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.ApiVersion = VK_API_VERSION_1_4;
-    init_info.Instance = *device->getInstance();
-    init_info.PhysicalDevice = *device->getPhysicalDevice();
-    init_info.Device = *device->getDevice();
-    init_info.QueueFamily = device->getGraphicsQueueFamilyIndex();
-    init_info.Queue = *device->getGraphicsQueue();
-    init_info.DescriptorPool = *imguiDescriptorPool;
-    const auto imageCount = static_cast<uint32_t>(swapChain->swapChainImages.size());
-    init_info.MinImageCount = std::max<uint32_t>(imageCount, 2);
-    init_info.ImageCount = std::max<uint32_t>(imageCount, init_info.MinImageCount);
-    init_info.UseDynamicRendering = true;
-    imguiColorFormat = static_cast<VkFormat>(swapChain->swapChainImageFormat);
-    imguiDepthFormat = static_cast<VkFormat>(resourceManager->findDepthFormat());
-    imguiPipelineRenderingInfo = VkPipelineRenderingCreateInfoKHR{};
-    imguiPipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-    imguiPipelineRenderingInfo.colorAttachmentCount = 1;
-    imguiPipelineRenderingInfo.pColorAttachmentFormats = &imguiColorFormat;
-    imguiPipelineRenderingInfo.depthAttachmentFormat = imguiDepthFormat;
-    imguiPipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
-    init_info.PipelineInfoMain.RenderPass = VK_NULL_HANDLE;
-    init_info.PipelineInfoMain.Subpass = 0;
-    init_info.PipelineInfoMain.MSAASamples = static_cast<VkSampleCountFlagBits>(device->getMsaaSamples());
-    init_info.PipelineInfoMain.PipelineRenderingCreateInfo = imguiPipelineRenderingInfo;
-    if (!ImGui_ImplVulkan_Init(&init_info))
+    if (enableImGui)
     {
-        throw std::runtime_error("ImGui_ImplVulkan_Init failed");
+        // Setup Platform/Renderer backends
+        ImGui_ImplSDL3_InitForVulkan(window);
+        ImGui_ImplVulkan_InitInfo init_info = {};
+        init_info.ApiVersion = VK_API_VERSION_1_4;
+        init_info.Instance = *device->getInstance();
+        init_info.PhysicalDevice = *device->getPhysicalDevice();
+        init_info.Device = *device->getDevice();
+        init_info.QueueFamily = device->getGraphicsQueueFamilyIndex();
+        init_info.Queue = *device->getGraphicsQueue();
+        init_info.DescriptorPool = *imguiDescriptorPool;
+        const auto imageCount = static_cast<uint32_t>(swapChain->swapChainImages.size());
+        init_info.MinImageCount = std::max<uint32_t>(imageCount, 2);
+        init_info.ImageCount = std::max<uint32_t>(imageCount, init_info.MinImageCount);
+        init_info.UseDynamicRendering = true;
+        imguiColorFormat = static_cast<VkFormat>(swapChain->swapChainImageFormat);
+        imguiDepthFormat = static_cast<VkFormat>(resourceManager->findDepthFormat());
+        imguiPipelineRenderingInfo = VkPipelineRenderingCreateInfoKHR{};
+        imguiPipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
+        imguiPipelineRenderingInfo.colorAttachmentCount = 1;
+        imguiPipelineRenderingInfo.pColorAttachmentFormats = &imguiColorFormat;
+        imguiPipelineRenderingInfo.depthAttachmentFormat = imguiDepthFormat;
+        imguiPipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+        init_info.PipelineInfoMain.RenderPass = VK_NULL_HANDLE;
+        init_info.PipelineInfoMain.Subpass = 0;
+        init_info.PipelineInfoMain.MSAASamples = static_cast<VkSampleCountFlagBits>(device->getMsaaSamples());
+        init_info.PipelineInfoMain.PipelineRenderingCreateInfo = imguiPipelineRenderingInfo;
+        if (!ImGui_ImplVulkan_Init(&init_info))
+        {
+            throw std::runtime_error("ImGui_ImplVulkan_Init failed");
+        }
     }
 
     initialized = true;
@@ -148,6 +163,7 @@ void Engine::createImGuiDescriptorPool()
                                           .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
                                           .pPoolSizes = poolSizes.data()};
     imguiDescriptorPool = vk::raii::DescriptorPool(vkDevice, poolInfo);
+    setDebugName(vkDevice, imguiDescriptorPool, "ImGuiDescriptorPool");
 }
 
 void Engine::run()
@@ -188,7 +204,10 @@ void Engine::run()
             SDL_Event e{};
             while (SDL_PollEvent(&e) != 0)
             {
-                ImGui_ImplSDL3_ProcessEvent(&e);
+                if (enableImGui)
+                {
+                    ImGui_ImplSDL3_ProcessEvent(&e);
+                }
 
                 if (e.type == SDL_EVENT_QUIT)
                 {
@@ -213,6 +232,7 @@ void Engine::run()
             }
         }
 
+        if (enableImGui)
         {
             ZoneScopedN("ImGuiNewFrame");
             // Start ImGui frame
@@ -267,10 +287,13 @@ void Engine::cleanup()
         tracyContext.reset();
     }
 
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
-    ImGui::DestroyContext();
-    imguiDescriptorPool.reset();
+    if (enableImGui)
+    {
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplSDL3_Shutdown();
+        ImGui::DestroyContext();
+        imguiDescriptorPool.reset();
+    }
 
     // Explicitly clear command buffers before destroying other resources
     if (resourceManager)

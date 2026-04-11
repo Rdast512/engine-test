@@ -4,6 +4,7 @@
 #include "../Constants.h"
 #include <vulkan/vulkan_raii.hpp>
 #include <optional>
+#include <string_view>
 #include "vk_allocator.hpp"
 
 // Manages GPU resources (buffers, images, command pools) using Device + Assets data.
@@ -28,7 +29,9 @@ public:
 	void updateUniformBuffer(uint32_t currentImage);
 
 	void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-					  vk::raii::Buffer &buffer, VmaAllocation &bufferMemory);
+					  vk::raii::Buffer &buffer, VmaAllocation &bufferMemory,
+					  std::string_view memoryDebugBaseName = "ResourceBufferMemory",
+					  VmaAllocationCreateFlags extraAllocationFlags = 0);
 	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char> &code) const;
 
 	const std::vector<vk::raii::Buffer>& getUniformBuffers() const { return uniformBuffers; }
@@ -36,7 +39,8 @@ public:
 
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits samples,
 					 vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
-					 vk::MemoryPropertyFlags properties, vk::raii::Image &image, VmaAllocation &imageMemory);
+					 vk::MemoryPropertyFlags properties, vk::raii::Image &image, VmaAllocation &imageMemory,
+					 std::string_view memoryDebugBaseName = "ResourceImageMemory");
 	vk::raii::ImageView createImageView(vk::raii::Image &image, vk::Format format, vk::ImageAspectFlags aspectFlags,
 										uint32_t mipLevels);
 	void copyBuffer(vk::raii::Buffer &srcBuffer, vk::raii::Buffer &dstBuffer, vk::DeviceSize size);
