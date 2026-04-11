@@ -1,4 +1,5 @@
 #include "vk_pipeline.hpp"
+#include "push_data.hpp"
 #include "../core/vk_descriptors.hpp"
 #include "../util/debug.hpp"
 #include "../util/vk_tracy.hpp"
@@ -168,7 +169,7 @@ void Pipeline::createGraphicsPipeline()
     vk::PushConstantRange pushDataRange{
         .stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
-        .size = static_cast<uint32_t>(sizeof(uint32_t) * 6),
+        .size = static_cast<uint32_t>(sizeof(PushData)),
     };
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};

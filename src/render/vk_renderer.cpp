@@ -1,5 +1,7 @@
 #include "vk_renderer.hpp"
 
+#include "push_data.hpp"
+
 #include "../Constants.h"
 #include "../static_headers/logger.hpp"
 #include "../util/vk_tracy.hpp"
@@ -7,25 +9,6 @@
 #include "imgui_impl_vulkan.h"
 
 #include <format>
-
-struct alignas(8) SlangHandle {
-    uint32_t resourceIndex;
-    uint32_t samplerIndex; // Usually 0 unless using CombinedTextureSampler
-};
-
-// Must perfectly match the PushData struct in Slang
-struct PushData {
-	SlangHandle matrices;      // 8 bytes
-	SlangHandle texture;      // 8 bytes
-	SlangHandle samplerHandle; // 8 bytes
-};
-
-static_assert(alignof(PushData) % 4 == 0, "PushData alignment must be a multiple of 4");
-static_assert(sizeof(PushData) % 4 == 0, "PushData size must be a multiple of 4");
-static_assert(sizeof(SlangHandle) == sizeof(uint32_t) * 2,
-			  "Descriptor handle push layout must be uint2");
-static_assert(std::is_trivially_copyable_v<PushData>);
-static_assert(sizeof(SlangHandle) == 8);
 
 Renderer::Renderer(Device& device,
 				   SwapChain& swapChain,
@@ -248,11 +231,12 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 			commandBuffers[currentFrame].bindSamplerHeapEXT(samplerHeapInfo);
 
 			PushData pushData{};
-			// Slang lowers DescriptorHandle<T> to uint2; descriptor index is in the first lane.
-			pushData.matrices = {
-				.resourceIndex = descriptorManager.getUboDescriptorIndex(currentFrame),
-				.samplerIndex = 0,
+			const VkBufferDeviceAddressInfo uboAddressInfo = {
+				.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+				.pNext = nullptr,
+				.buffer = *resourceManager.uniformBuffers[currentFrame],
 			};
+			pushData.uboAddress = vkGetBufferDeviceAddress(*device.getDevice(), &uboAddressInfo);
 			pushData.texture = {
 				.resourceIndex = descriptorManager.getTextureDescriptorIndex(),
 				.samplerIndex = 0,
@@ -261,7 +245,6 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 				.resourceIndex = descriptorManager.getSamplerDescriptorIndex(),
 				.samplerIndex = 0,
 			};
-
 
 			vk::PushDataInfoEXT pushDataInfo = {
 				.sType = vk::StructureType::ePushDataInfoEXT,

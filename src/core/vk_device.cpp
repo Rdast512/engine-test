@@ -483,6 +483,7 @@ void Device::createLogicalDevice()
         vk::PhysicalDevicePresentModeFifoLatestReadyFeaturesKHR, vk::PhysicalDeviceShaderUntypedPointersFeaturesKHR>
         featureChain = {// vk::PhysicalDeviceFeatures2
                         {.features = {.geometryShader = true,
+                                      .shaderInt64 = true,
                                       .sampleRateShading = true,
                                       .multiDrawIndirect = true,
                                       .samplerAnisotropy = true,}},

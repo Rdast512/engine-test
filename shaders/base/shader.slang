@@ -1,6 +1,14 @@
+struct UBO
+{
+    float4x4 model;
+    float4x4 view;
+    float4x4 proj;
+};
+
+
 struct PushData
 {
-    DescriptorHandle<StructuredBuffer<float4x4>> matrices;
+    uint64_t uboAddress;
     DescriptorHandle<Texture2D> texture;
     DescriptorHandle<SamplerState> samplerHandle;
 };
@@ -25,11 +33,11 @@ struct VSOutput
 VSOutput vertMain(VSInput input)
 {
     VSOutput output;
+    UBO* ubo = reinterpret<UBO*>(push.uboAddress);
 
-    StructuredBuffer<float4x4> matrices = getDescriptorFromHandle(push.matrices);
-    float4x4 model = matrices[0];
-    float4x4 view  = matrices[1];
-    float4x4 proj  = matrices[2];
+    float4x4 model = ubo->model;
+    float4x4 view  = ubo->view;
+    float4x4 proj  = ubo->proj;
 
     output.pos =
         mul(proj,

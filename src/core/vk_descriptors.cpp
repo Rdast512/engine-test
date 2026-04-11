@@ -8,7 +8,6 @@
 #include "logger.hpp"
 #include "vk_allocator.hpp"
 #include "vk_resource_manager.hpp"
-#include <numeric>
 
 constexpr vk::DeviceSize alignUp(vk::DeviceSize size, vk::DeviceSize alignment)
 {
@@ -79,26 +78,27 @@ void DescriptorManager::createHeaps()
 {
     ZoneScopedN("DescriptorManager::createHeaps");
 
-    if (bufferDescriptorSize == 0 || samplerDescriptorSize == 0 || imageDescriptorSize == 0 ||
-        bufferDescriptorAlignment == 0 || samplerDescriptorAlignment == 0 || imageDescriptorAlignment == 0) {
+    if (samplerDescriptorSize == 0 || imageDescriptorSize == 0 ||
+        samplerDescriptorAlignment == 0 || imageDescriptorAlignment == 0) {
         throw std::runtime_error("Descriptor heap properties are invalid for heap mode");
     }
 
-    const vk::DeviceSize resourceReservedOffsetAlignment =
-        std::lcm(bufferDescriptorAlignment, imageDescriptorAlignment);
+    const vk::DeviceSize resourceReservedOffsetAlignment = imageDescriptorAlignment;
 
     vk::DeviceSize resourceHeapSize = 0;
-    resourceHeapSize = alignUp(resourceHeapSize, bufferDescriptorAlignment);
-    resourceHeapSize += MAX_FRAMES_IN_FLIGHT * bufferDescriptorSize;
     resourceHeapSize = alignUp(resourceHeapSize, imageDescriptorAlignment);
     resourceHeapSize += imageDescriptorSize;
     resourceHeapSize = alignUp(resourceHeapSize, resourceReservedOffsetAlignment);
     resourceHeapSize += minResourceHeapReservedRange;
 
-    log_info(std::format("Creating resource descriptor heap: size={} bufferDesc={} imageDesc={} reserve={}",
-                         resourceHeapSize, bufferDescriptorSize, imageDescriptorSize, minResourceHeapReservedRange));
+    log_info(std::format("Creating resource descriptor heap: size={} imageDesc={} reserve={}",
+                         resourceHeapSize, imageDescriptorSize, minResourceHeapReservedRange));
 
     vk::DeviceSize samplerHeapSize = 0;
+
+    // resourceHeapSize = alignUp(resourceHeapSize, bufferDescriptorAlignment);
+    // resourceHeapSize += MAX_FRAMES_IN_FLIGHT * bufferDescriptorSize;
+
     samplerHeapSize = alignUp(samplerHeapSize, samplerDescriptorAlignment);
     samplerHeapSize += samplerDescriptorSize;
     samplerHeapSize = alignUp(samplerHeapSize, samplerDescriptorAlignment);
@@ -111,38 +111,41 @@ void DescriptorManager::createHeaps()
 
     auto resources = std::vector<vk::ResourceDescriptorInfoEXT>();
     auto descriptors = std::vector<vk::HostAddressRangeEXT>();
-    uboDescriptorOffsets.clear();
-    uboDescriptorOffsets.reserve(MAX_FRAMES_IN_FLIGHT);
 
-    vk::DeviceSize currentResOffset = 0;
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        ZoneScopedN("DescriptorManager::createHeaps::UniformBufferDescriptor");
-        currentResOffset = alignUp(currentResOffset, bufferDescriptorAlignment);
+    // uboDescriptorOffsets.clear();
+    // uboDescriptorOffsets.reserve(MAX_FRAMES_IN_FLIGHT);
 
-        VkBufferDeviceAddressInfo bufferAddressInfo = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-            .pNext = nullptr,
-            .buffer = *uniformBuffers[i],
-        };
-        VkDeviceAddress uboBaseAddress = vkGetBufferDeviceAddress(*device, &bufferAddressInfo);
-        vk::DeviceAddressRangeEXT uboAddressRange = {.address = uboBaseAddress, .size = sizeof(UniformBufferObject)};
-        auto uboInfo = vk::ResourceDescriptorInfoEXT{
-            .sType = vk::StructureType::eResourceDescriptorInfoEXT,
-            .pNext = nullptr,
-            .type = vk::DescriptorType::eStorageBuffer,
-            .data = vk::ResourceDescriptorDataEXT{&uboAddressRange},
-        };
-        uboDescriptorOffsets.push_back(currentResOffset);
-        auto uboWrite = vk::HostAddressRangeEXT{
-            .address = static_cast<uint8_t*>(mappedResourceHeapPtr) + currentResOffset,
-            .size = bufferDescriptorSize,
-        };
-        resources.push_back(uboInfo);
-        descriptors.push_back(uboWrite);
-        currentResOffset += bufferDescriptorSize;
-    }
+    // vk::DeviceSize currentResOffset = 0;
+    // for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    //     ZoneScopedN("DescriptorManager::createHeaps::UniformBufferDescriptor");
+    //     currentResOffset = alignUp(currentResOffset, bufferDescriptorAlignment);
 
-    currentResOffset = alignUp(currentResOffset, imageDescriptorAlignment);
+    //     VkBufferDeviceAddressInfo bufferAddressInfo = {
+    //         .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+    //         .pNext = nullptr,
+    //         .buffer = *uniformBuffers[i],
+    //     };
+    //     VkDeviceAddress uboBaseAddress = vkGetBufferDeviceAddress(*device, &bufferAddressInfo);
+    //     vk::DeviceAddressRangeEXT uboAddressRange = {.address = uboBaseAddress, .size = sizeof(UniformBufferObject)};
+    //     auto uboInfo = vk::ResourceDescriptorInfoEXT{
+    //         .sType = vk::StructureType::eResourceDescriptorInfoEXT,
+    //         .pNext = nullptr,
+    //         .type = vk::DescriptorType::eStorageBuffer,
+    //         .data = vk::ResourceDescriptorDataEXT{&uboAddressRange},
+    //     };
+    //     uboDescriptorOffsets.push_back(currentResOffset);
+    //     auto uboWrite = vk::HostAddressRangeEXT{
+    //         .address = static_cast<uint8_t*>(mappedResourceHeapPtr) + currentResOffset,
+    //         .size = bufferDescriptorSize,
+    //     };
+    //     resources.push_back(uboInfo);
+    //     descriptors.push_back(uboWrite);
+    //     currentResOffset += bufferDescriptorSize;
+    // }
+
+    // currentResOffset = alignUp(currentResOffset, imageDescriptorAlignment);
+
+    vk::DeviceSize currentResOffset = alignUp(0, imageDescriptorAlignment);
     textureDescriptorOffset = currentResOffset;
     auto descriptorImageInfo = vk::ImageDescriptorInfoEXT{
         .sType = vk::StructureType::eImageDescriptorInfoEXT,
@@ -199,14 +202,11 @@ void DescriptorManager::createHeaps()
 
     // T1
     log_info(std::format(
-        "[T1] Descriptor heap layout bufferDescSize={} imageDescSize={} samplerDescSize={} bufferAlign={} imageAlign={} samplerAlign={} uboIndex0={} textureIndex={} samplerIndex={}",
-        bufferDescriptorSize,
+        "[T1] Descriptor heap layout imageDescSize={} samplerDescSize={} imageAlign={} samplerAlign={} textureIndex={} samplerIndex={}",
         imageDescriptorSize,
         samplerDescriptorSize,
-        bufferDescriptorAlignment,
         imageDescriptorAlignment,
         samplerDescriptorAlignment,
-        getUboDescriptorIndex(0),
         getTextureDescriptorIndex(),
         getSamplerDescriptorIndex()));
 }
@@ -340,13 +340,13 @@ void DescriptorManager::createDescriptorSets()
     }
 }
 
-uint32_t DescriptorManager::getUboDescriptorIndex(uint32_t frameIndex) const
-{
-    if (frameIndex >= uboDescriptorOffsets.size() || bufferDescriptorSize == 0) {
-        return 0;
-    }
-    return static_cast<uint32_t>(uboDescriptorOffsets[frameIndex] / bufferDescriptorSize);
-}
+// uint32_t DescriptorManager::getUboDescriptorIndex(uint32_t frameIndex) const
+// {
+//     if (frameIndex >= uboDescriptorOffsets.size() || bufferDescriptorSize == 0) {
+//         return 0;
+//     }
+//     return static_cast<uint32_t>(uboDescriptorOffsets[frameIndex] / bufferDescriptorSize);
+// }
 
 uint32_t DescriptorManager::getTextureDescriptorIndex() const
 {

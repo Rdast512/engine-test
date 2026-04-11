@@ -185,7 +185,7 @@ foreach (SLANG ${SLANG_SHADERS})
             ${SLANG}
             -target spirv
             -profile sm_6_9
-            -capability SPIRV_1_6+SPV_KHR_untyped_pointers+spvDescriptorHeapEXT+GL_EXT_buffer_reference
+            -capability SPIRV_1_6+SPV_KHR_untyped_pointers+SPV_EXT_physical_storage_buffer+spvDescriptorHeapEXT+GL_EXT_buffer_reference
             -capability vk_mem_model
             -fvk-use-entrypoint-name -g -O0
             -entry vertMain -entry fragMain

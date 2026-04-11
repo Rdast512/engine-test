@@ -33,10 +33,10 @@ public:
 
     const vk::BindHeapInfoEXT& getResourceHeapInfo() const { return resourceHeapInfo; }
     const vk::BindHeapInfoEXT& getSamplerHeapInfo() const { return samplerHeapInfo; }
-    uint32_t getUboDescriptorIndex(uint32_t frameIndex) const;
     uint32_t getTextureDescriptorIndex() const;
     uint32_t getSamplerDescriptorIndex() const;
-
+    uint32_t getUboDescriptorIndex(uint32_t frameIndex) const;
+    
     const vk::raii::Device& device;
     ResourceManager& resourceManager;
     const std::vector<vk::raii::Buffer>& uniformBuffers;
@@ -69,7 +69,6 @@ public:
     vk::BindHeapInfoEXT resourceHeapInfo{};
     vk::BindHeapInfoEXT samplerHeapInfo{};
 
-    std::vector<vk::DeviceSize> uboDescriptorOffsets;
     vk::DeviceSize textureDescriptorOffset = 0;
     vk::DeviceSize samplerDescriptorOffset = 0;
     vk::raii::DescriptorSetLayout descriptorSetLayout = nullptr;
