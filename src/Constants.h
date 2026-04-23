@@ -19,4 +19,5 @@ const uint32_t test = 42;
 #endif
 
 inline const std::filesystem::path MODEL_PATH = std::filesystem::path(ENGINE_MODELS_DIR) / "room.obj";
+inline const std::filesystem::path MODEL_PATH_GLTF = std::filesystem::path(ENGINE_MODELS_DIR) / "room.gltf";
 inline const std::filesystem::path TEXTURE_PATH = std::filesystem::path(ENGINE_TEXTURES_DIR) / "viking_room.png";

@@ -49,8 +49,9 @@ void Engine::initialize()
     swapChain = std::make_unique<SwapChain>(window, *device);
     swapChain->init();
 
-    modelStorage = std::make_unique<ModelStorage>();
-    assetsLoader = std::make_unique<AssetsLoader>(*modelStorage);
+    objectStorage = std::make_unique<ObjectStorage>();
+
+    assetsLoader = std::make_unique<AssetsLoader>(*objectStorage);
 
     resourceManager =
         std::make_unique<ResourceManager>(*device, *allocator, assetsLoader->getVertices(), assetsLoader->getIndices());
@@ -101,6 +102,7 @@ void Engine::initialize()
                                           tracyContext.get(),
                                           enableImGui);
     renderer->rebuildSwapchainResources();
+
 
     if (enableImGui)
     {
@@ -239,7 +241,6 @@ void Engine::run()
             ImGui_ImplVulkan_NewFrame();
             ImGui_ImplSDL3_NewFrame();
             ImGui::NewFrame();
-            ImGui::ShowDemoWindow();
             ImGui::Render();
         }
 

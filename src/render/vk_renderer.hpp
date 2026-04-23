@@ -20,7 +20,7 @@ public:
 			 bool imguiEnabled = true);
 
 	void setTracyContext(VkTracyContext* tracyContextIn);
-	void rebuildSwapchainResources();
+	void rebuildSwapchainResources() const;
 	void drawFrame();
 	void waitIdle() const;
 

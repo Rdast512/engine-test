@@ -37,7 +37,5 @@
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-
 #include "vma/vk_mem_alloc.h"
 #include "../ThirdParty/termcolor.hpp"
-#include "tiny_gltf.h"

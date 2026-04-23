@@ -43,8 +43,8 @@ class Device{
         vk::KHRRayQueryExtensionName,
         vk::KHRSwapchainMaintenance1ExtensionName,
         vk::KHRRayTracingMaintenance1ExtensionName,
-        // vk::KHRPresentId2ExtensionName,           // required by EXT_present_timing
-        // vk::KHRCalibratedTimestampsExtensionName,  // required by EXT_present_timing
+        vk::KHRPresentId2ExtensionName,           // required by EXT_present_timing
+        vk::KHRCalibratedTimestampsExtensionName,  // required by EXT_present_timing
         // vk::KHRPipelineLibraryExtensionName,       // required by EXT_graphics_pipeline_library
         vk::KHRPresentModeFifoLatestReadyExtensionName,
         vk::KHRCopyMemoryIndirectExtensionName,
@@ -62,9 +62,10 @@ class Device{
         vk::EXTPageableDeviceLocalMemoryExtensionName,
         vk::EXTShaderObjectExtensionName,
         // vk::EXTGraphicsPipelineLibraryExtensionName,
-        // vk::EXTPresentTimingExtensionName,
+        vk::EXTPresentTimingExtensionName,
         vk::EXTRayTracingInvocationReorderExtensionName,
-        vk::EXTDescriptorBufferExtensionName
+        vk::EXTDescriptorBufferExtensionName,
+        vk::NVClusterAccelerationStructureExtensionName,
     };
 
     SDL_Window* window = nullptr;              ///< Non-owning pointer to the SDL3 window used for surface creation.

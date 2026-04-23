@@ -1,7 +1,7 @@
-
 #include "assets_loader.hpp"
 #include "../Constants.h"
 #include "../static_headers/logger.hpp"
+#include "tiny_gltf_v3.h"
 
 static std::vector<char> readFile(const std::string &filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -17,7 +17,7 @@ static std::vector<char> readFile(const std::string &filename) {
 }
 
 
-AssetsLoader::AssetsLoader(ModelStorage &storage) : modelStorage(storage) {
+AssetsLoader::AssetsLoader(ObjectStorage &storage) : objectStorage(storage) {
     log_info("AssetsLoader initialized");
     loadModel();
 }
@@ -60,7 +60,48 @@ void AssetsLoader::loadModel() {
             indices.push_back(uniqueVertices[vertex]);
         }
     }
-    modelStorage.setModelData(std::move(vertices), std::move(indices));
-    log_info(std::format("Model loaded: {} | vertices: {} | indices: {}", modelPath, modelStorage.getVertices().size(),
-                         modelStorage.getIndices().size()));
+    const auto path = MODEL_PATH_GLTF.string();
+    tg3_model model{};
+    tg3_error_stack errors;
+    tg3_error_stack_init(&errors);
+
+    tg3_parse_options opts;
+    tg3_parse_options_init(&opts);
+    opts.parse_float32 = 1; // optional speed mode
+
+    tg3_error_code rc = tg3_parse_file(
+        &model,
+        &errors,
+        path.c_str(),
+        static_cast<uint32_t>(std::strlen(path.c_str())),
+        &opts
+    );
+
+    if (rc != TG3_OK) {
+        std::printf("Failed to load model: %s (code=%d)\n", path.c_str(), (int)rc);
+
+        const uint32_t n = tg3_errors_count(&errors);
+        for (uint32_t i = 0; i < n; ++i) {
+            const tg3_error_entry* e = tg3_errors_get(&errors, i);
+            if (!e) continue;
+            std::printf("  [%u] %s\n", i, e->message ? e->message : "(no message)");
+        }
+
+        tg3_model_free(&model);
+        tg3_error_stack_free(&errors);
+    }
+
+    std::printf("Loaded: %s\n", path.c_str());
+    std::printf("meshes=%u nodes=%u accessors=%u buffers=%u images=%u\n",
+        model.meshes_count,
+        model.nodes_count,
+        model.accessors_count,
+        model.buffers_count,
+        model.images_count);
+    tg3_model_free(&model);
+    tg3_error_stack_free(&errors);
+
+    objectStorage.setModelData(std::move(vertices), std::move(indices));
+    log_info(std::format("Model loaded: {} | vertices: {} | indices: {}", modelPath, objectStorage.getVertices().size(),
+                         objectStorage.getIndices().size()));
 }

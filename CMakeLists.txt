@@ -124,7 +124,7 @@ endif ()
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 # --- Add Dependencies (Vendored) ---
-# This builds SDL3, Boost, GLM, etc. from source
+# This builds SDL3, GLM, spdlog, etc. from source
 add_subdirectory(ThirdParty)
 
 set(CMAKE_VERBOSE_MAKEFILE OFF)

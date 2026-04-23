@@ -6,21 +6,22 @@
 #include "../util/vk_tracy.hpp"
 #include "../assets/texture_manager.hpp"
 #include "../assets/assets_loader.hpp"
-#include "../assets/model_storage.hpp"
+#include "../assets/object_storage.hpp"
 #include "../render/vk_pipeline.hpp"
 #include "../render/vk_renderer.hpp"
+#include "../assets/object_storage.hpp"
 #include "vk_allocator.hpp"
 
 
 class Engine{
     // Manual code toggle: set false to disable all ImGui setup and rendering paths.
-    bool enableImGui = false;
+    bool enableImGui = true;
 
     SDL_Window *window = nullptr;
     std::unique_ptr<Device> device;
     std::unique_ptr<VkAllocator> allocator;
     std::unique_ptr<SwapChain> swapChain;
-    std::unique_ptr<ModelStorage> modelStorage;
+    std::unique_ptr<ObjectStorage> objectStorage;
     std::unique_ptr<AssetsLoader> assetsLoader;
     std::unique_ptr<ResourceManager> resourceManager;
     std::unique_ptr<VkTracyContext> tracyContext;

@@ -12,11 +12,15 @@
 #include "stb_image_write.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
-#define TINYGLTF_IMPLEMENTATION
-#define TINYGLTF_NO_INCLUDE_STB_IMAGE
-#define TINYGLTF_NO_INCLUDE_STB_IMAGE_WRITE
-#define TINYGLTF_USE_RAPIDJSON
-#define TINYGLTF_NO_INCLUDE_RAPIDJSON
+#define TINYGLTF3_IMPLEMENTATION
+#define TINYGLTF3_ENABLE_FS
+#define TINYGLTF3_JSON_SIMD_AVX2
+#define TINYGLTF3_ENABLE_STB_IMAGE   // enable image decoding
+#define TINYGLTF3_ENABLE_STB_IMAGE_WRITE // enable image writing
+// #define TINYGLTF_NO_INCLUDE_STB_IMAGE
+// #define TINYGLTF_NO_INCLUDE_STB_IMAGE_WRITE
+// #define TINYGLTF_USE_RAPIDJSON
+// #define TINYGLTF_NO_INCLUDE_RAPIDJSON
 // rapidjson must be included manually when TINYGLTF_NO_INCLUDE_RAPIDJSON is defined
 // (tinygltf's own includes use bare "document.h" without the rapidjson/ prefix)
 #include <rapidjson/document.h>
@@ -24,4 +28,5 @@
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-#include "tiny_gltf.h"
+#include "tiny_gltf_v3.h"
+#include "tinygltf_json.h"

@@ -122,7 +122,11 @@
           1
         ],
         "metallicFactor": 0,
-        "roughnessFactor": 1
+        "roughnessFactor": 1,
+        "baseColorTexture": {
+          "texCoord": 0,
+          "index": 0
+        }
       },
       "emissiveFactor": [
         0,
@@ -163,5 +167,36 @@
         0
       ]
     }
+  ],
+  "images": [
+    {
+      "name": "viking_room_ktx2",
+      "uri": "../textures/viking_room.ktx2",
+      "mimeType": "image/ktx2"
+    }
+  ],
+  "textures": [
+    {
+      "extensions": {
+        "KHR_texture_basisu": {
+          "source": 0
+        }
+      },
+      "sampler": 0
+    }
+  ],
+  "samplers": [
+    {
+      "wrapT": 10497,
+      "minFilter": 9987,
+      "magFilter": 9729,
+      "wrapS": 10497
+    }
+  ],
+  "extensionsUsed": [
+    "KHR_texture_basisu"
+  ],
+  "extensionsRequired": [
+    "KHR_texture_basisu"
   ]
 }

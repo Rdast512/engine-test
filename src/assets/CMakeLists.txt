@@ -1,6 +1,6 @@
 set(ASSETS_SOURCES
         assets_loader.cpp
-        model_storage.cpp
+        object_storage.cpp
         texture_manager.cpp
 )
 

@@ -75,11 +75,7 @@ if(WIN32)
         ktx
         fmt::fmt
         spdlog::spdlog
-        Boost::filesystem
-        Boost::log
-        Boost::log_setup
-        Boost::thread
-        Boost::atomic
+        mimalloc
     )
 
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -130,16 +126,8 @@ else()
         ktx
         fmt::fmt
         spdlog::spdlog
+        mimalloc
         glm::glm
-        Boost::filesystem
-        Boost::log
-        Boost::log_setup
-        Boost::system
-        Boost::thread
-        Boost::atomic
-        Boost::chrono
-        Boost::container
-        Boost::date_time
     )
 
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")

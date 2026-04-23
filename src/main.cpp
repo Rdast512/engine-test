@@ -4,6 +4,7 @@
 
 #include "./core/vk_engine.hpp"
 #include <iostream>
+#include <mimalloc.h>
 
 // TODO move resources like Texture data to its own texture class
 // TODO add functions to ownership
@@ -50,6 +51,9 @@ void CheckSTL() {
 }
 
 int main() {
+    // Ensure mimalloc symbols are referenced so allocator override is loaded.
+    mi_version();            // just to pull in the symbol
+
     CheckSTL();
     try {
         Engine engine;
