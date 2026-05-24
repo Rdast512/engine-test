@@ -31,8 +31,8 @@ namespace
     }
 } // namespace
 
-Pipeline::Pipeline(ResourceManager* resourceManager,
-                   DescriptorManager* descriptorManager,
+Pipeline::Pipeline(ResourceManager& resourceManager,
+                   DescriptorManager& descriptorManager,
                    const vk::raii::Device& device,
                    const vk::Extent2D& swapChainExtent, const vk::Format& swapChainImageFormat) :
     device(device), swapChainExtent(swapChainExtent), swapChainImageFormat(swapChainImageFormat),
@@ -51,10 +51,10 @@ void Pipeline::createGraphicsPipeline()
     ZoneScopedN("Pipeline::createGraphicsPipeline");
     const auto shaderDir = std::filesystem::path(ENGINE_SHADER_DIR);
     const auto shaderPath = (shaderDir / "base" / "shader.spv").string();
-    vk::raii::ShaderModule shaderModule = resourceManager->createShaderModule(readFile(shaderPath));
+    vk::raii::ShaderModule shaderModule = resourceManager.createShaderModule(readFile(shaderPath));
     auto bindingDescription = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
-    const bool useDescriptorHeaps = descriptorManager->usesDescriptorHeaps();
+    const bool useDescriptorHeaps = descriptorManager.usesDescriptorHeaps();
     vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .pNext = nullptr,
         .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule, .pName = "vertMain"};
     vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .pNext = nullptr,
@@ -154,7 +154,7 @@ void Pipeline::createGraphicsPipeline()
                                                         .depthBiasSlopeFactor = 1.0f,
                                                         .lineWidth = 1.0f};
     vk::PipelineMultisampleStateCreateInfo multisampling{
-        .rasterizationSamples = resourceManager->msaaSamples,
+        .rasterizationSamples = resourceManager.msaaSamples,
         .sampleShadingEnable = vk::True,
     };
     vk::PipelineColorBlendAttachmentState colorBlendAttachment;
@@ -180,7 +180,7 @@ void Pipeline::createGraphicsPipeline()
         pipelineLayoutInfo.pPushConstantRanges = &pushDataRange;
     } else {
         pipelineLayoutInfo.setLayoutCount = 1;
-        pipelineLayoutInfo.pSetLayouts = &*descriptorManager->descriptorSetLayout;
+        pipelineLayoutInfo.pSetLayouts = &*descriptorManager.descriptorSetLayout;
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
     }
@@ -190,7 +190,7 @@ void Pipeline::createGraphicsPipeline()
                                                          .depthCompareOp = vk::CompareOp::eLess,
                                                          .depthBoundsTestEnable = vk::False,
                                                          .stencilTestEnable = vk::False};
-    vk::Format depthFormat = resourceManager->findDepthFormat();
+    vk::Format depthFormat = resourceManager.findDepthFormat();
 
     if (useDescriptorHeaps) {
         pipelineLayout = VK_NULL_HANDLE;

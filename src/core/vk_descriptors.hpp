@@ -1,51 +1,18 @@
 #pragma once
-#include <vulkan/vulkan_raii.hpp>
 #include <vector>
+#include <vulkan/vulkan_raii.hpp>
 
 #include "types.hpp"
 
 class ResourceManager;
 
-class DescriptorManager {
-public:
-
-    DescriptorManager(const vk::raii::Device& device,
-                      ResourceManager& resourceManager,
-                      const std::vector<vk::raii::Buffer>& uniformBuffers,
-                      const vk::raii::Sampler& textureSampler,
-                      const vk::raii::ImageView& textureImageView,
-                      const vk::ImageViewCreateInfo& textureImageViewCreateInfo,
-                      const HardwareCapabilities& capabilities,
-                      DescriptorBindingMode descriptorBindingMode);
-
-    ~DescriptorManager();
-
-    void init();
-
+class DescriptorManager
+{
     void createDescriptorSetLayout();
     void createDescriptorPool();
     void createDescriptorSets();
     void createHeaps();
     void createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::DeviceSize samplerHeapSize);
-
-    bool usesDescriptorHeaps() const { return descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps; }
-    DescriptorBindingMode getDescriptorBindingMode() const { return descriptorBindingMode; }
-
-    const vk::BindHeapInfoEXT& getResourceHeapInfo() const { return resourceHeapInfo; }
-    const vk::BindHeapInfoEXT& getSamplerHeapInfo() const { return samplerHeapInfo; }
-    uint32_t getTextureDescriptorIndex() const;
-    uint32_t getSamplerDescriptorIndex() const;
-    uint32_t getUboDescriptorIndex(uint32_t frameIndex) const;
-    
-    const vk::raii::Device& device;
-    ResourceManager& resourceManager;
-    const std::vector<vk::raii::Buffer>& uniformBuffers;
-    const vk::raii::Sampler& textureSampler;
-    const vk::raii::ImageView& textureImageView;
-    const vk::ImageViewCreateInfo& textureImageViewCreateInfo;
-    const HardwareCapabilities& capabilities;
-    DescriptorBindingMode descriptorBindingMode = DescriptorBindingMode::LegacySets;
-
     vk::DeviceSize minResourceHeapReservedRange = 0;
     vk::DeviceSize minSamplerHeapReservedRange = 0;
 
@@ -56,6 +23,40 @@ public:
     vk::DeviceSize bufferDescriptorAlignment = 0;
     vk::DeviceSize samplerDescriptorAlignment = 0;
     vk::DeviceSize imageDescriptorAlignment = 0;
+
+public:
+    DescriptorManager(const vk::raii::Device& device, ResourceManager& resourceManager,
+                      const std::vector<vk::raii::Buffer>& uniformBuffers, const vk::raii::Sampler& textureSampler,
+                      const vk::raii::ImageView& textureImageView,
+                      const vk::ImageViewCreateInfo& textureImageViewCreateInfo,
+                      const HardwareCapabilities& capabilities, DescriptorBindingMode descriptorBindingMode);
+
+    ~DescriptorManager();
+
+
+    void init();
+
+
+
+    [[nodiscard]] auto usesDescriptorHeaps() const -> bool { return descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps; }
+    [[nodiscard]] auto getDescriptorBindingMode() const -> DescriptorBindingMode { return descriptorBindingMode; }
+
+    [[nodiscard]] auto getResourceHeapInfo() const -> const vk::BindHeapInfoEXT& { return resourceHeapInfo; }
+    [[nodiscard]] auto getSamplerHeapInfo() const -> const vk::BindHeapInfoEXT& { return samplerHeapInfo; }
+    [[nodiscard]] auto getTextureDescriptorIndex() const -> uint32_t;
+    [[nodiscard]] auto getSamplerDescriptorIndex() const -> uint32_t;
+    [[nodiscard]] auto getUboDescriptorIndex(uint32_t frameIndex) const -> uint32_t;
+
+    const vk::raii::Device& device;
+    ResourceManager& resourceManager;
+    const std::vector<vk::raii::Buffer>& uniformBuffers;
+    const vk::raii::Sampler& textureSampler;
+    const vk::raii::ImageView& textureImageView;
+    const vk::ImageViewCreateInfo& textureImageViewCreateInfo;
+    const HardwareCapabilities& capabilities;
+    DescriptorBindingMode descriptorBindingMode = DescriptorBindingMode::LegacySets;
+
+
 
     vk::raii::Buffer resourceHeapBuffer = nullptr;
     vk::raii::Buffer samplerHeapBuffer = nullptr;
@@ -74,5 +75,4 @@ public:
     vk::raii::DescriptorSetLayout descriptorSetLayout = nullptr;
     vk::raii::DescriptorPool descriptorPool = nullptr;
     std::vector<vk::raii::DescriptorSet> descriptorSets;
-
 };

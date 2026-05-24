@@ -75,7 +75,6 @@ if(WIN32)
         ktx
         fmt::fmt
         spdlog::spdlog
-        mimalloc
     )
 
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -126,7 +125,6 @@ else()
         ktx
         fmt::fmt
         spdlog::spdlog
-        mimalloc
         glm::glm
     )
 

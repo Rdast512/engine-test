@@ -11,7 +11,7 @@ SwapChain::SwapChain(SDL_Window *window, const Device &device)
       device(device),
       physicalDevice(device.getPhysicalDevice()),
       surface(device.getSurface()),
-      vkdevice(device.getDevice()),
+      vkDevice(device.getDevice()),
       queueFamilyIndices(device.getQueueFamilyIndices()) {}
 
 void SwapChain::init() {
@@ -139,10 +139,10 @@ void SwapChain::createSwapChain() {
         .clipped = true,
         .oldSwapchain = nullptr};
 
-    swapChain = vk::raii::SwapchainKHR(vkdevice, swapChainCreateInfo);
+    swapChain = vk::raii::SwapchainKHR(vkDevice, swapChainCreateInfo);
     swapChainImages = swapChain.getImages();
     for (size_t i = 0; i < swapChainImages.size(); ++i) {
-        setDebugName(vkdevice, swapChainImages[i], std::format("SwapchainImage_{}", i));
+        setDebugName(vkDevice, swapChainImages[i], std::format("SwapchainImage_{}", i));
     }
  }
 
@@ -155,8 +155,8 @@ void SwapChain::createSwapChain() {
          .subresourceRange = {vk::ImageAspectFlagBits::eColor,  0, 1, 0, 1}};
      for (auto image : swapChainImages) {
          imageViewCreateInfo.image = image;
-         swapChainImageViews.emplace_back(vkdevice, imageViewCreateInfo);
-         setDebugName(vkdevice, swapChainImageViews.back(), std::format("SwapchainImageView_{}", swapChainImageViews.size() - 1));
+         swapChainImageViews.emplace_back(vkDevice, imageViewCreateInfo);
+         setDebugName(vkDevice, swapChainImageViews.back(), std::format("SwapchainImageView_{}", swapChainImageViews.size() - 1));
      }
  }
 
@@ -168,7 +168,7 @@ void SwapChain::cleanupSwapChain() {
 
 void SwapChain::recreateSwapChain() {
     ZoneScopedN("SwapChain::recreateSwapChain");
-    vkdevice.waitIdle();
+    vkDevice.waitIdle();
 
     cleanupSwapChain();
 

@@ -52,8 +52,14 @@ void CheckSTL() {
 
 int main() {
     // Ensure mimalloc symbols are referenced so allocator override is loaded.
-    mi_version();            // just to pull in the symbol
+    mi_stats_reset();  // only works if mimalloc is linked
 
+    // Allocate and verify it comes from mimalloc
+    void* p = mi_malloc(64);
+    assert(mi_is_in_heap_region(p));  // true if mimalloc owns this pointer
+    mi_free(p);
+
+    mi_stats_print(nullptr);  // prints to stderr
     CheckSTL();
     try {
         Engine engine;

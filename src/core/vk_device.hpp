@@ -15,7 +15,8 @@
  *   4. pickPhysicalDevice()   – GPU selection by score
  *   5. createLogicalDevice()  – logical device + queues
  */
-class Device{
+class Device
+{
     /**
      * @brief Required device extensions enabled on every logical device.
      *
@@ -28,8 +29,8 @@ class Device{
      * @note KHR_present_id2 and KHR_calibrated_timestamps are required by EXT_present_timing.
      * @note KHR_pipeline_library is required by EXT_graphics_pipeline_library.
      */
-    std::vector<const char *> requiredDeviceExtension = {
-        //KHR
+    std::vector<const char*> requiredDeviceExtension = {
+        // KHR
         vk::KHRSwapchainExtensionName,
         vk::KHRMaintenance7ExtensionName,
         vk::KHRMaintenance8ExtensionName,
@@ -43,14 +44,15 @@ class Device{
         vk::KHRRayQueryExtensionName,
         vk::KHRSwapchainMaintenance1ExtensionName,
         vk::KHRRayTracingMaintenance1ExtensionName,
-        vk::KHRPresentId2ExtensionName,           // required by EXT_present_timing
-        vk::KHRCalibratedTimestampsExtensionName,  // required by EXT_present_timing
+        vk::KHRPresentId2ExtensionName, // required by EXT_present_timing
+        vk::KHRCalibratedTimestampsExtensionName, // required by EXT_present_timing
         // vk::KHRPipelineLibraryExtensionName,       // required by EXT_graphics_pipeline_library
         vk::KHRPresentModeFifoLatestReadyExtensionName,
         vk::KHRCopyMemoryIndirectExtensionName,
         vk::KHRShaderUntypedPointersExtensionName,
         vk::KHRVulkanMemoryModelExtensionName,
-        //EXT
+        // EXT
+        vk::EXTOpacityMicromapExtensionName,
         vk::EXTMemoryBudgetExtensionName,
         vk::EXTMemoryPriorityExtensionName,
         vk::EXTMemoryDecompressionExtensionName,
@@ -68,21 +70,20 @@ class Device{
         vk::NVClusterAccelerationStructureExtensionName,
     };
 
-    SDL_Window* window = nullptr;              ///< Non-owning pointer to the SDL3 window used for surface creation.
-    bool enableValidationLayers = false;       ///< Whether Khronos validation layers are active.
+    SDL_Window* window = nullptr; ///< Non-owning pointer to the SDL3 window used for surface creation.
+    bool enableValidationLayers = false; ///< Whether Khronos validation layers are active.
 
-    vk::raii::Context context;                 ///< Top-level RAII context; loads the Vulkan loader at construction.
-    vk::raii::Instance instance = nullptr;     ///< Vulkan instance owning all per-application state.
+    vk::raii::Context context; ///< Top-level RAII context; loads the Vulkan loader at construction.
+    vk::raii::Instance instance = nullptr; ///< Vulkan instance owning all per-application state.
     vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr; ///< Debug messenger; null when validation is disabled.
-    vk::raii::PhysicalDevice physicalDevice = nullptr;         ///< Selected GPU handle (highest-score candidate).
-    vk::raii::SurfaceKHR surface = nullptr;    ///< Platform surface created from the SDL3 window.
-    vk::raii::Device vkdevice = nullptr;       ///< Logical device; primary interface for GPU commands and resource creation.
+    vk::raii::PhysicalDevice physicalDevice = nullptr; ///< Selected GPU handle (highest-score candidate).
+    vk::raii::SurfaceKHR surface = nullptr; ///< Platform surface created from the SDL3 window.
+    vk::raii::Device vkdevice = nullptr; ///< Logical device; primary interface for GPU commands and resource creation.
     vk::PhysicalDeviceFeatures deviceFeatures; ///< Feature set reported by the selected physical device.
-
-    vk::raii::Queue graphicsQueue = nullptr;   ///< Queue supporting graphics operations.
-    vk::raii::Queue presentQueue = nullptr;    ///< Queue supporting presentation; may alias graphicsQueue.
-    vk::raii::Queue transferQueue = nullptr;   ///< Dedicated DMA/transfer queue when available.
-    vk::raii::Queue computeQueue = nullptr;    ///< Dedicated async-compute queue when available.
+    vk::raii::Queue graphicsQueue = nullptr; ///< Queue supporting graphics operations.
+    vk::raii::Queue presentQueue = nullptr; ///< Queue supporting presentation; may alias graphicsQueue.
+    vk::raii::Queue transferQueue = nullptr; ///< Dedicated DMA/transfer queue when available.
+    vk::raii::Queue computeQueue = nullptr; ///< Dedicated async-compute queue when available.
 
     /// Unique queue family indices used by this device (passed to resource sharing mode setup).
     std::vector<uint32_t> queueFamilyIndices;
@@ -91,12 +92,14 @@ class Device{
     vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
 
     uint32_t transferIndex = 0; ///< Queue family index of the transfer queue (UINT32_MAX if unavailable).
-    uint32_t computeIndex  = 0; ///< Queue family index of the compute queue  (UINT32_MAX if unavailable).
+    uint32_t computeIndex = 0; ///< Queue family index of the compute queue  (UINT32_MAX if unavailable).
     uint32_t graphicsIndex = 0; ///< Queue family index of the graphics queue.
-    uint32_t presentIndex  = 0; ///< Queue family index of the present queue.
+    uint32_t presentIndex = 0; ///< Queue family index of the present queue.
 
-    HardwareCapabilities capabilities = HardwareCapabilities{}; ///< Cached hardware capability support flags (e.g., ray-tracing, mesh shaders).
-    DescriptorBindingMode descriptorBindingMode = DescriptorBindingMode::LegacySets; ///< Runtime-selected descriptor binding path.
+    HardwareCapabilities capabilities =
+        HardwareCapabilities{}; ///< Cached hardware capability support flags (e.g., ray-tracing, mesh shaders).
+    DescriptorBindingMode descriptorBindingMode =
+        DescriptorBindingMode::LegacySets; ///< Runtime-selected descriptor binding path.
 
     /** @brief Creates the Vulkan instance with required SDL3 and debug extensions. */
     void createInstance();
@@ -142,7 +145,7 @@ public:
      * @param window                SDL3 window used for surface creation; must outlive this object.
      * @param enableValidationLayers Enable Khronos validation layers and debug messenger output.
      */
-    Device(SDL_Window *window, bool enableValidationLayers = false);
+    Device(SDL_Window* window, bool enableValidationLayers = false);
     ~Device() = default;
 
     /**
@@ -163,18 +166,18 @@ public:
     /// Returns true if the Khronos validation layers were requested at construction.
     bool isValidationLayersEnabled() const { return enableValidationLayers; }
 
-    const vk::raii::Context&              getContext()       const { return context; }
-    const vk::raii::Instance&             getInstance()      const { return instance; }
+    const vk::raii::Context& getContext() const { return context; }
+    const vk::raii::Instance& getInstance() const { return instance; }
     const vk::raii::DebugUtilsMessengerEXT& getDebugMessenger() const { return debugMessenger; }
-    const vk::raii::PhysicalDevice&       getPhysicalDevice() const { return physicalDevice; }
-    const vk::raii::SurfaceKHR&           getSurface()       const { return surface; }
-    const vk::raii::Device&               getDevice()        const { return vkdevice; }
-    const vk::PhysicalDeviceFeatures&     getDeviceFeatures() const { return deviceFeatures; }
+    const vk::raii::PhysicalDevice& getPhysicalDevice() const { return physicalDevice; }
+    const vk::raii::SurfaceKHR& getSurface() const { return surface; }
+    const vk::raii::Device& getDevice() const { return vkdevice; }
+    const vk::PhysicalDeviceFeatures& getDeviceFeatures() const { return deviceFeatures; }
 
     const vk::raii::Queue& getGraphicsQueue() const { return graphicsQueue; }
-    const vk::raii::Queue& getPresentQueue()  const { return presentQueue; }
+    const vk::raii::Queue& getPresentQueue() const { return presentQueue; }
     const vk::raii::Queue& getTransferQueue() const { return transferQueue; }
-    const vk::raii::Queue& getComputeQueue()  const { return computeQueue; }
+    const vk::raii::Queue& getComputeQueue() const { return computeQueue; }
     const HardwareCapabilities& getHardwareCapabilities() const { return capabilities; }
     DescriptorBindingMode getDescriptorBindingMode() const { return descriptorBindingMode; }
     bool usesDescriptorHeaps() const { return descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps; }
@@ -195,9 +198,9 @@ public:
 
     uint32_t getGraphicsQueueFamilyIndex() const { return graphicsIndex; }
     uint32_t getTransferIndex() const { return transferIndex; }
-    uint32_t getComputeIndex()  const { return computeIndex; }
+    uint32_t getComputeIndex() const { return computeIndex; }
     uint32_t getGraphicsIndex() const { return graphicsIndex; }
-    uint32_t getPresentIndex()  const { return presentIndex; }
+    uint32_t getPresentIndex() const { return presentIndex; }
 
     /// Returns the list of required device extension names enabled on the logical device.
     const std::vector<const char*>& getRequiredDeviceExtensions() const { return requiredDeviceExtension; }

@@ -18,11 +18,11 @@ public:
     void init();
 
     SDL_Window *window = nullptr;
-    const Device &device = nullptr;
+    const Device &device;
 
     const vk::raii::PhysicalDevice &physicalDevice;
     const vk::raii::SurfaceKHR &surface;
-    const vk::raii::Device &vkdevice;
+    const vk::raii::Device &vkDevice;
     const std::vector<uint32_t> &queueFamilyIndices;
 
     vk::raii::SwapchainKHR swapChain = nullptr;

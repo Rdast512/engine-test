@@ -29,51 +29,51 @@ ResourceManager::~ResourceManager()
 {
     log_info("ResourceManager destructor called");
 
-    // Uniform buffers: unmap then destroy with VMA
-    for (size_t i = 0; i < uniformBuffersMemory.size(); ++i)
-    {
-        if (uniformBuffersMemory[i] != nullptr)
-        {
-            vmaUnmapMemory(allocator.allocator, uniformBuffersMemory[i]);
-            VkBuffer raw = uniformBuffers[i].release();
-            vmaDestroyBuffer(allocator.allocator, raw, uniformBuffersMemory[i]);
-        }
-    }
-
-    // Vertex buffer
-    if (vertexBufferMemory != nullptr)
-    {
-        VkBuffer raw = vertexBuffer.release();
-        vmaDestroyBuffer(allocator.allocator, raw, vertexBufferMemory);
-    }
-
-    // Staging buffer
-    if (stagingBufferMemory != nullptr)
-    {
-        VkBuffer raw = stagingBuffer.release();
-        vmaDestroyBuffer(allocator.allocator, raw, stagingBufferMemory);
-    }
-
-    // Index buffer
-    if (indexBufferMemory != nullptr)
-    {
-        VkBuffer raw = indexBuffer.release();
-        vmaDestroyBuffer(allocator.allocator, raw, indexBufferMemory);
-    }
-
-    // Color image
-    if (colorImageMemory != nullptr)
-    {
-        VkImage raw = colorImage.release();
-        vmaDestroyImage(allocator.allocator, raw, colorImageMemory);
-    }
-
-    // Depth image
-    if (depthImageMemory != nullptr)
-    {
-        VkImage raw = depthImage.release();
-        vmaDestroyImage(allocator.allocator, raw, depthImageMemory);
-    }
+    // // Uniform buffers: unmap then destroy with VMA
+    // for (size_t i = 0; i < uniformBuffersMemory.size(); ++i)
+    // {
+    //     if (uniformBuffersMemory[i] != nullptr)
+    //     {
+    //         vmaUnmapMemory(allocator.allocator, uniformBuffersMemory[i]);
+    //         VkBuffer raw = uniformBuffers[i].release();
+    //         vmaDestroyBuffer(allocator.allocator, raw, uniformBuffersMemory[i]);
+    //     }
+    // }
+    //
+    // // Vertex buffer
+    // if (vertexBufferMemory != nullptr)
+    // {
+    //     VkBuffer raw = vertexBuffer.release();
+    //     vmaDestroyBuffer(allocator.allocator, raw, vertexBufferMemory);
+    // }
+    //
+    // // Staging buffer
+    // if (stagingBufferMemory != nullptr)
+    // {
+    //     VkBuffer raw = stagingBuffer.release();
+    //     vmaDestroyBuffer(allocator.allocator, raw, stagingBufferMemory);
+    // }
+    //
+    // // Index buffer
+    // if (indexBufferMemory != nullptr)
+    // {
+    //     VkBuffer raw = indexBuffer.release();
+    //     vmaDestroyBuffer(allocator.allocator, raw, indexBufferMemory);
+    // }
+    //
+    // // Color image
+    // if (colorImageMemory != nullptr)
+    // {
+    //     VkImage raw = colorImage.release();
+    //     vmaDestroyImage(allocator.allocator, raw, colorImageMemory);
+    // }
+    //
+    // // Depth image
+    // if (depthImageMemory != nullptr)
+    // {
+    //     VkImage raw = depthImage.release();
+    //     vmaDestroyImage(allocator.allocator, raw, depthImageMemory);
+    // }
 }
 
 void ResourceManager::init()

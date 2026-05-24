@@ -68,7 +68,6 @@ void Device::createInstance()
     for (const auto& extension : extensionProperties) {
         std::cout << "  " << extension.extensionName << std::endl;
     }
-
     // Seed the extension list with the SDL3-required surface extensions, then append
     // engine-specific ones.  EXT_debug_utils is always enabled (not just for validation
     // mode) so that debug labels and object names work in RenderDoc / NVIDIA Nsight.
@@ -482,24 +481,29 @@ void Device::createLogicalDevice()
         vk::PhysicalDeviceMaintenance10FeaturesKHR, vk::PhysicalDeviceCopyMemoryIndirectFeaturesKHR,
         vk::PhysicalDevicePresentModeFifoLatestReadyFeaturesKHR, vk::PhysicalDeviceShaderUntypedPointersFeaturesKHR>
         featureChain = {// vk::PhysicalDeviceFeatures2
-                        {.features = {.geometryShader = true,
-                                      .shaderInt64 = true,
-                                      .sampleRateShading = true,
-                                      .multiDrawIndirect = true,
-                                      .samplerAnisotropy = true,}},
+                        {.features =
+                             {
+                                 .geometryShader = true,
+                                 .shaderInt64 = true,
+                                 .sampleRateShading = true,
+                                 .multiDrawIndirect = true,
+                                 .samplerAnisotropy = true,
+                             }},
                         // vk::PhysicalDeviceVulkan11Features
                         {.shaderDrawParameters = true},
                         // vk::PhysicalDeviceVulkan12Features
-                        {.drawIndirectCount = true,
-                         .descriptorIndexing = true,
-                         .shaderSampledImageArrayNonUniformIndexing = true,
-                         .shaderStorageBufferArrayNonUniformIndexing = true,
-                         .descriptorBindingPartiallyBound = true,
-                         .descriptorBindingVariableDescriptorCount = true,
-                         .runtimeDescriptorArray = true,
-                         .bufferDeviceAddress = true,
-                        .vulkanMemoryModel = true,
-                        .vulkanMemoryModelDeviceScope = true,},
+                        {
+                            .drawIndirectCount = true,
+                            .descriptorIndexing = true,
+                            .shaderSampledImageArrayNonUniformIndexing = true,
+                            .shaderStorageBufferArrayNonUniformIndexing = true,
+                            .descriptorBindingPartiallyBound = true,
+                            .descriptorBindingVariableDescriptorCount = true,
+                            .runtimeDescriptorArray = true,
+                            .bufferDeviceAddress = true,
+                            .vulkanMemoryModel = true,
+                            .vulkanMemoryModelDeviceScope = true,
+                        },
                         // vk::PhysicalDeviceVulkan13Features
                         {.synchronization2 = true, .dynamicRendering = true},
                         // vk::PhysicalDeviceVulkan14Features

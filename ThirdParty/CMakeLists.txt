@@ -80,38 +80,38 @@ target_link_libraries(VulkanMemoryAllocator INTERFACE Vulkan::Vulkan)
 # ------------------------------------------------------------------------------
 # 1. Slang (Manual Download & Extract)
 # ------------------------------------------------------------------------------
-# set(SLANG_TAG "v2026.5.2")
-# string(REGEX REPLACE "^v" "" SLANG_VERSION "${SLANG_TAG}")
-# set(SLANG_RELEASE_URL "https://github.com/shader-slang/slang/releases/download")
+set(SLANG_TAG "v2026.5.2")
+string(REGEX REPLACE "^v" "" SLANG_VERSION "${SLANG_TAG}")
+set(SLANG_RELEASE_URL "https://github.com/shader-slang/slang/releases/download")
 
-# if (WIN32)
-#     set(SLANG_OS_NAME "win")
-#     set(SLANG_ARTIFACT_NAME "slang-${SLANG_VERSION}-windows-x86_64.zip")
-# elseif (UNIX AND NOT APPLE)
-#     set(SLANG_OS_NAME "linux")
-#     set(SLANG_ARTIFACT_NAME "slang-${SLANG_VERSION}-linux-x86_64.zip")
-# else ()
-#     message(FATAL_ERROR "Unsupported OS for Slang.")
-# endif ()
+if (WIN32)
+    set(SLANG_OS_NAME "win")
+    set(SLANG_ARTIFACT_NAME "slang-${SLANG_VERSION}-windows-x86_64.zip")
+elseif (UNIX AND NOT APPLE)
+    set(SLANG_OS_NAME "linux")
+    set(SLANG_ARTIFACT_NAME "slang-${SLANG_VERSION}-linux-x86_64.zip")
+else ()
+    message(FATAL_ERROR "Unsupported OS for Slang.")
+endif ()
 
-# set(SLANG_DOWNLOAD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/slang_download")
-# set(SLANG_EXTRACT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Slang-${SLANG_OS_NAME}")
-# set(SLANG_DOWNLOAD_URL "${SLANG_RELEASE_URL}/${SLANG_TAG}/${SLANG_ARTIFACT_NAME}")
+set(SLANG_DOWNLOAD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/slang_download")
+set(SLANG_EXTRACT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Slang-${SLANG_OS_NAME}")
+set(SLANG_DOWNLOAD_URL "${SLANG_RELEASE_URL}/${SLANG_TAG}/${SLANG_ARTIFACT_NAME}")
 
-# if (NOT EXISTS "${SLANG_EXTRACT_DIR}/README.md")
-#     message(STATUS "Downloading Slang from ${SLANG_DOWNLOAD_URL}")
-#     file(DOWNLOAD ${SLANG_DOWNLOAD_URL} "${SLANG_DOWNLOAD_DIR}/${SLANG_ARTIFACT_NAME}" SHOW_PROGRESS STATUS download_status)
-#     list(GET download_status 0 error_code)
+if (NOT EXISTS "${SLANG_EXTRACT_DIR}/README.md")
+    message(STATUS "Downloading Slang from ${SLANG_DOWNLOAD_URL}")
+    file(DOWNLOAD ${SLANG_DOWNLOAD_URL} "${SLANG_DOWNLOAD_DIR}/${SLANG_ARTIFACT_NAME}" SHOW_PROGRESS STATUS download_status)
+    list(GET download_status 0 error_code)
 
-#     if (NOT error_code EQUAL 0)
-#         list(GET download_status 1 error_msg)
-#         message(FATAL_ERROR "Failed to download Slang: ${error_msg}")
-#     endif ()
+    if (NOT error_code EQUAL 0)
+        list(GET download_status 1 error_msg)
+        message(FATAL_ERROR "Failed to download Slang: ${error_msg}")
+    endif ()
 
-#     message(STATUS "Extracting Slang to ${SLANG_EXTRACT_DIR}...")
-#     file(ARCHIVE_EXTRACT INPUT "${SLANG_DOWNLOAD_DIR}/${SLANG_ARTIFACT_NAME}" DESTINATION "${SLANG_EXTRACT_DIR}")
-#     file(REMOVE_RECURSE "${SLANG_DOWNLOAD_DIR}")
-# endif ()
+    message(STATUS "Extracting Slang to ${SLANG_EXTRACT_DIR}...")
+    file(ARCHIVE_EXTRACT INPUT "${SLANG_DOWNLOAD_DIR}/${SLANG_ARTIFACT_NAME}" DESTINATION "${SLANG_EXTRACT_DIR}")
+    file(REMOVE_RECURSE "${SLANG_DOWNLOAD_DIR}")
+endif ()
 
 # ==============================================================================
 # FetchContent — Options set BEFORE declare/populate so they are visible
@@ -148,10 +148,6 @@ set(TF_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(TF_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 set(TF_BUILD_PROFILER OFF CACHE BOOL "" FORCE)
 
-# --- RTXMU ---
-set(RTXMU_WITH_D3D12 OFF CACHE BOOL "" FORCE)
-set(RTXMU_WITH_VULKAN ON CACHE BOOL "" FORCE)
-set(RTXMU_VULKAN_INCLUDE_DIR "${Vulkan_INCLUDE_DIR}" CACHE PATH "" FORCE)
 
 # --- KTX-Software (lib only) ---
 set(KTX_FEATURE_TESTS OFF CACHE BOOL "" FORCE)
@@ -166,8 +162,8 @@ set(LIBKTX_FEATURE_GL_UPLOAD OFF CACHE BOOL "" FORCE)
 # --- mimalloc ---
 set(MI_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(MI_BUILD_OBJECT OFF CACHE BOOL "" FORCE)
-set(MI_BUILD_STATIC OFF CACHE BOOL "" FORCE)
-set(MI_BUILD_SHARED ON CACHE BOOL "" FORCE)
+set(MI_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(MI_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(MI_OVERRIDE ON CACHE BOOL "" FORCE)
 
 # ==============================================================================
@@ -223,13 +219,7 @@ FetchContent_Declare(
         GIT_SHALLOW TRUE
 )
 
-# 9. RTXMU
-FetchContent_Declare(
-        rtxmu
-        GIT_REPOSITORY https://github.com/NVIDIA-RTX/RTXMU.git
-        GIT_TAG main
-        GIT_SHALLOW TRUE
-)
+
 
 # 10. RapidJSON (header-only)
 set(RAPIDJSON_BUILD_DOC OFF CACHE BOOL "" FORCE)
@@ -271,18 +261,10 @@ FetchContent_Declare(
 # Populate all dependencies in a single batch call.
 # Tracy is declared and populated separately below (after GIT_SHALLOW/PROGRESS).
 # ==============================================================================
-message(STATUS "Fetching ThirdParty dependencies (glm, SDL3, fmt, spdlog, ImGui, taskflow, RTXMU, rapidjson, KTX, mimalloc)...")
-FetchContent_MakeAvailable(glm SDL3 fmt spdlog ImGui taskflow rtxmu rapidjson KTXSoftware mimalloc)
+message(STATUS "Fetching ThirdParty dependencies (glm, SDL3, fmt, spdlog, ImGui, taskflow, rapidjson, KTX, mimalloc)...")
+FetchContent_MakeAvailable(glm SDL3 fmt spdlog ImGui taskflow rapidjson KTXSoftware mimalloc)
 
-if (TARGET rtxmu)
-        target_link_libraries(rtxmu PUBLIC Vulkan::cppm)
-        target_compile_definitions(rtxmu PUBLIC ${VULKAN_COMPILE_DEFS})
-        add_library(ThirdParty::rtxmu ALIAS rtxmu)
-elseif (TARGET rtxmu::rtxmu)
-        add_library(ThirdParty::rtxmu ALIAS rtxmu::rtxmu)
-else ()
-        message(FATAL_ERROR "RTXMU target not found after FetchContent_MakeAvailable(rtxmu).")
-endif ()
+
 
 if (TARGET ktx)
         add_library(ThirdParty::ktx ALIAS ktx)
@@ -408,7 +390,6 @@ target_link_libraries(ThirdPartyLibs INTERFACE
         $<$<NOT:$<CONFIG:Release>>:Tracy::TracyClient>
         fmt::fmt
         imgui
-        ThirdParty::rtxmu
         ThirdParty::mimalloc
         Taskflow::Taskflow
 )

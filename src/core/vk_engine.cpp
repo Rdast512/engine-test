@@ -87,8 +87,8 @@ void Engine::initialize()
         createImGuiDescriptorPool();
     }
 
-    pipeline = std::make_unique<Pipeline>(resourceManager.get(),
-                                          descriptorManager.get(),
+    pipeline = std::make_unique<Pipeline>(*resourceManager,
+                                          *descriptorManager,
                                           device->getDevice(),
                                           swapChain->swapChainExtent,
                                           swapChain->swapChainImageFormat);

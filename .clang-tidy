@@ -12,11 +12,10 @@ Checks: >
   hicpp-*,
   misc-*,
   boost-*,
+  concurrency-*,,
   portability-*,
   -clang-diagnostic-designated-init-for-non-aggregate,
-  -modernize-use-trailing-return-type,
   -cppcoreguidelines-avoid-magic-numbers,
-  -readability-identifier-naming
 
 # Treat warnings as errors (Optional: Uncomment for CI pipelines)
 # WarningsAsErrors: '*'
@@ -24,8 +23,8 @@ Checks: >
 # Only analyze headers under src (skip include/tests/third-party)
 HeaderFilterRegex: '.*/src/.*'
 
-# Skip generated build outputs and external dependencies
-ExcludePaths: '(^|.*/)build/.*|(^|.*/)Third_party/.*|(^|.*/)tests/.*'
+## Skip generated build outputs and external dependencies
+#ExcludePaths: '(^|.*/)build/.*|(^|.*/)Third_party/.*|(^|.*/)tests/.*'
 
 # Make automatic fixes use your .clang-format if present
 FormatStyle: file
@@ -37,7 +36,7 @@ ExtraArgs:
   # - '-I/path/to/SDL3/include'
 
 # Deep analysis settings
-AnalyzeTemporaryDtors: true
+# AnalyzeTemporaryDtors: true
 
 # Specific Check Options
 CheckOptions:
