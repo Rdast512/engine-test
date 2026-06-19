@@ -92,6 +92,7 @@ private:
 
         vmaSetAllocationName(allocator, allocation, uniqueName.c_str());
 
+
         VmaAllocationInfo allocInfo{};
         vmaGetAllocationInfo(allocator, allocation, &allocInfo);
         if (allocInfo.deviceMemory != VK_NULL_HANDLE) {

@@ -46,12 +46,12 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU"
   # - leak: memory leaks
   # - thread: data races
   # - memory: uninitialized reads (slower, often incompatible with others)
-  option(ENABLE_SANITIZERS "Enable AddressSanitizer + UndefinedBehaviorSanitizer in Debug builds" ON)
+  option(ENABLE_SANITIZERS "Enable AddressSanitizer + UndefinedBehaviorSanitizer in Debug and Release builds" ON)
   if (ENABLE_SANITIZERS)
-    add_compile_options("$<$<CONFIG:Debug>:-fsanitize=address,undefined>"
-                            "$<$<CONFIG:Debug>:-fno-omit-frame-pointer>"
-                            "$<$<CONFIG:Debug>:-fno-optimize-sibling-calls>")
-    add_link_options("$<$<CONFIG:Debug>:-fsanitize=address,undefined>")
+    add_compile_options("$<$<OR:$<CONFIG:Debug>,$<CONFIG:Release>>:-fsanitize=address,undefined>"
+                            "$<$<OR:$<CONFIG:Debug>,$<CONFIG:Release>>:-fno-omit-frame-pointer>"
+                            "$<$<OR:$<CONFIG:Debug>,$<CONFIG:Release>>:-fno-optimize-sibling-calls>")
+    add_link_options("$<$<OR:$<CONFIG:Debug>,$<CONFIG:Release>>:-fsanitize=address,undefined>")
   endif ()
 
   if (WIN32)
@@ -70,7 +70,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU"
 
     # [TRACY-FIX] Added -gcodeview. This converts DWARF to Microsoft CodeView format
     # so dbghelp.dll (used by Tracy) can read it.
-    set(COMMON_DEBUG_FLAGS "-O0 -g -gdwarf -gcodeview -m64 -march=native -mtune=native -pthread -fprofile-instr-generate -fcoverage-mapping")
+    set(COMMON_DEBUG_FLAGS "-O0 -g -gdwarf -gcodeview -m64 -march=native -mtune=native -pthread")
     # [TRACY-FIX] amAdded -g to Release. This allows Tracy to see function names
     # in optimized builds without slowing down the code.
     set(COMMON_RELEASE_FLAGS "-O3 -g -gdwarf -gcodeview -Wall -Wextra -Wpedantic -DNDEBUG -march=native -mtune=native -flto -funroll-loops -finline-functions -m64 -pthread")

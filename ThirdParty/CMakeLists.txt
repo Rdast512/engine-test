@@ -248,21 +248,20 @@ FetchContent_Declare(
         GIT_SHALLOW TRUE
 )
 
-# TODO add this
 # 13. DirectXMath (header-only, for HLSL-compatible math types in shared headers)
-# FetchContent_Declare(
-#         DirectXMath
-#         GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
-#         GIT_TAG master
-#         GIT_SHALLOW TRUE
-# )
+FetchContent_Declare(
+        DirectXMath
+        GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
+        GIT_TAG main
+        GIT_SHALLOW TRUE
+)
 
 # ==============================================================================
 # Populate all dependencies in a single batch call.
 # Tracy is declared and populated separately below (after GIT_SHALLOW/PROGRESS).
 # ==============================================================================
-message(STATUS "Fetching ThirdParty dependencies (glm, SDL3, fmt, spdlog, ImGui, taskflow, rapidjson, KTX, mimalloc)...")
-FetchContent_MakeAvailable(glm SDL3 fmt spdlog ImGui taskflow rapidjson KTXSoftware mimalloc)
+message(STATUS "Fetching ThirdParty dependencies (glm, SDL3, fmt, spdlog, ImGui, taskflow, rapidjson, KTX, mimalloc, DirectXMath)...")
+FetchContent_MakeAvailable(glm SDL3 fmt spdlog ImGui taskflow rapidjson KTXSoftware mimalloc DirectXMath)
 
 
 
@@ -372,6 +371,7 @@ target_include_directories(ThirdPartyHeaders INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${SLANG_EXTRACT_DIR}/include>
         $<BUILD_INTERFACE:${rapidjson_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${directxmath_SOURCE_DIR}>
 )
 add_library(ThirdParty::headers ALIAS ThirdPartyHeaders)
 

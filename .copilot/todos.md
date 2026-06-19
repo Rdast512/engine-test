@@ -1,2 +1,0 @@
-- [x] Investigate GLM SIMD build error with compute_vec_mul call missing
-- [x] Update .clangd to support both Windows and Linux build folders
