@@ -28,6 +28,21 @@ class Device
      * @note KHR_deferred_host_operations is a hard dependency of KHR_acceleration_structure.
      * @note KHR_present_id2 and KHR_calibrated_timestamps are required by EXT_present_timing.
      * @note KHR_pipeline_library is required by EXT_graphics_pipeline_library.
+     *
+     * The following promoted extensions are already covered by the Vulkan 1.4 core
+     * feature structs (Vulkan13Features / Vulkan14Features) and must NOT be listed
+     * here per the Vulkan specification:
+     *
+     *   Promoted to 1.1:  Maintenance1-3, KHR_bind_memory2, KHR_get_memory_requirements2
+     *   Promoted to 1.2:  KHR_buffer_device_address, KHR_depth_stencil_resolve,
+     *                     KHR_spirv_1_4, EXT_descriptor_indexing
+     *   Promoted to 1.3:  KHR_copy_commands2, EXT_extended_dynamic_state,
+     *                     EXT_extended_dynamic_state2, EXT_texture_compression_astc_hdr,
+     *                     EXT_tooling_info, KHR_global_priority,
+     *                     KHR_load_store_op_none, KHR_map_memory2, Maintenance4
+     *   Promoted to 1.4:  Maintenance5-6, EXT_host_image_copy
+     *
+     * Their features are enabled inline in createLogicalDevice().
      */
     std::vector<const char*> requiredDeviceExtension = {
         // KHR
@@ -50,7 +65,6 @@ class Device
         vk::KHRPresentModeFifoLatestReadyExtensionName,
         vk::KHRCopyMemoryIndirectExtensionName,
         vk::KHRShaderUntypedPointersExtensionName,
-        vk::KHRVulkanMemoryModelExtensionName,
         // EXT
         vk::EXTOpacityMicromapExtensionName,
         vk::EXTMemoryBudgetExtensionName,
@@ -66,7 +80,6 @@ class Device
         // vk::EXTGraphicsPipelineLibraryExtensionName,
         vk::EXTPresentTimingExtensionName,
         vk::EXTRayTracingInvocationReorderExtensionName,
-        vk::EXTDescriptorBufferExtensionName,
         vk::NVClusterAccelerationStructureExtensionName,
     };
 

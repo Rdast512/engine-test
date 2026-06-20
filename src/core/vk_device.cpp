@@ -414,12 +414,13 @@ void Device::createLogicalDevice()
         vk::PhysicalDeviceTexelBufferAlignmentPropertiesEXT, // Maybe not ext + after that comes only khr when baseline
                                                              // 2060
         vk::PhysicalDeviceDescriptorBufferPropertiesEXT, vk::PhysicalDeviceFragmentShadingRatePropertiesKHR,
-        vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceDepthStencilResolveProperties,
-        vk::PhysicalDeviceDriverProperties, vk::PhysicalDeviceMaintenance3Properties,
-        vk::PhysicalDeviceMaintenance4Properties, vk::PhysicalDeviceMaintenance5Properties,
-        vk::PhysicalDeviceMaintenance6Properties, vk::PhysicalDeviceMaintenance7PropertiesKHR,
-        vk::PhysicalDeviceMaintenance9PropertiesKHR, vk::PhysicalDeviceMaintenance10PropertiesKHR,
-        vk::PhysicalDevicePipelineBinaryPropertiesKHR, vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
+        vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceOpacityMicromapPropertiesEXT,
+        vk::PhysicalDeviceDepthStencilResolveProperties, vk::PhysicalDeviceDriverProperties,
+        vk::PhysicalDeviceMaintenance3Properties, vk::PhysicalDeviceMaintenance4Properties,
+        vk::PhysicalDeviceMaintenance5Properties, vk::PhysicalDeviceMaintenance6Properties,
+        vk::PhysicalDeviceMaintenance7PropertiesKHR, vk::PhysicalDeviceMaintenance9PropertiesKHR,
+        vk::PhysicalDeviceMaintenance10PropertiesKHR, vk::PhysicalDevicePipelineBinaryPropertiesKHR,
+        vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
     capabilities.properties2 = propertiesChain.get<vk::PhysicalDeviceProperties2>();
     capabilities.vulkan11 = propertiesChain.get<vk::PhysicalDeviceVulkan11Properties>();
     capabilities.vulkan12 = propertiesChain.get<vk::PhysicalDeviceVulkan12Properties>();
@@ -461,6 +462,7 @@ void Device::createLogicalDevice()
     // Each structure is zero-initialised by default; only fields set to `true` here
     // are required – the driver will reject device creation if any are unsupported.
     // query for Vulkan features
+
     vk::StructureChain<
         vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features,
         vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceVulkan14Features,
@@ -472,6 +474,7 @@ void Device::createLogicalDevice()
         vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT, vk::PhysicalDeviceShaderObjectFeaturesEXT,
         vk::PhysicalDeviceGraphicsPipelineLibraryFeaturesEXT, vk::PhysicalDevicePresentTimingFeaturesEXT,
         vk::PhysicalDeviceRayTracingInvocationReorderFeaturesEXT, vk::PhysicalDeviceTexelBufferAlignmentFeaturesEXT,
+        vk::PhysicalDeviceOpacityMicromapFeaturesEXT,
         // KHR
         vk::PhysicalDeviceFragmentShadingRateFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceRayQueryFeaturesKHR,
@@ -479,15 +482,16 @@ void Device::createLogicalDevice()
         vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR, vk::PhysicalDeviceMaintenance7FeaturesKHR,
         vk::PhysicalDeviceMaintenance8FeaturesKHR, vk::PhysicalDeviceMaintenance9FeaturesKHR,
         vk::PhysicalDeviceMaintenance10FeaturesKHR, vk::PhysicalDeviceCopyMemoryIndirectFeaturesKHR,
-        vk::PhysicalDevicePresentModeFifoLatestReadyFeaturesKHR, vk::PhysicalDeviceShaderUntypedPointersFeaturesKHR>
+        vk::PhysicalDevicePresentModeFifoLatestReadyFeaturesKHR,
+        vk::PhysicalDeviceShaderUntypedPointersFeaturesKHR>
         featureChain = {// vk::PhysicalDeviceFeatures2
                         {.features =
                              {
                                  .geometryShader = true,
-                                 .shaderInt64 = true,
                                  .sampleRateShading = true,
                                  .multiDrawIndirect = true,
                                  .samplerAnisotropy = true,
+                                 .shaderInt64 = true,
                              }},
                         // vk::PhysicalDeviceVulkan11Features
                         {.shaderDrawParameters = true},
@@ -505,9 +509,16 @@ void Device::createLogicalDevice()
                             .vulkanMemoryModelDeviceScope = true,
                         },
                         // vk::PhysicalDeviceVulkan13Features
-                        {.synchronization2 = true, .dynamicRendering = true},
+                        {.synchronization2 = true,
+                         .textureCompressionASTC_HDR = false, // rtx 2060 super not supported
+                         .dynamicRendering = true,
+                         .maintenance4 = true},
                         // vk::PhysicalDeviceVulkan14Features
-                        {.dynamicRenderingLocalRead = true},
+                        {.globalPriorityQuery = true,
+                         .dynamicRenderingLocalRead = true,
+                         .maintenance5 = true,
+                         .maintenance6 = true,
+                         .hostImageCopy = true},
                         // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT (disabled: extension not enabled)
                         {},
                         // vk::PhysicalDeviceDescriptorHeapFeaturesEXT
@@ -536,6 +547,8 @@ void Device::createLogicalDevice()
                         {.rayTracingInvocationReorder = true},
                         // vk::PhysicalDeviceTexelBufferAlignmentFeaturesEXT (disabled: extension not enabled)
                         {},
+                        // vk::PhysicalDeviceOpacityMicromapFeaturesEXT
+                        {.micromap = true},
                         // vk::PhysicalDeviceFragmentShadingRateFeaturesKHR
                         {.pipelineFragmentShadingRate = true,
                          .primitiveFragmentShadingRate = true,
