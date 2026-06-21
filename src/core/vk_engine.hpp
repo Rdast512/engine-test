@@ -21,7 +21,6 @@ class Engine{
     std::unique_ptr<Device> device;
     std::unique_ptr<VkAllocator> allocator;
     std::unique_ptr<SwapChain> swapChain;
-    std::unique_ptr<ObjectStorage> objectStorage;
     std::unique_ptr<AssetsLoader> assetsLoader;
     std::unique_ptr<ResourceManager> resourceManager;
     std::unique_ptr<VkTracyContext> tracyContext;

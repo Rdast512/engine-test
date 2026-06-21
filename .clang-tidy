@@ -73,11 +73,11 @@ CheckOptions:
   - key: readability-identifier-naming.FunctionCase
     value: 'camelBack'
   - key: readability-identifier-naming.VariableCase
-    value: 'lower_case'
+    value: 'camelBack'
   - key: readability-identifier-naming.ParameterCase
-    value: 'lower_case'
+    value: 'camelBack'
   - key: readability-identifier-naming.MemberCase
-    value: 'lower_case'
+    value: 'camelBack'
   - key: readability-identifier-naming.PrivateMemberSuffix
     value: '_'
   - key: readability-identifier-naming.EnumConstantCase
@@ -85,7 +85,7 @@ CheckOptions:
   - key: readability-identifier-naming.MacroDefinitionCase
     value: 'UPPER_CASE'
   - key: readability-identifier-naming.NamespaceCase
-    value: 'lower_case'
+    value: 'camelBack'
 
   # --- Boost ---
   - key: boost-use-to-string.CheckStd

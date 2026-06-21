@@ -8,17 +8,18 @@
 class AssetsLoader
 {
 public:
-    explicit AssetsLoader(ObjectStorage& storage);
+    explicit AssetsLoader();
     ~AssetsLoader() = default;
 
     void loadModel();
 
-    [[nodiscard]] const std::vector<uint32_t>& getIndices() const { return objectStorage.getIndices(); }
-    [[nodiscard]] const std::vector<Vertex>& getVertices() const { return objectStorage.getVertices(); }
+    [[nodiscard]] const std::vector<uint32_t>& getIndices() const { return indices; }
+    [[nodiscard]] const std::vector<Vertex>& getVertices() const { return vertices; }
 
     void processVertexData(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes);
     void loadMaterials(const std::string& path, const std::vector<tinyobj::material_t>& materials);
 
 private:
-    ObjectStorage& objectStorage;
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
 };

@@ -26,20 +26,3 @@ void Object::setUniformBuffers(std::vector<vk::raii::Buffer> buffers, std::vecto
     uboAddress = ubo_addr;
 }
 
-// ============================================================================
-// ObjectStorage
-// ============================================================================
-
-void ObjectStorage::clear() noexcept
-{
-    vertices.clear();
-    indices.clear();
-}
-
-bool ObjectStorage::empty() const noexcept { return vertices.empty() && indices.empty(); }
-
-void ObjectStorage::setModelData(std::vector<Vertex> verts, std::vector<uint32_t> idx)
-{
-    vertices = std::move(verts);
-    indices = std::move(idx);
-}

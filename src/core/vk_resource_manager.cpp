@@ -85,6 +85,15 @@ void ResourceManager::init()
     createUniformBuffers();
     createVertexBuffer();
     createIndexBuffer();
+    createObjectStorage();
+}
+
+
+void ResourceManager::createObjectStorage()
+{
+    ZoneScopedN("ResourceManager::createObjectStorage");
+    log_info("ResourceManager::createObjectStorage() started");
+    objects = std::array<Object, 1000>();
 }
 
 void ResourceManager::createSyncObjects()
@@ -723,3 +732,4 @@ void ResourceManager::transitionImageLayout(
 
     commandBuffer->pipelineBarrier2(dependencyInfo);
 }
+

@@ -80,7 +80,7 @@ target_link_libraries(VulkanMemoryAllocator INTERFACE Vulkan::Vulkan)
 # ------------------------------------------------------------------------------
 # 1. Slang (Manual Download & Extract)
 # ------------------------------------------------------------------------------
-set(SLANG_TAG "v2026.5.2")
+set(SLANG_TAG "v2026.11")
 string(REGEX REPLACE "^v" "" SLANG_VERSION "${SLANG_TAG}")
 set(SLANG_RELEASE_URL "https://github.com/shader-slang/slang/releases/download")
 
@@ -183,7 +183,7 @@ FetchContent_Declare(
 FetchContent_Declare(
         SDL3
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG release-3.4.4
+        GIT_TAG release-3.4.10
         GIT_SHALLOW TRUE
 )
 
@@ -191,7 +191,7 @@ FetchContent_Declare(
 FetchContent_Declare(
         fmt
         GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-        GIT_TAG 12.1.0
+        GIT_TAG 12.2.0
         GIT_SHALLOW TRUE
 )
 
@@ -199,7 +199,7 @@ FetchContent_Declare(
 FetchContent_Declare(
         spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.16.0
+        GIT_TAG v1.17.0
         GIT_SHALLOW TRUE
 )
 
@@ -207,7 +207,7 @@ FetchContent_Declare(
 FetchContent_Declare(
         ImGui
         GIT_REPOSITORY https://github.com/ocornut/imgui.git
-        GIT_TAG v1.92.7
+        GIT_TAG v1.92.8
         GIT_SHALLOW TRUE
 )
 
@@ -215,7 +215,7 @@ FetchContent_Declare(
 FetchContent_Declare(
         taskflow
         GIT_REPOSITORY https://github.com/taskflow/taskflow.git
-        GIT_TAG v4.0.0
+        GIT_TAG v4.1.0
         GIT_SHALLOW TRUE
 )
 
@@ -244,7 +244,7 @@ FetchContent_Declare(
 FetchContent_Declare(
         mimalloc
         GIT_REPOSITORY https://github.com/microsoft/mimalloc.git
-        GIT_TAG v3.3.1
+        GIT_TAG v3.3.2
         GIT_SHALLOW TRUE
 )
 
@@ -252,7 +252,7 @@ FetchContent_Declare(
 FetchContent_Declare(
         DirectXMath
         GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
-        GIT_TAG main
+        GIT_TAG jun2026
         GIT_SHALLOW TRUE
 )
 

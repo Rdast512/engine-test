@@ -58,49 +58,12 @@ private:
 
     // --- GPU resources (owned) ---
     // Destruction order (reverse declaration) matters:
-    //   1. uniformBuffersMapped_  (no-op for void*)
-    //   2. uniformBuffers_        (vkDestroyBuffer)
-    //   3. uniformBuffersMemory_  (vkFreeMemory, which implicitly unmaps)
+    //   1. uniformBuffersMapped  (no-op for void*)
+    //   2. uniformBuffers        (vkDestroyBuffer)
+    //   3. uniformBuffersMemory  (vkFreeMemory, which implicitly unmaps)
     std::vector<void*> uniformBuffersMapped;
     std::vector<vk::raii::Buffer> uniformBuffers;
     std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
 
     vk::DeviceAddress uboAddress{};
-};
-
-
-// ---------------------------------------------------------------------------
-// ObjectStorage - central vertex / index data store shared by all objects.
-//                 Rule of Zero: std::vector members handle their own lifetime.
-// it can have its own tree in ui for navigating
-// ---------------------------------------------------------------------------
-class ObjectStorage
-{
-public:
-    ObjectStorage() = default;
-    ~ObjectStorage() = default;
-
-    // Movable, non-copyable.
-    ObjectStorage(ObjectStorage&&) noexcept = default;
-    ObjectStorage& operator=(ObjectStorage&&) noexcept = default;
-
-    ObjectStorage(const ObjectStorage&) = delete;
-    ObjectStorage& operator=(const ObjectStorage&) = delete;
-
-    void clear() noexcept;
-    [[nodiscard]] bool empty() const noexcept;
-
-    // Replaces the entire model data in one shot (sink parameters — moved from).
-    void setModelData(std::vector<Vertex> verts, std::vector<uint32_t> idx);
-
-    [[nodiscard]] const std::vector<Vertex>& getVertices() const noexcept { return vertices; }
-    [[nodiscard]] const std::vector<uint32_t>& getIndices() const noexcept { return indices; }
-
-    [[nodiscard]] const std::vector<Object>& getObjects() const noexcept { return objects; }
-
-private:
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-
-    std::vector<Object> objects;
 };

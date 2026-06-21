@@ -49,9 +49,8 @@ void Engine::initialize()
     swapChain = std::make_unique<SwapChain>(window, *device);
     swapChain->init();
 
-    objectStorage = std::make_unique<ObjectStorage>();
 
-    assetsLoader = std::make_unique<AssetsLoader>(*objectStorage);
+    assetsLoader = std::make_unique<AssetsLoader>();
 
     resourceManager =
         std::make_unique<ResourceManager>(*device, *allocator, assetsLoader->getVertices(), assetsLoader->getIndices());

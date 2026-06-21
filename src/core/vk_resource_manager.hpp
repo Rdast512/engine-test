@@ -2,6 +2,7 @@
 #include "vk_device.hpp"
 #include "../core/types.hpp"
 #include "../Constants.h"
+#include "../assets/object_storage.hpp"
 #include <vulkan/vulkan_raii.hpp>
 #include <optional>
 #include <string_view>
@@ -25,6 +26,7 @@ public:
 	void createIndexBuffer();
 	void createUniformBuffers();
 	void createColorResources();
+    void createObjectStorage();
 	void setSwapChainImageCount(uint32_t count) { swapChainImageCount = count; createSyncObjects(); }
 	void updateUniformBuffer(uint32_t currentImage);
 
@@ -111,5 +113,6 @@ public:
 	vk::raii::Image colorImage = nullptr;
 	VmaAllocation colorImageMemory = nullptr;
 	vk::raii::ImageView colorImageView = nullptr;
+    std::array<Object, 1000> objects;
 };
 

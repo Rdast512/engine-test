@@ -19,7 +19,7 @@ static std::vector<char> readFile(const std::string& filename)
 }
 
 
-AssetsLoader::AssetsLoader(ObjectStorage& storage) : objectStorage(storage)
+AssetsLoader::AssetsLoader() : vertices(), indices()
 {
     log_info("AssetsLoader initialized");
     loadModel();
@@ -256,8 +256,6 @@ void AssetsLoader::loadModel()
     std::vector<tinyobj::material_t> materials;
     std::string warn, err;
     std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
     parseGLTFModel("");
     const auto modelPath = MODEL_PATH.string();
 
@@ -284,8 +282,5 @@ void AssetsLoader::loadModel()
         }
     }
 
-
-    objectStorage.setModelData(std::move(vertices), std::move(indices));
-    log_info(std::format("Model loaded: {} | vertices: {} | indices: {}", modelPath, objectStorage.getVertices().size(),
-                         objectStorage.getIndices().size()));
+    log_info(std::format("Model loaded: {} | vertices: {} | indices: {}", modelPath, vertices.size(), indices.size()));
 }
