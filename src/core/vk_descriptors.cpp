@@ -214,7 +214,7 @@ void DescriptorManager::createHeaps()
 void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::DeviceSize samplerHeapSize)
 {
     resourceManager.createBuffer(resourceHeapSize,
-                                 vk::BufferUsageFlagBits::eResourceDescriptorBufferEXT |
+
                                      vk::BufferUsageFlagBits::eStorageBuffer |
                                      vk::BufferUsageFlagBits::eShaderDeviceAddress |
                                      vk::BufferUsageFlagBits::eDescriptorHeapEXT,
@@ -246,7 +246,7 @@ void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::D
                          resourceHeapInfo.reservedRangeOffset, resourceHeapInfo.reservedRangeSize));
 
     resourceManager.createBuffer(samplerHeapSize,
-                                 vk::BufferUsageFlagBits::eSamplerDescriptorBufferEXT |
+
                                      vk::BufferUsageFlagBits::eStorageBuffer |
                                      vk::BufferUsageFlagBits::eShaderDeviceAddress |
                                      vk::BufferUsageFlagBits::eDescriptorHeapEXT,

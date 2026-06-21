@@ -468,7 +468,7 @@ void Device::createLogicalDevice()
         vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceVulkan14Features,
         // EXT
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT, vk::PhysicalDeviceDescriptorHeapFeaturesEXT,
-        vk::PhysicalDeviceBlendOperationAdvancedFeaturesEXT, vk::PhysicalDeviceMeshShaderFeaturesEXT,
+        vk::PhysicalDeviceDescriptorBufferFeaturesEXT, vk::PhysicalDeviceBlendOperationAdvancedFeaturesEXT, vk::PhysicalDeviceMeshShaderFeaturesEXT,
         vk::PhysicalDeviceDeviceGeneratedCommandsFeaturesEXT, vk::PhysicalDeviceMultiDrawFeaturesEXT,
         vk::PhysicalDeviceMemoryPriorityFeaturesEXT, vk::PhysicalDeviceMemoryDecompressionFeaturesEXT,
         vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT, vk::PhysicalDeviceShaderObjectFeaturesEXT,
@@ -523,6 +523,8 @@ void Device::createLogicalDevice()
                         {},
                         // vk::PhysicalDeviceDescriptorHeapFeaturesEXT
                         {.descriptorHeap = descriptorHeapFeatureSupported},
+                        // vk::PhysicalDeviceDescriptorBufferFeaturesEXT
+                        {.descriptorBuffer = true},
                         // vk::PhysicalDeviceBlendOperationAdvancedFeaturesEXT
                         {.advancedBlendCoherentOperations = false},
                         // vk::PhysicalDeviceMeshShaderFeaturesEXT
