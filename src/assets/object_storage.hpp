@@ -38,20 +38,18 @@ public:
 
     // --- GPU resource accessors (read-only) ---
     [[nodiscard]] const std::vector<vk::raii::Buffer>& getUniformBuffers() const noexcept { return uniformBuffers; }
-    [[nodiscard]] const std::vector<vk::raii::DeviceMemory>& getUniformBuffersMemory() const noexcept
+    [[nodiscard]] const std::vector<VmaAllocation>& getUniformBuffersMemory() const noexcept
     {
         return uniformBuffersMemory;
     }
     [[nodiscard]] const std::vector<void*>& getUniformBuffersMapped() const noexcept { return uniformBuffersMapped; }
-    [[nodiscard]] vk::DeviceAddress getUboAddress() const noexcept { return uboAddress; }
+    [[nodiscard]] const std::vector<vk::DeviceAddress>& getUboAddresses() const noexcept { return uboAddresses; }
 
     // --- Ownership transfer: used during initialisation to hand GPU buffers
     //     to the Object.  After this call the Object owns all resources. ---
-    void setUniformBuffers(std::vector<vk::raii::Buffer> buffers, std::vector<vk::raii::DeviceMemory> memory,
-                           std::vector<void*> mapped, vk::DeviceAddress ubo_addr) noexcept;
+    // void setUniformBuffers(std::vector<vk::raii::Buffer> buffers, std::vector<vk::raii::DeviceMemory> memory,
+    //                        std::vector<void*> mapped, std::vector<vk::DeviceAddress> ubo_addresses) noexcept;
 
-private:
-    // --- Transform ---
     glm::vec3 position{0.0f};
     glm::vec3 rotation{0.0f};
     glm::vec3 scale{1.0f};
@@ -61,9 +59,13 @@ private:
     //   1. uniformBuffersMapped  (no-op for void*)
     //   2. uniformBuffers        (vkDestroyBuffer)
     //   3. uniformBuffersMemory  (vkFreeMemory, which implicitly unmaps)
+    std::string name;
     std::vector<void*> uniformBuffersMapped;
     std::vector<vk::raii::Buffer> uniformBuffers;
-    std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
+    std::vector<VmaAllocation> uniformBuffersMemory;
 
-    vk::DeviceAddress uboAddress{};
+    std::vector<vk::DeviceAddress> uboAddresses;
+private:
+    // --- Transform ---
+
 };

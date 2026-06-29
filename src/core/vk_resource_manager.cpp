@@ -343,29 +343,53 @@ void ResourceManager::createUniformBuffers()
 {
     ZoneScopedN("ResourceManager::createUniformBuffers");
     log_info("ResourceManager::createUniformBuffers() started");
-    uniformBuffers.clear();
-    uniformBuffersMemory.clear();
-    uniformBuffersMapped.clear();
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
-        vk::raii::Buffer buffer({});
-        VmaAllocation bufferMem = nullptr;
-        createBuffer(bufferSize,
-                 vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
-                     vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
-                     bufferMem, std::format("UniformBufferMemory_{}", i));
-        uniformBuffers.emplace_back(std::move(buffer));
-        uniformBuffersMemory.emplace_back(bufferMem);
-        
-        void* mappedData = nullptr;
-        vmaMapMemory(allocator.allocator, bufferMem, &mappedData);
-        uniformBuffersMapped.emplace_back(mappedData);
-        
-        setDebugName(device, uniformBuffers.back(), std::format("UniformBuffer_{}", i));
+    for (auto& object : objects) {
+        object.uniformBuffers.clear();
+        object.uniformBuffersMemory.clear();
+        object.uniformBuffersMapped.clear();
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+            vk::raii::Buffer buffer({});
+            VmaAllocation bufferMem = nullptr;
+            createBuffer(bufferSize,
+                             vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
+                                 vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
+                                 bufferMem, std::format("UniformBufferMemory_{}_{}", i, object.name));
+            object.uniformBuffers.emplace_back(std::move(buffer));
+            object.uniformBuffersMemory.emplace_back(bufferMem);
+            void* data = nullptr;
+            vmaMapMemory(allocator.allocator, bufferMem, &data);
+            object.uniformBuffersMapped.emplace_back(data);
+            object.uboAddresses.emplace_back(device.getBufferAddress({
+                .buffer = *object.uniformBuffers[i]
+            }));
+            // setDebugName(device, object.uniformBuffers.back(), std::format("UniformBuffer_{}_{}", i, object.name));
+        }
     }
+    // uniformBuffers.clear();
+    // uniformBuffersMemory.clear();
+    // uniformBuffersMapped.clear();
+    //
+    // for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    // {
+    //     vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+    //     vk::raii::Buffer buffer({});
+    //     VmaAllocation bufferMem = nullptr;
+    //     createBuffer(bufferSize,
+    //              vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
+    //                  vk::BufferUsageFlagBits::eShaderDeviceAddress,
+    //                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
+    //                  bufferMem, std::format("UniformBufferMemory_{}", i));
+    //     uniformBuffers.emplace_back(std::move(buffer));
+    //     uniformBuffersMemory.emplace_back(bufferMem);
+    //
+    //     void* mappedData = nullptr;
+    //     vmaMapMemory(allocator.allocator, bufferMem, &mappedData);
+    //     uniformBuffersMapped.emplace_back(mappedData);
+    //
+    //     setDebugName(device, uniformBuffers.back(), std::format("UniformBuffer_{}", i));
+    // }
 }
 
 vk::Format ResourceManager::findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling,
@@ -468,7 +492,7 @@ void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipL
         queueIndices = queueFamilyIndices;
     }
 
-    vk::ImageCreateInfo imageInfo{
+    vk::ImageCreateInfo const imageInfo{
         .imageType = vk::ImageType::e2D,
         .format = format,
         .extent = {.width=width, .height=height, .depth=1},

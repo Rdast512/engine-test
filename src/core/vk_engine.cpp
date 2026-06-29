@@ -53,8 +53,11 @@ void Engine::initialize()
     assetsLoader = std::make_unique<AssetsLoader>();
 
     resourceManager =
-        std::make_unique<ResourceManager>(*device, *allocator, assetsLoader->getVertices(), assetsLoader->getIndices());
+        std::make_unique<ResourceManager>(*device, *allocator);
     resourceManager->init();
+
+    textureManager = std::make_unique<TextureManager>(*device, *resourceManager, *allocator);
+    textureManager->init();
 
     tracyContext = std::make_unique<VkTracyContext>();
     {
@@ -68,15 +71,12 @@ void Engine::initialize()
                            device->getGraphicsQueue(), tracySetupCommandBuffers.front(), "Graphics Queue");
     }
 
-    textureManager = std::make_unique<TextureManager>(*device, *resourceManager, *allocator);
-    textureManager->init();
+
 
     descriptorManager = std::make_unique<DescriptorManager>(device->getDevice(),
                                                             *resourceManager,
                                                             resourceManager->getUniformBuffers(),
                                                             textureManager->getTextureSampler(),
-                                                            textureManager->getTextureImageView(),
-                                                            textureManager->gettextureImageViewCreateInfo(),
                                                             device->getHardwareCapabilities(),
                                                             device->getDescriptorBindingMode());
     descriptorManager->init();
@@ -277,8 +277,7 @@ void Engine::shutdown() { cleanup(); }
 
 void Engine::cleanup()
 {
-    if (!initialized)
-        return;
+    if (!initialized) return;
     auto& deviceRef = device->getDevice();
     deviceRef.waitIdle();
 

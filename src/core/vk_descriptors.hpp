@@ -12,6 +12,7 @@ class DescriptorManager
     void createDescriptorPool();
     void createDescriptorSets();
     void createHeaps();
+    void createHeapDescriptors();
     void createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::DeviceSize samplerHeapSize);
     vk::DeviceSize minResourceHeapReservedRange = 0;
     vk::DeviceSize minSamplerHeapReservedRange = 0;
@@ -37,15 +38,17 @@ public:
     void init();
 
 
-
-    [[nodiscard]] auto usesDescriptorHeaps() const -> bool { return descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps; }
+    [[nodiscard]] auto usesDescriptorHeaps() const -> bool
+    {
+        return descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps;
+    }
     [[nodiscard]] auto getDescriptorBindingMode() const -> DescriptorBindingMode { return descriptorBindingMode; }
 
     [[nodiscard]] auto getResourceHeapInfo() const -> const vk::BindHeapInfoEXT& { return resourceHeapInfo; }
     [[nodiscard]] auto getSamplerHeapInfo() const -> const vk::BindHeapInfoEXT& { return samplerHeapInfo; }
     [[nodiscard]] auto getTextureDescriptorIndex() const -> uint32_t;
     [[nodiscard]] auto getSamplerDescriptorIndex() const -> uint32_t;
-    [[nodiscard]] auto getUboDescriptorIndex(uint32_t frameIndex) const -> uint32_t;
+    [[nodiscard]] auto writeImageDescriptor(const vk::ImageView& imageView, const vk::ImageLayout imageLayout) -> uint32_t;
 
     const vk::raii::Device& device;
     ResourceManager& resourceManager;
@@ -55,7 +58,6 @@ public:
     const vk::ImageViewCreateInfo& textureImageViewCreateInfo;
     const HardwareCapabilities& capabilities;
     DescriptorBindingMode descriptorBindingMode = DescriptorBindingMode::LegacySets;
-
 
 
     vk::raii::Buffer resourceHeapBuffer = nullptr;

@@ -17,12 +17,5 @@ glm::mat4 Object::getModelMatrix() const
     return model;
 }
 
-void Object::setUniformBuffers(std::vector<vk::raii::Buffer> buffers, std::vector<vk::raii::DeviceMemory> memory,
-                               std::vector<void*> mapped, vk::DeviceAddress ubo_addr) noexcept
-{
-    uniformBuffers = std::move(buffers);
-    uniformBuffersMemory = std::move(memory);
-    uniformBuffersMapped = std::move(mapped);
-    uboAddress = ubo_addr;
-}
+
 
