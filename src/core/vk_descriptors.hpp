@@ -27,10 +27,7 @@ class DescriptorManager
 
 public:
     DescriptorManager(const vk::raii::Device& device, ResourceManager& resourceManager,
-                      const std::vector<vk::raii::Buffer>& uniformBuffers, const vk::raii::Sampler& textureSampler,
-                      const vk::raii::ImageView& textureImageView,
-                      const vk::ImageViewCreateInfo& textureImageViewCreateInfo,
-                      const HardwareCapabilities& capabilities, DescriptorBindingMode descriptorBindingMode);
+                      const HardwareCapabilities& capabilities);
 
     ~DescriptorManager();
 
@@ -48,16 +45,15 @@ public:
     [[nodiscard]] auto getSamplerHeapInfo() const -> const vk::BindHeapInfoEXT& { return samplerHeapInfo; }
     [[nodiscard]] auto getTextureDescriptorIndex() const -> uint32_t;
     [[nodiscard]] auto getSamplerDescriptorIndex() const -> uint32_t;
-    [[nodiscard]] auto writeImageDescriptor(const vk::ImageView& imageView, const vk::ImageLayout imageLayout) -> uint32_t;
+    [[nodiscard]] auto writeImageDescriptor(const vk::ImageViewCreateInfo& imageView) -> uint32_t;
+
+
 
     const vk::raii::Device& device;
     ResourceManager& resourceManager;
     const std::vector<vk::raii::Buffer>& uniformBuffers;
-    const vk::raii::Sampler& textureSampler;
-    const vk::raii::ImageView& textureImageView;
-    const vk::ImageViewCreateInfo& textureImageViewCreateInfo;
     const HardwareCapabilities& capabilities;
-    DescriptorBindingMode descriptorBindingMode = DescriptorBindingMode::LegacySets;
+    DescriptorBindingMode descriptorBindingMode = DescriptorBindingMode::DescriptorHeaps;
 
 
     vk::raii::Buffer resourceHeapBuffer = nullptr;

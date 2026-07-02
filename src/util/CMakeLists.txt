@@ -4,6 +4,7 @@ set(UTIL_SOURCES
         maths.cpp
         vk_tracy.cpp
         vk_shaders.cpp
+        vk_utils.cpp
 )
 
 add_library(engine_util SHARED ${UTIL_SOURCES})

@@ -65,6 +65,7 @@ class Device
         vk::KHRPresentModeFifoLatestReadyExtensionName,
         vk::KHRCopyMemoryIndirectExtensionName,
         vk::KHRShaderUntypedPointersExtensionName,
+        vk::KHRDynamicRenderingLocalReadExtensionName,
         // EXT
         vk::EXTOpacityMicromapExtensionName,
         vk::EXTMemoryBudgetExtensionName,

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../assets/object_storage.hpp"
+#include "../core/object_storage.hpp"
 
 #include <array>
 #include <glm/glm.hpp>

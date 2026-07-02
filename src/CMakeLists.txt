@@ -40,7 +40,6 @@ target_compile_definitions(engine_build_config INTERFACE
 
 add_subdirectory(util)
 add_subdirectory(core)
-add_subdirectory(assets)
 add_subdirectory(render)
 add_subdirectory(scene)
 add_subdirectory(postprocessing)
@@ -50,7 +49,6 @@ target_link_libraries(engine_runtime
     PUBLIC
         engine_build_config
         engine_core
-        engine_assets
         engine_render
         engine_util
         engine_postprocessing
@@ -101,9 +99,6 @@ if(WIN32)
             $<TARGET_FILE_DIR:engine>
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:engine_core>
-            $<TARGET_FILE_DIR:engine>
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:engine_assets>
             $<TARGET_FILE_DIR:engine>
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:engine_render>

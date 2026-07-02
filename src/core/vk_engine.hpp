@@ -1,16 +1,15 @@
 #pragma once
-#include "vk_device.hpp"
-#include "vk_swapchain.hpp"
-#include "vk_resource_manager.hpp"
-#include "vk_descriptors.hpp"
-#include "../util/vk_tracy.hpp"
-#include "../assets/texture_manager.hpp"
-#include "../assets/assets_loader.hpp"
-#include "../assets/object_storage.hpp"
+#include "assets_loader.hpp"
+#include "texture_manager.hpp"
 #include "../render/vk_pipeline.hpp"
 #include "../render/vk_renderer.hpp"
-#include "../assets/object_storage.hpp"
+#include "../util/vk_tracy.hpp"
+#include "object_storage.hpp"
 #include "vk_allocator.hpp"
+#include "vk_descriptors.hpp"
+#include "vk_device.hpp"
+#include "vk_resource_manager.hpp"
+#include "vk_swapchain.hpp"
 
 
 class Engine{
@@ -38,7 +37,7 @@ class Engine{
     VkFormat imguiColorFormat = VK_FORMAT_UNDEFINED;
     VkFormat imguiDepthFormat = VK_FORMAT_UNDEFINED;
     VkPipelineRenderingCreateInfoKHR imguiPipelineRenderingInfo{};
-
+    std::vector<Object> objects;
     void createImGuiDescriptorPool();
 
 public:

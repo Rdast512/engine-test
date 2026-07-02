@@ -1,39 +1,37 @@
 #pragma once
-#include "vk_device.hpp"
-#include "../core/types.hpp"
-#include "../Constants.h"
-#include "../assets/object_storage.hpp"
-#include <vulkan/vulkan_raii.hpp>
 #include <optional>
 #include <string_view>
+#include <vulkan/vulkan_raii.hpp>
+#include "../Constants.h"
+#include "../core/types.hpp"
+#include "object_storage.hpp"
 #include "vk_allocator.hpp"
+#include "vk_device.hpp"
 
 // Manages GPU resources (buffers, images, command pools) using Device + Assets data.
 class ResourceManager {
 public:
 	ResourceManager(const Device &deviceWrapper,
 			   const VkAllocator &allocator,
-			   const std::vector<Vertex> &verticesIn,
-			   const std::vector<uint32_t> &indicesIn);
+			   const std::vector<Vertex> &vertices,
+			   const std::vector<uint32_t> &indices,
+			   std::vector<Object> &objects);
 	~ResourceManager();
 
 	void init();
 	void createSyncObjects();
-	void createCommandPool();
+    void updateUniformBuffers(uint32_t currentImage);
+    void createCommandPool();
 	void createCommandBuffers();
 	void createDepthResources();
 	void createVertexBuffer();
 	void createIndexBuffer();
-	void createUniformBuffers();
+    void createUniformBuffer(Object obj);
+    void createUniformBuffers();
 	void createColorResources();
     void createObjectStorage();
 	void setSwapChainImageCount(uint32_t count) { swapChainImageCount = count; createSyncObjects(); }
-	void updateUniformBuffer(uint32_t currentImage);
 
-	void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-					  vk::raii::Buffer &buffer, VmaAllocation &bufferMemory,
-					  std::string_view memoryDebugBaseName = "ResourceBufferMemory",
-					  VmaAllocationCreateFlags extraAllocationFlags = 0);
 	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char> &code) const;
 
 	const std::vector<vk::raii::Buffer>& getUniformBuffers() const { return uniformBuffers; }
@@ -55,23 +53,7 @@ public:
 	static bool hasStencilComponent(vk::Format format);
 	void generateMipmaps(vk::raii::Image &image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight,
 						 uint32_t mipLevels);
-	void transitionImageLayout(
-		vk::raii::CommandBuffer *commandBuffer,
-		vk::Image image,
-		uint32_t mipLevels,
-		vk::ImageLayout oldLayout,
-		vk::ImageLayout newLayout,
-		const vk::ImageSubresourceRange &subresourceRange = {
-			vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
-		},
-		uint32_t srcQueueFamily = VK_QUEUE_FAMILY_IGNORED,
-		uint32_t dstQueueFamily = VK_QUEUE_FAMILY_IGNORED,
-		std::optional<vk::PipelineStageFlags2> srcStageMaskOverride = std::nullopt,
-		std::optional<vk::PipelineStageFlags2> dstStageMaskOverride = std::nullopt,
-		std::optional<vk::AccessFlags2> srcAccessMaskOverride = std::nullopt,
-		std::optional<vk::AccessFlags2> dstAccessMaskOverride = std::nullopt
-	);
-	static void endCommandBuffer(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Queue &queue);
+static void endCommandBuffer(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Queue &queue);
 	void updateSwapChainExtent(vk::Extent2D newExtent);
 	void updateSwapChainImageFormat(vk::Format newFormat) { swapChainImageFormat = newFormat; }
 
@@ -82,6 +64,7 @@ public:
 	const std::vector<uint32_t> &queueFamilyIndices;
 	const vk::raii::Queue &graphicsQueue;
 	const vk::raii::Queue &transferQueue;
+    std::vector<Object> &objects;
 	uint32_t graphicsIndex;
 	uint32_t transferIndex;
 	vk::SampleCountFlagBits msaaSamples;
@@ -113,6 +96,5 @@ public:
 	vk::raii::Image colorImage = nullptr;
 	VmaAllocation colorImageMemory = nullptr;
 	vk::raii::ImageView colorImageView = nullptr;
-    std::array<Object, 1000> objects;
 };
 

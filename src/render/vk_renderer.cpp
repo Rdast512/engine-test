@@ -5,6 +5,7 @@
 #include "../Constants.h"
 #include "../static_headers/logger.hpp"
 #include "../util/vk_tracy.hpp"
+#include "../util/vk_utils.hpp"
 #include "imgui.h"
 #include "imgui_impl_vulkan.h"
 
@@ -91,7 +92,7 @@ void Renderer::drawFrame()
 
     {
         ZoneScopedN("UpdateUBO");
-        resourceManager.updateUniformBuffer(currentFrame);
+        resourceManager.updateUniformBuffers(currentFrame);
     }
 
     const vk::SubmitInfo2 submitInfo{.waitSemaphoreInfoCount = 1,
@@ -142,7 +143,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
             TracyVkZone(tracyContext->handle(), *commandBuffers[currentFrame], "GPU_TransitionToRender");
         }
 #endif
-        resourceManager.transitionImageLayout(
+        transitionImageLayout(
             &commandBuffers[currentFrame], swapChain.swapChainImages[imageIndex], 1, vk::ImageLayout::eUndefined,
             vk::ImageLayout::eColorAttachmentOptimal, colorRange, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
             vk::PipelineStageFlagBits2::eTopOfPipe, vk::PipelineStageFlagBits2::eColorAttachmentOutput,
@@ -246,7 +247,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
             TracyVkZone(tracyContext->handle(), *commandBuffers[currentFrame], "GPU_TransitionToPresent");
         }
 #endif
-        resourceManager.transitionImageLayout(
+        transitionImageLayout(
             &commandBuffers[currentFrame], swapChain.swapChainImages[imageIndex], 1,
             vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR, colorRange,
             VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, vk::PipelineStageFlagBits2::eColorAttachmentOutput,

@@ -1,9 +1,12 @@
 set(CORE_SOURCES
+    assets_loader.cpp
+    texture_manager.cpp
     vk_allocator.cpp
     vk_descriptors.cpp
     vk_device.cpp
     vk_resource_manager.cpp
     vk_swapchain.cpp
+    object_storage.cpp
     ${CMAKE_SOURCE_DIR}/ThirdParty/implementations.cpp
 )
 

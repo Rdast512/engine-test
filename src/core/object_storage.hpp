@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../core/types.hpp"
+#include "types.hpp"
 
 #include <vector>
 
@@ -49,10 +49,13 @@ public:
     //     to the Object.  After this call the Object owns all resources. ---
     // void setUniformBuffers(std::vector<vk::raii::Buffer> buffers, std::vector<vk::raii::DeviceMemory> memory,
     //                        std::vector<void*> mapped, std::vector<vk::DeviceAddress> ubo_addresses) noexcept;
-
+    // --- Transform ---
     glm::vec3 position{0.0f};
     glm::vec3 rotation{0.0f};
     glm::vec3 scale{1.0f};
+
+    // vk::DeviceAddress vertexAdress;
+
 
     // --- GPU resources (owned) ---
     // Destruction order (reverse declaration) matters:
@@ -60,12 +63,14 @@ public:
     //   2. uniformBuffers        (vkDestroyBuffer)
     //   3. uniformBuffersMemory  (vkFreeMemory, which implicitly unmaps)
     std::string name;
+
+
     std::vector<void*> uniformBuffersMapped;
     std::vector<vk::raii::Buffer> uniformBuffers;
     std::vector<VmaAllocation> uniformBuffersMemory;
 
     std::vector<vk::DeviceAddress> uboAddresses;
+
 private:
-    // --- Transform ---
 
 };

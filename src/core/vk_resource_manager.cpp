@@ -1,26 +1,21 @@
 #include "vk_resource_manager.hpp"
-#include "vk_device.hpp"
-#include "../Constants.h"
-#include "../util/vk_tracy.hpp"
-#include <glm/gtc/matrix_transform.hpp>
-#include "../util/debug.hpp"
-#include "../static_headers/logger.hpp"
 #include <chrono>
 #include <format>
+#include <glm/gtc/matrix_transform.hpp>
 #include <stdexcept>
+#include "../Constants.h"
+#include "../static_headers/logger.hpp"
+#include "../util/debug.hpp"
+#include "../util/vk_tracy.hpp"
+#include "../util/vk_utils.hpp"
+#include "vk_device.hpp"
 
-ResourceManager::ResourceManager(
-    const Device& deviceWrapper,
-    const VkAllocator& allocator,
-    const std::vector<Vertex>& verticesIn,
-    const std::vector<uint32_t>& indicesIn
-) : deviceWrapper(deviceWrapper), allocator(allocator), physicalDevice(deviceWrapper.getPhysicalDevice()),
-    device(deviceWrapper.getDevice()),
-    queueFamilyIndices(deviceWrapper.getQueueFamilyIndices()), graphicsIndex(deviceWrapper.getGraphicsIndex()),
-    graphicsQueue(deviceWrapper.getGraphicsQueue()), transferQueue(deviceWrapper.getTransferQueue()),
-    transferIndex(deviceWrapper.getTransferIndex()),
-    vertices(verticesIn), indices(indicesIn),
-    msaaSamples(deviceWrapper.getMsaaSamples())
+ResourceManager::ResourceManager(const Device& deviceWrapper, const VkAllocator& allocator, const std::vector<Vertex>& verticesIn, const std::vector<uint32_t>& indicesIn, std::vector<Object>& objectsIn):
+    deviceWrapper(deviceWrapper), allocator(allocator), physicalDevice(deviceWrapper.getPhysicalDevice()),
+    device(deviceWrapper.getDevice()), queueFamilyIndices(deviceWrapper.getQueueFamilyIndices()),
+    graphicsIndex(deviceWrapper.getGraphicsIndex()), graphicsQueue(deviceWrapper.getGraphicsQueue()),
+    transferQueue(deviceWrapper.getTransferQueue()), transferIndex(deviceWrapper.getTransferIndex()),
+    msaaSamples(deviceWrapper.getMsaaSamples()), vertices(verticesIn), indices(indicesIn), objects(objectsIn)
 {
     log_info("ResourceManager initialized");
 }
@@ -80,12 +75,12 @@ void ResourceManager::init()
 {
     ZoneScopedN("ResourceManager::init");
     log_info("ResourceManager::init() started");
+    createObjectStorage();
     createCommandPool();
     createCommandBuffers();
     createUniformBuffers();
     createVertexBuffer();
     createIndexBuffer();
-    createObjectStorage();
 }
 
 
@@ -93,7 +88,6 @@ void ResourceManager::createObjectStorage()
 {
     ZoneScopedN("ResourceManager::createObjectStorage");
     log_info("ResourceManager::createObjectStorage() started");
-    objects = std::array<Object, 1000>();
 }
 
 void ResourceManager::createSyncObjects()
@@ -103,35 +97,47 @@ void ResourceManager::createSyncObjects()
     presentCompleteSemaphore.clear();
     renderFinishedSemaphore.clear();
     inFlightFences.clear();
-    for (size_t i = 0; i < swapChainImageCount; i++)
-    {
+    for (size_t i = 0; i < swapChainImageCount; i++) {
         presentCompleteSemaphore.emplace_back(device, vk::SemaphoreCreateInfo());
         renderFinishedSemaphore.emplace_back(device, vk::SemaphoreCreateInfo());
     }
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         inFlightFences.emplace_back(device, vk::FenceCreateInfo{.flags = vk::FenceCreateFlagBits::eSignaled});
     }
 }
 
-void ResourceManager::updateUniformBuffer(uint32_t currentImage)
+void ResourceManager::updateUniformBuffers(uint32_t currentImage)
 {
-    ZoneScoped;
+    ZoneScopedN("ResourceManager::updateUniformBuffer");
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float>(currentTime - startTime).count();
-    static float fakeTime = 0.0f;
-    fakeTime += 0.005f; // Fixed increment per frame
-    UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time  * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f),
-                                static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.
-                                    height), 0.1f, 10.0f);
-    ubo.proj[1][1] *= -1;
-    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+    // Camera and projection matrices (shared by all objects)
+    glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 6.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 proj = glm::perspective(glm::radians(45.0f),
+                                     static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
+                                     0.1f, 20.0f);
+    proj[1][1] *= -1; // Flip Y for Vulkan
+    for (auto& gameObject : objects) {
+        // Apply continuous rotation to the object
+        gameObject.rotation.y += 0.001f; // Slow rotation around Y axis
+
+        // Get the model matrix for this object
+        glm::mat4 initialRotation = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        glm::mat4 model = gameObject.getModelMatrix() * initialRotation;
+
+        // Create and update the UBO
+        UniformBufferObject ubo{
+            .model = model,
+            .view = view,
+            .proj = proj
+        };
+
+        // Copy the UBO data to the mapped memory
+        memcpy(gameObject.uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+    }
 }
 
 
@@ -139,16 +145,13 @@ void ResourceManager::createCommandPool()
 {
     ZoneScopedN("ResourceManager::createCommandPool");
     log_info("ResourceManager::createCommandPool() started");
-    vk::CommandPoolCreateInfo poolInfo{
-        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer, .queueFamilyIndex = graphicsIndex
-    };
+    vk::CommandPoolCreateInfo poolInfo{.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+                                       .queueFamilyIndex = graphicsIndex};
     commandPool = vk::raii::CommandPool(device, poolInfo);
     setDebugName(device, commandPool, "GraphicsCommandPool");
-    vk::CommandPoolCreateInfo transferPoolInfo{
-        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer, .queueFamilyIndex = transferIndex
-    };
-    if (transferIndex != graphicsIndex && transferIndex != UINT32_MAX)
-    {
+    vk::CommandPoolCreateInfo transferPoolInfo{.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+                                               .queueFamilyIndex = transferIndex};
+    if (transferIndex != graphicsIndex && transferIndex != UINT32_MAX) {
         transferCommandPool = vk::raii::CommandPool(device, transferPoolInfo);
         setDebugName(device, transferCommandPool, "TransferCommandPool");
     }
@@ -159,24 +162,19 @@ void ResourceManager::createCommandBuffers()
     ZoneScopedN("ResourceManager::createCommandBuffers");
     log_info("ResourceManager::createCommandBuffers() started");
     commandBuffers.clear();
-    vk::CommandBufferAllocateInfo allocInfo{
-        .commandPool = commandPool, .level = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = MAX_FRAMES_IN_FLIGHT
-    };
+    vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool,
+                                            .level = vk::CommandBufferLevel::ePrimary,
+                                            .commandBufferCount = MAX_FRAMES_IN_FLIGHT};
     commandBuffers = vk::raii::CommandBuffers(device, allocInfo);
-    for (size_t i = 0; i < commandBuffers.size(); ++i)
-    {
+    for (size_t i = 0; i < commandBuffers.size(); ++i) {
         setDebugName(device, commandBuffers[i], std::format("GraphicsCommandBuffer_{}", i));
     }
-    if (transferIndex != UINT32_MAX && transferIndex != graphicsIndex)
-    {
-        vk::CommandBufferAllocateInfo transferAllocInfo{
-            .commandPool = transferCommandPool, .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = MAX_FRAMES_IN_FLIGHT
-        };
+    if (transferIndex != UINT32_MAX && transferIndex != graphicsIndex) {
+        vk::CommandBufferAllocateInfo transferAllocInfo{.commandPool = transferCommandPool,
+                                                        .level = vk::CommandBufferLevel::ePrimary,
+                                                        .commandBufferCount = MAX_FRAMES_IN_FLIGHT};
         transferCommandBuffer = vk::raii::CommandBuffers(device, transferAllocInfo);
-        for (size_t i = 0; i < transferCommandBuffer.size(); ++i)
-        {
+        for (size_t i = 0; i < transferCommandBuffer.size(); ++i) {
             setDebugName(device, transferCommandBuffer[i], std::format("TransferCommandBuffer_{}", i));
         }
     }
@@ -187,61 +185,20 @@ void ResourceManager::createCommandBuffers()
 [[nodiscard]] vk::raii::ShaderModule ResourceManager::createShaderModule(const std::vector<char>& code) const
 {
     log_info("ResourceManager::createShaderModule() started");
-    vk::ShaderModuleCreateInfo createInfo{
-        .codeSize = code.size() * sizeof(char), .pCode = reinterpret_cast<const uint32_t*>(code.data())
-    };
+    vk::ShaderModuleCreateInfo createInfo{.codeSize = code.size() * sizeof(char),
+                                          .pCode = reinterpret_cast<const uint32_t*>(code.data())};
     vk::raii::ShaderModule shaderModule{device, createInfo};
     return shaderModule;
 }
 
-void ResourceManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-                                   vk::raii::Buffer& buffer, VmaAllocation& bufferMemory,
-                                   std::string_view memoryDebugBaseName,
-                                   VmaAllocationCreateFlags extraAllocationFlags)
-{
-    ZoneScopedN("ResourceManager::createBuffer");
-    log_info("ResourceManager::createBuffer() started");
-    vk::BufferCreateInfo bufferInfo{
-        .size = size, .usage = usage, .sharingMode = vk::SharingMode::eConcurrent,
-        .queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size()),
-        .pQueueFamilyIndices = queueFamilyIndices.data()
-    };
-    
-    VmaAllocationCreateInfo allocInfo{};
-    allocInfo.preferredFlags = static_cast<VkMemoryPropertyFlags>(properties);
-
-    if (properties & vk::MemoryPropertyFlagBits::eHostVisible) {
-        allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-        allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-        // Keep host access but avoid CREATE_MAPPED to prevent double map/unmap; we map explicitly where needed.
-        allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-    } else {
-        allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-        if (properties & vk::MemoryPropertyFlagBits::eDeviceLocal) {
-            allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        }
-    }
-    allocInfo.flags |= extraAllocationFlags;
-    
-    allocator.alocateBuffer(bufferInfo, allocInfo, buffer, bufferMemory, memoryDebugBaseName);
-}
-
 void ResourceManager::copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& dstBuffer, vk::DeviceSize size)
 {
-    ZoneScopedN("ResourceManager::copyBuffer");
     log_info("ResourceManager::copyBuffer() started");
-    transferCommandBuffer[0].begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
-    });
+    transferCommandBuffer[0].begin(vk::CommandBufferBeginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     transferCommandBuffer[0].copyBuffer(srcBuffer, dstBuffer, vk::BufferCopy(0, 0, size));
     transferCommandBuffer[0].end();
-    vk::CommandBufferSubmitInfo commandBufferInfo = {
-        .commandBuffer = *transferCommandBuffer[0]
-    };
-    const vk::SubmitInfo2 submitInfo{
-        .commandBufferInfoCount = 1,
-        .pCommandBufferInfos = &commandBufferInfo
-    };
+    vk::CommandBufferSubmitInfo commandBufferInfo = {.commandBuffer = *transferCommandBuffer[0]};
+    const vk::SubmitInfo2 submitInfo{.commandBufferInfoCount = 1, .pCommandBufferInfos = &commandBufferInfo};
     transferQueue.submit2(submitInfo, nullptr);
     transferQueue.waitIdle();
 }
@@ -266,16 +223,15 @@ void ResourceManager::createVertexBuffer()
     vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
     // Ensure previous staging allocation is released before reusing the member buffer
-    if (stagingBufferMemory != nullptr)
-    {
+    if (stagingBufferMemory != nullptr) {
         VkBuffer rawStaging = stagingBuffer.release();
         vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
         stagingBufferMemory = nullptr;
     }
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
-                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                 stagingBuffer, stagingBufferMemory, "VertexStagingBufferMemory");
+                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer,
+                 stagingBufferMemory, allocator.allocator, device, queueFamilyIndices, "VertexStagingBufferMemory");
     setDebugName(device, stagingBuffer, "VertexStagingBuffer");
 
     void* dataStaging = nullptr;
@@ -284,15 +240,13 @@ void ResourceManager::createVertexBuffer()
     vmaUnmapMemory(allocator.allocator, stagingBufferMemory);
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-                 vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory,
-                 "VertexBufferMemory");
+                 vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory, allocator.allocator, device, queueFamilyIndices, "VertexBufferMemory");
     setDebugName(device, vertexBuffer, "VertexBuffer");
 
     copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
 
     // Free staging buffer after use to avoid leaking allocations
-    if (stagingBufferMemory != nullptr)
-    {
+    if (stagingBufferMemory != nullptr) {
         VkBuffer rawStaging = stagingBuffer.release();
         vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
         stagingBufferMemory = nullptr;
@@ -306,16 +260,15 @@ void ResourceManager::createIndexBuffer()
     log_info(std::format("Creating index buffer with {} indices", indices.size()));
     vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
     // Ensure previous staging allocation is released before reusing the member buffer
-    if (stagingBufferMemory != nullptr)
-    {
+    if (stagingBufferMemory != nullptr) {
         VkBuffer rawStaging = stagingBuffer.release();
         vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
         stagingBufferMemory = nullptr;
     }
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
-                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-                 stagingBuffer, stagingBufferMemory, "IndexStagingBufferMemory");
+                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer,
+                 stagingBufferMemory, allocator.allocator, device, queueFamilyIndices, "IndexStagingBufferMemory");
     setDebugName(device, stagingBuffer, "IndexStagingBuffer");
 
     void* data = nullptr;
@@ -324,21 +277,46 @@ void ResourceManager::createIndexBuffer()
     vmaUnmapMemory(allocator.allocator, stagingBufferMemory);
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-                 vk::MemoryPropertyFlagBits::eDeviceLocal, indexBuffer, indexBufferMemory,
-                 "IndexBufferMemory");
+                 vk::MemoryPropertyFlagBits::eDeviceLocal, indexBuffer, indexBufferMemory, allocator.allocator, device, queueFamilyIndices, "IndexBufferMemory");
     setDebugName(device, indexBuffer, "IndexBuffer");
 
     copyBuffer(stagingBuffer, indexBuffer, bufferSize);
 
     // Free staging buffer after use to avoid leaking allocations
-    if (stagingBufferMemory != nullptr)
-    {
+    if (stagingBufferMemory != nullptr) {
         VkBuffer rawStaging = stagingBuffer.release();
         vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
         stagingBufferMemory = nullptr;
     }
 }
 
+void ResourceManager::createUniformBuffer(Object obj)
+{
+    ZoneScopedN("ResourceManager::createUniformBuffers");
+    log_info("ResourceManager::createUniformBuffers() started");
+    obj.uniformBuffers.clear();
+    obj.uniformBuffersMemory.clear();
+    obj.uniformBuffersMapped.clear();
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+        vk::raii::Buffer buffer({});
+        VmaAllocation bufferMem = nullptr;
+        createBuffer(bufferSize,
+                     vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
+                         vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
+                     bufferMem, allocator.allocator, device, queueFamilyIndices,
+                     std::format("UniformBufferMemory_{}_{}", i, obj.name));
+        obj.uniformBuffers.emplace_back(std::move(buffer));
+        obj.uniformBuffersMemory.emplace_back(bufferMem);
+        void* data = nullptr;
+        vmaMapMemory(allocator.allocator, bufferMem, &data);
+        obj.uniformBuffersMapped.emplace_back(data);
+        obj.uboAddresses.emplace_back(device.getBufferAddress({.buffer = *obj.uniformBuffers[i]}));
+    }
+}
+
+// when recreating swapchain this should be called, otherwise ubos should be created for each obj individually.
 void ResourceManager::createUniformBuffers()
 {
     ZoneScopedN("ResourceManager::createUniformBuffers");
@@ -352,18 +330,17 @@ void ResourceManager::createUniformBuffers()
             vk::raii::Buffer buffer({});
             VmaAllocation bufferMem = nullptr;
             createBuffer(bufferSize,
-                             vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
-                                 vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
-                                 bufferMem, std::format("UniformBufferMemory_{}_{}", i, object.name));
+                         vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
+                         bufferMem, allocator.allocator, device, queueFamilyIndices,
+                         std::format("UniformBufferMemory_{}_{}", i, object.name));
             object.uniformBuffers.emplace_back(std::move(buffer));
             object.uniformBuffersMemory.emplace_back(bufferMem);
             void* data = nullptr;
             vmaMapMemory(allocator.allocator, bufferMem, &data);
             object.uniformBuffersMapped.emplace_back(data);
-            object.uboAddresses.emplace_back(device.getBufferAddress({
-                .buffer = *object.uniformBuffers[i]
-            }));
+            object.uboAddresses.emplace_back(device.getBufferAddress({.buffer = *object.uniformBuffers[i]}));
             // setDebugName(device, object.uniformBuffers.back(), std::format("UniformBuffer_{}_{}", i, object.name));
         }
     }
@@ -396,16 +373,13 @@ vk::Format ResourceManager::findSupportedFormat(const std::vector<vk::Format>& c
                                                 vk::FormatFeatureFlags features)
 {
     log_info("ResourceManager::findSupportedFormat() started");
-    for (const auto format : candidates)
-    {
+    for (const auto format : candidates) {
         vk::FormatProperties props = physicalDevice.getFormatProperties2(format).formatProperties;
 
-        if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features)
-        {
+        if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features) {
             return format;
         }
-        if (tiling == vk::ImageTiling::eOptimal && (props.optimalTilingFeatures & features) == features)
-        {
+        if (tiling == vk::ImageTiling::eOptimal && (props.optimalTilingFeatures & features) == features) {
             return format;
         }
     }
@@ -416,10 +390,8 @@ uint32_t ResourceManager::findMemoryType(uint32_t typeFilter, vk::MemoryProperty
 {
     log_info("ResourceManager::findMemoryType() started");
     vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties2().memoryProperties;
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-    {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-        {
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
             return i;
         }
     }
@@ -428,16 +400,17 @@ uint32_t ResourceManager::findMemoryType(uint32_t typeFilter, vk::MemoryProperty
 }
 
 vk::raii::ImageView ResourceManager::createImageView(vk::raii::Image& image, vk::Format format,
-                                                     vk::ImageAspectFlags aspectFlags
-                                                     , uint32_t mipLevels)
+                                                     vk::ImageAspectFlags aspectFlags, uint32_t mipLevels)
 {
     log_info("ResourceManager::createImageView() started");
-    vk::ImageViewCreateInfo viewInfo{
-        .image = image,
-        .viewType = vk::ImageViewType::e2D,
-        .format = format,
-        .subresourceRange = {.aspectMask=aspectFlags, .baseMipLevel=0, .levelCount=mipLevels, .baseArrayLayer=0, .layerCount=1}
-    };
+    vk::ImageViewCreateInfo viewInfo{.image = image,
+                                     .viewType = vk::ImageViewType::e2D,
+                                     .format = format,
+                                     .subresourceRange = {.aspectMask = aspectFlags,
+                                                          .baseMipLevel = 0,
+                                                          .levelCount = mipLevels,
+                                                          .baseArrayLayer = 0,
+                                                          .layerCount = 1}};
     return vk::raii::ImageView(device, viewInfo);
 }
 
@@ -445,14 +418,12 @@ void ResourceManager::createColorResources()
 {
     ZoneScopedN("ResourceManager::createColorResources");
     log_info("ResourceManager::createColorResources() started");
-    if (swapChainImageFormat == vk::Format::eUndefined)
-    {
+    if (swapChainImageFormat == vk::Format::eUndefined) {
         return;
     }
 
     // Destroy previous color resources before recreating
-    if (colorImageMemory != nullptr)
-    {
+    if (colorImageMemory != nullptr) {
         VkImage raw = colorImage.release();
         vmaDestroyImage(allocator.allocator, raw, colorImageMemory);
         colorImageMemory = nullptr;
@@ -460,22 +431,25 @@ void ResourceManager::createColorResources()
     }
     vk::Format colorFormat = swapChainImageFormat;
 
-    createImage(swapChainExtent.width, swapChainExtent.height, 1,
-                msaaSamples, colorFormat, vk::ImageTiling::eOptimal,
+    createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, colorFormat, vk::ImageTiling::eOptimal,
                 vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment,
                 vk::MemoryPropertyFlagBits::eDeviceLocal, colorImage, colorImageMemory, "ColorImageMemory");
     setDebugName(device, colorImage, "ColorImage");
     commandBuffers[0].begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-    transitionImageLayout(&commandBuffers[0], colorImage, 1,
-                          vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal,
-                          {.aspectMask=vk::ImageAspectFlagBits::eColor, .baseMipLevel=0, .levelCount=1, .baseArrayLayer=0, .layerCount=1});
+    transitionImageLayout(&commandBuffers[0], colorImage, 1, vk::ImageLayout::eUndefined,
+                          vk::ImageLayout::eColorAttachmentOptimal,
+                          {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                           .baseMipLevel = 0,
+                           .levelCount = 1,
+                           .baseArrayLayer = 0,
+                           .layerCount = 1});
     endCommandBuffer(commandBuffers[0], graphicsQueue);
     colorImageView = createImageView(colorImage, colorFormat, vk::ImageAspectFlagBits::eColor, 1);
 }
 
-void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipLevels,
-                                  vk::SampleCountFlagBits Samples, vk::Format format, vk::ImageTiling tiling,
-                                  vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::raii::Image& image,
+void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits Samples,
+                                  vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
+                                  vk::MemoryPropertyFlags properties, vk::raii::Image& image,
                                   VmaAllocation& imageMemory, std::string_view memoryDebugBaseName)
 {
     ZoneScopedN("ResourceManager::createImage");
@@ -486,32 +460,29 @@ void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipL
 
     // Only use concurrent sharing for transfer operations between different queue families
     if ((usage & vk::ImageUsageFlagBits::eTransferSrc || usage & vk::ImageUsageFlagBits::eTransferDst) &&
-        transferIndex != UINT32_MAX && transferIndex != graphicsIndex)
-    {
+        transferIndex != UINT32_MAX && transferIndex != graphicsIndex) {
         sharingMode = vk::SharingMode::eConcurrent;
         queueIndices = queueFamilyIndices;
     }
 
-    vk::ImageCreateInfo const imageInfo{
-        .imageType = vk::ImageType::e2D,
-        .format = format,
-        .extent = {.width=width, .height=height, .depth=1},
-        .mipLevels = mipLevels,
-        .arrayLayers = 1,
-        .samples = Samples,
-        .tiling = tiling,
-        .usage = usage,
-        .sharingMode = sharingMode,
-        .queueFamilyIndexCount = static_cast<uint32_t>(queueIndices.size()),
-        .pQueueFamilyIndices = queueIndices.data()
-    };
+    vk::ImageCreateInfo const imageInfo{.imageType = vk::ImageType::e2D,
+                                        .format = format,
+                                        .extent = {.width = width, .height = height, .depth = 1},
+                                        .mipLevels = mipLevels,
+                                        .arrayLayers = 1,
+                                        .samples = Samples,
+                                        .tiling = tiling,
+                                        .usage = usage,
+                                        .sharingMode = sharingMode,
+                                        .queueFamilyIndexCount = static_cast<uint32_t>(queueIndices.size()),
+                                        .pQueueFamilyIndices = queueIndices.data()};
 
     VmaAllocationCreateInfo allocInfo{};
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
     if (properties & vk::MemoryPropertyFlagBits::eHostVisible) {
         allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     }
-    
+
     allocator.alocateImage(imageInfo, allocInfo, image, imageMemory, memoryDebugBaseName);
 }
 
@@ -519,8 +490,7 @@ vk::Format ResourceManager::findDepthFormat()
 {
     log_info("ResourceManager::findDepthFormat() started");
     return findSupportedFormat({vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
-                               vk::ImageTiling::eOptimal,
-                               vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+                               vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
 }
 
 void ResourceManager::updateSwapChainExtent(const vk::Extent2D newExtent)
@@ -537,23 +507,25 @@ void ResourceManager::createDepthResources()
     log_info(std::format("Depth format selected: {}", vk::to_string(depthFormat)));
 
     // Destroy previous depth resources before recreating
-    if (depthImageMemory != nullptr)
-    {
+    if (depthImageMemory != nullptr) {
         VkImage raw = depthImage.release();
         vmaDestroyImage(allocator.allocator, raw, depthImageMemory);
         depthImageMemory = nullptr;
         depthImageView = nullptr;
     }
     createImage(swapChainExtent.width, swapChainExtent.height, 1, msaaSamples, depthFormat, vk::ImageTiling::eOptimal,
-                vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal,
-                depthImage, depthImageMemory, "DepthImageMemory");
+                vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage,
+                depthImageMemory, "DepthImageMemory");
     setDebugName(device, depthImage, "DepthImage");
     depthImageView = createImageView(depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth, 1);
     commandBuffers[0].begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-    transitionImageLayout(&commandBuffers[0], depthImage, 1,
-                          vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal,
-                          {.aspectMask=vk::ImageAspectFlagBits::eDepth, .baseMipLevel=0, .levelCount=1, .baseArrayLayer=0, .layerCount=1}
-    );
+    transitionImageLayout(&commandBuffers[0], depthImage, 1, vk::ImageLayout::eUndefined,
+                          vk::ImageLayout::eDepthStencilAttachmentOptimal,
+                          {.aspectMask = vk::ImageAspectFlagBits::eDepth,
+                           .baseMipLevel = 0,
+                           .levelCount = 1,
+                           .baseArrayLayer = 0,
+                           .layerCount = 1});
     endCommandBuffer(commandBuffers[0], graphicsQueue);
 }
 
@@ -569,24 +541,23 @@ void ResourceManager::copyBufferToImage(const vk::raii::Buffer& buffer, vk::raii
     ZoneScopedN("ResourceManager::copyBufferToImage");
     log_info("ResourceManager::copyBufferToImage() started");
 
-    vk::BufferImageCopy region{
-        .bufferOffset = 0, .bufferRowLength = 0, .bufferImageHeight = 0,
-        .imageSubresource = {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
-        .imageOffset = {0, 0, 0}, .imageExtent = {width, height, 1}
-    };
+    vk::BufferImageCopy region{.bufferOffset = 0,
+                               .bufferRowLength = 0,
+                               .bufferImageHeight = 0,
+                               .imageSubresource = {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+                               .imageOffset = {0, 0, 0},
+                               .imageExtent = {width, height, 1}};
     commandBuffers[0].copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, {region});
 }
 
 void ResourceManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFormat, int32_t texWidth,
-                                      int32_t texHeight,
-                                      uint32_t mipLevels)
+                                      int32_t texHeight, uint32_t mipLevels)
 {
     ZoneScopedN("ResourceManager::generateMipmaps");
     log_info("ResourceManager::generateMipmaps() started");
     // Check for blit support
     vk::FormatProperties formatProperties = physicalDevice.getFormatProperties2(imageFormat).formatProperties;
-    if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
-    {
+    if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
         throw std::runtime_error("Texture image format does not support linear blitting!");
     }
 
@@ -597,8 +568,7 @@ void ResourceManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFo
     int32_t mipWidth = texWidth;
     int32_t mipHeight = texHeight;
 
-    for (uint32_t i = 1; i < mipLevels; i++)
-    {
+    for (uint32_t i = 1; i < mipLevels; i++) {
         vk::ImageMemoryBarrier2 barrier_to_src = {
             .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
             .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
@@ -609,151 +579,62 @@ void ResourceManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFo
             .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
             .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
             .image = *image,
-            .subresourceRange = {vk::ImageAspectFlagBits::eColor, i - 1, 1, 0, 1}
-        };
-        vk::DependencyInfo depInfoToSrc{
-            .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers = &barrier_to_src
-        };
+            .subresourceRange = {vk::ImageAspectFlagBits::eColor, i - 1, 1, 0, 1}};
+        vk::DependencyInfo depInfoToSrc{.imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &barrier_to_src};
         graphicsCmd.pipelineBarrier2(depInfoToSrc);
 
         vk::ImageBlit blit{};
-        blit.srcSubresource = {.aspectMask=vk::ImageAspectFlagBits::eColor, .mipLevel=i - 1, .baseArrayLayer=0, .layerCount=1};
+        blit.srcSubresource = {
+            .aspectMask = vk::ImageAspectFlagBits::eColor, .mipLevel = i - 1, .baseArrayLayer = 0, .layerCount = 1};
         blit.srcOffsets[0] = vk::Offset3D(0, 0, 0);
         blit.srcOffsets[1] = vk::Offset3D(mipWidth, mipHeight, 1);
-        blit.dstSubresource = {.aspectMask=vk::ImageAspectFlagBits::eColor, .mipLevel=i, .baseArrayLayer=0, .layerCount=1};
+        blit.dstSubresource = {
+            .aspectMask = vk::ImageAspectFlagBits::eColor, .mipLevel = i, .baseArrayLayer = 0, .layerCount = 1};
         blit.dstOffsets[0] = vk::Offset3D(0, 0, 0);
         blit.dstOffsets[1] = vk::Offset3D(mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1);
 
         graphicsCmd.blitImage(*image, vk::ImageLayout::eTransferSrcOptimal, *image,
                               vk::ImageLayout::eTransferDstOptimal, {blit}, vk::Filter::eLinear);
 
-        if (mipWidth > 1) mipWidth /= 2;
-        if (mipHeight > 1) mipHeight /= 2;
+        if (mipWidth > 1)
+            mipWidth /= 2;
+        if (mipHeight > 1)
+            mipHeight /= 2;
     }
 
-    vk::ImageMemoryBarrier2 barrier_last = {
-        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-        .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
-        .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
-        .oldLayout = vk::ImageLayout::eTransferDstOptimal,
-        .newLayout = vk::ImageLayout::eTransferSrcOptimal,
-        .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
-        .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
-        .image = *image,
-        .subresourceRange = {.aspectMask=vk::ImageAspectFlagBits::eColor, .baseMipLevel=mipLevels - 1, .levelCount=1, .baseArrayLayer=0, .layerCount=1}
-    };
-    vk::DependencyInfo depInfoLast{
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &barrier_last
-    };
+    vk::ImageMemoryBarrier2 barrier_last = {.srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+                                            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+                                            .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+                                            .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
+                                            .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+                                            .newLayout = vk::ImageLayout::eTransferSrcOptimal,
+                                            .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+                                            .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+                                            .image = *image,
+                                            .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                                                 .baseMipLevel = mipLevels - 1,
+                                                                 .levelCount = 1,
+                                                                 .baseArrayLayer = 0,
+                                                                 .layerCount = 1}};
+    vk::DependencyInfo depInfoLast{.imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &barrier_last};
     graphicsCmd.pipelineBarrier2(depInfoLast);
 
-    vk::ImageMemoryBarrier2 final_barrier = {
-        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-        .srcAccessMask = vk::AccessFlagBits2::eTransferRead,
-        .dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader,
-        .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
-        .oldLayout = vk::ImageLayout::eTransferSrcOptimal,
-        .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-        .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
-        .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
-        .image = *image,
-        .subresourceRange = {.aspectMask=vk::ImageAspectFlagBits::eColor, .baseMipLevel=0, .levelCount=mipLevels, .baseArrayLayer=0, .layerCount=1}
-    };
-    vk::DependencyInfo depInfoFinal{
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &final_barrier
-    };
+    vk::ImageMemoryBarrier2 final_barrier = {.srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+                                             .srcAccessMask = vk::AccessFlagBits2::eTransferRead,
+                                             .dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+                                             .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+                                             .oldLayout = vk::ImageLayout::eTransferSrcOptimal,
+                                             .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+                                             .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+                                             .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+                                             .image = *image,
+                                             .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                                                  .baseMipLevel = 0,
+                                                                  .levelCount = mipLevels,
+                                                                  .baseArrayLayer = 0,
+                                                                  .layerCount = 1}};
+    vk::DependencyInfo depInfoFinal{.imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &final_barrier};
     graphicsCmd.pipelineBarrier2(depInfoFinal);
 
     endCommandBuffer(graphicsCmd, graphicsQueue);
 }
-
-
-//
-void ResourceManager::transitionImageLayout(
-    vk::raii::CommandBuffer* commandBuffer,
-    vk::Image image,
-    uint32_t mipLevels,
-    vk::ImageLayout oldLayout,
-    vk::ImageLayout newLayout,
-    const vk::ImageSubresourceRange& subresourceRange,
-    uint32_t srcQueueFamily,
-    uint32_t dstQueueFamily,
-    std::optional<vk::PipelineStageFlags2> srcStageMaskOverride,
-    std::optional<vk::PipelineStageFlags2> dstStageMaskOverride,
-    std::optional<vk::AccessFlags2> srcAccessMaskOverride,
-    std::optional<vk::AccessFlags2> dstAccessMaskOverride
-)
-{
-    ZoneScoped;
-    vk::ImageMemoryBarrier2 barrier{
-        .srcQueueFamilyIndex = srcQueueFamily,
-        .dstQueueFamilyIndex = dstQueueFamily,
-        .image = image,
-        .subresourceRange = subresourceRange
-    };
-
-    vk::PipelineStageFlags2 srcStage = srcStageMaskOverride.value_or(vk::PipelineStageFlagBits2::eNone);
-    vk::PipelineStageFlags2 dstStage = dstStageMaskOverride.value_or(vk::PipelineStageFlagBits2::eNone);
-    vk::AccessFlags2 srcAccess = srcAccessMaskOverride.value_or(vk::AccessFlagBits2::eNone);
-    vk::AccessFlags2 dstAccess = dstAccessMaskOverride.value_or(vk::AccessFlagBits2::eNone);
-
-    if (srcStage == vk::PipelineStageFlagBits2::eNone && dstStage == vk::PipelineStageFlagBits2::eNone)
-    {
-        if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal)
-        {
-            srcStage = vk::PipelineStageFlagBits2::eTopOfPipe;
-            dstStage = vk::PipelineStageFlagBits2::eTransfer;
-            srcAccess = vk::AccessFlagBits2::eNone;
-            dstAccess = vk::AccessFlagBits2::eTransferWrite;
-        }
-        else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
-            newLayout == vk::ImageLayout::eShaderReadOnlyOptimal)
-        {
-            srcStage = vk::PipelineStageFlagBits2::eTransfer;
-            dstStage = vk::PipelineStageFlagBits2::eFragmentShader;
-            srcAccess = vk::AccessFlagBits2::eTransferWrite;
-            dstAccess = vk::AccessFlagBits2::eShaderRead;
-        }
-        else if (oldLayout == vk::ImageLayout::eUndefined && newLayout ==
-            vk::ImageLayout::eDepthStencilAttachmentOptimal)
-        {
-            srcStage = vk::PipelineStageFlagBits2::eTopOfPipe;
-            dstStage = vk::PipelineStageFlagBits2::eEarlyFragmentTests;
-            srcAccess = vk::AccessFlagBits2::eNone;
-            dstAccess = vk::AccessFlagBits2::eDepthStencilAttachmentWrite |
-                vk::AccessFlagBits2::eDepthStencilAttachmentRead;
-        }
-        else if (oldLayout == vk::ImageLayout::eUndefined &&
-            newLayout == vk::ImageLayout::eColorAttachmentOptimal)
-        {
-            srcStage = vk::PipelineStageFlagBits2::eTopOfPipe;
-            dstStage = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-            srcAccess = vk::AccessFlagBits2::eNone;
-            dstAccess = vk::AccessFlagBits2::eColorAttachmentWrite;
-        }
-        else
-        {
-            throw std::invalid_argument("unsupported layout transition");
-        }
-    }
-
-    barrier.srcStageMask = srcStage;
-    barrier.dstStageMask = dstStage;
-    barrier.srcAccessMask = srcAccess;
-    barrier.dstAccessMask = dstAccess;
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
-    barrier.subresourceRange.levelCount = mipLevels;
-
-    vk::DependencyInfo dependencyInfo{
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &barrier
-    };
-
-    commandBuffer->pipelineBarrier2(dependencyInfo);
-}
-

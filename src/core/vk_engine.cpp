@@ -40,7 +40,7 @@ void Engine::initialize()
         log_info("ImGui disabled by Engine::enableImGui toggle");
     }
 
-
+    objects = std::vector<Object>();
     device = std::make_unique<Device>(window, false);
     device->init();
 
@@ -50,13 +50,13 @@ void Engine::initialize()
     swapChain->init();
 
 
-    assetsLoader = std::make_unique<AssetsLoader>();
+    assetsLoader = std::make_unique<AssetsLoader>(objects);
 
     resourceManager =
-        std::make_unique<ResourceManager>(*device, *allocator);
+        std::make_unique<ResourceManager>(*device, *allocator, assetsLoader->getVertices(), assetsLoader->getIndices(), objects);
     resourceManager->init();
 
-    textureManager = std::make_unique<TextureManager>(*device, *resourceManager, *allocator);
+    textureManager = std::make_unique<TextureManager>(*device, *allocator);
     textureManager->init();
 
     tracyContext = std::make_unique<VkTracyContext>();
@@ -75,10 +75,7 @@ void Engine::initialize()
 
     descriptorManager = std::make_unique<DescriptorManager>(device->getDevice(),
                                                             *resourceManager,
-                                                            resourceManager->getUniformBuffers(),
-                                                            textureManager->getTextureSampler(),
-                                                            device->getHardwareCapabilities(),
-                                                            device->getDescriptorBindingMode());
+                                                            device->getHardwareCapabilities());
     descriptorManager->init();
 
     if (enableImGui)
@@ -138,6 +135,9 @@ void Engine::initialize()
     }
 
     initialized = true;
+    // load default scene
+    assetsLoader->loadModel(MODEL_PATH.string());
+
 }
 
 void Engine::createImGuiDescriptorPool()
