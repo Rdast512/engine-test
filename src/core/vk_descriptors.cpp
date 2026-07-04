@@ -5,19 +5,17 @@
 #include "../util/debug.hpp"
 #include "../util/vk_tracy.hpp"
 #include "../util/vk_utils.hpp"
-#include "_deps/debug/ktxsoftware-src/external/basisu/transcoder/basisu_containers.h"
 #include "logger.hpp"
-#include "vk_allocator.hpp"
-#include "vk_resource_manager.hpp"
 
 static constexpr vk::DeviceSize alignUp(vk::DeviceSize size, vk::DeviceSize alignment)
 {
     return (size + alignment - 1) & ~(alignment - 1);
 }
 
-DescriptorManager::DescriptorManager(const vk::raii::Device& device, ResourceManager& resourceManager,
+DescriptorManager::DescriptorManager(const vk::raii::Device& device, VmaAllocator allocator,
+                                     const std::vector<uint32_t>& queueFamilyIndices,
                                      const HardwareCapabilities& capabilities) :
-    device(device), resourceManager(resourceManager), uniformBuffers(resourceManager.getUniformBuffers()),
+    device(device), allocator(allocator), queueFamilyIndices(queueFamilyIndices),
     capabilities(capabilities)
 {
     minResourceHeapReservedRange = capabilities.descriptorHeap.minResourceHeapReservedRange;
@@ -35,22 +33,22 @@ DescriptorManager::DescriptorManager(const vk::raii::Device& device, ResourceMan
 DescriptorManager::~DescriptorManager()
 {
     if (mappedResourceHeapPtr != nullptr && resourceHeapMemory != nullptr) {
-        vmaUnmapMemory(resourceManager.allocator.allocator, resourceHeapMemory);
+        vmaUnmapMemory(allocator, resourceHeapMemory);
         mappedResourceHeapPtr = nullptr;
     }
     if (mappedSamplerHeapPtr != nullptr && samplerHeapMemory != nullptr) {
-        vmaUnmapMemory(resourceManager.allocator.allocator, samplerHeapMemory);
+        vmaUnmapMemory(allocator, samplerHeapMemory);
         mappedSamplerHeapPtr = nullptr;
     }
 
     if (resourceHeapMemory != nullptr) {
         VkBuffer rawResourceHeap = resourceHeapBuffer.release();
-        vmaDestroyBuffer(resourceManager.allocator.allocator, rawResourceHeap, resourceHeapMemory);
+        vmaDestroyBuffer(allocator, rawResourceHeap, resourceHeapMemory);
         resourceHeapMemory = nullptr;
     }
     if (samplerHeapMemory != nullptr) {
         VkBuffer rawSamplerHeap = samplerHeapBuffer.release();
-        vmaDestroyBuffer(resourceManager.allocator.allocator, rawSamplerHeap, samplerHeapMemory);
+        vmaDestroyBuffer(allocator, rawSamplerHeap, samplerHeapMemory);
         samplerHeapMemory = nullptr;
     }
 }
@@ -60,7 +58,7 @@ void DescriptorManager::init()
 {
     ZoneScopedN("DescriptorManager::init");
     createHeaps();
-
+    createHeapDescriptors();
 }
 
 
@@ -95,11 +93,9 @@ void DescriptorManager::createHeaps()
                          samplerDescriptorSize, minSamplerHeapReservedRange));
 
     createHeapBuffers(resourceHeapSize, samplerHeapSize);
-    // createHeapDescriptors();
 }
 
-auto DescriptorManager::writeImageDescriptor(const vk::ImageViewCreateInfo& imageViewCreateInfo)
-    -> uint32_t
+void DescriptorManager::writeImageDescriptor(TextureAsset& textureAsset, const vk::ImageViewCreateInfo& imageViewCreateInfo)
 {
     auto resources = std::vector<vk::ResourceDescriptorInfoEXT>();
     auto descriptors = std::vector<vk::HostAddressRangeEXT>();
@@ -129,9 +125,14 @@ auto DescriptorManager::writeImageDescriptor(const vk::ImageViewCreateInfo& imag
         ZoneScopedN("DescriptorManager::createHeapDescriptors::writeResourceDescriptorsEXT");
         device.writeResourceDescriptorsEXT(resources, descriptors);
     }
-    return static_cast<uint32_t>(currentResOffset / imageDescriptorAlignment);
+
+    log_info(std::format("[T1] Descriptor heap image layout imageDescSize={} imageAlign={} imageIndex={}",
+                         imageDescriptorSize, imageDescriptorAlignment, currentResOffset / imageDescriptorAlignment));
+    textureAsset.descriptorHeapIndex = (currentResOffset / imageDescriptorAlignment);
 }
 
+
+// TODO rename and refactor since sampler only
 void DescriptorManager::createHeapDescriptors()
 {
     ZoneScopedN("DescriptorManager::createHeapDescriptors");
@@ -164,10 +165,10 @@ void DescriptorManager::createHeapDescriptors()
         device.writeSamplerDescriptorsEXT(samplerInfo, samplerWrite);
     }
 
-    log_info(std::format("[T1] Descriptor heap layout imageDescSize={} samplerDescSize={} imageAlign={} "
-                         "samplerAlign={} textureIndex={} samplerIndex={}",
-                         imageDescriptorSize, samplerDescriptorSize, imageDescriptorAlignment,
-                         samplerDescriptorAlignment, getTextureDescriptorIndex(), getSamplerDescriptorIndex()));
+    log_info(std::format("[T1] Descriptor heap sampler layout samplerDescSize={} "
+                         "samplerAlign={} samplerIndex={}",
+                         samplerDescriptorSize,
+                         samplerDescriptorAlignment, getSamplerDescriptorIndex()));
 }
 
 void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::DeviceSize samplerHeapSize)
@@ -177,11 +178,11 @@ void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::D
         vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress |
             vk::BufferUsageFlagBits::eDescriptorHeapEXT,
         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, resourceHeapBuffer,
-        resourceHeapMemory, resourceManager.allocator.allocator, resourceManager.device,
-        resourceManager.queueFamilyIndices, "DescriptorHeapResourceMemory",
+        resourceHeapMemory, allocator, device,
+        queueFamilyIndices, "DescriptorHeapResourceMemory",
         VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
     const VkResult resourceHeapMapResult =
-        vmaMapMemory(resourceManager.allocator.allocator, resourceHeapMemory, &mappedResourceHeapPtr);
+        vmaMapMemory(allocator, resourceHeapMemory, &mappedResourceHeapPtr);
     if (resourceHeapMapResult != VK_SUCCESS || mappedResourceHeapPtr == nullptr) {
         throw std::runtime_error(std::format("Failed to map resource descriptor heap memory (VkResult={})",
                                              static_cast<int>(resourceHeapMapResult)));
@@ -209,11 +210,11 @@ void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::D
         vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress |
             vk::BufferUsageFlagBits::eDescriptorHeapEXT,
         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, samplerHeapBuffer,
-        samplerHeapMemory, resourceManager.allocator.allocator, resourceManager.device,
-        resourceManager.queueFamilyIndices, "DescriptorHeapSamplerMemory",
+        samplerHeapMemory, allocator, device,
+        queueFamilyIndices, "DescriptorHeapSamplerMemory",
         VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT);
     const VkResult samplerHeapMapResult =
-        vmaMapMemory(resourceManager.allocator.allocator, samplerHeapMemory, &mappedSamplerHeapPtr);
+        vmaMapMemory(allocator, samplerHeapMemory, &mappedSamplerHeapPtr);
     if (samplerHeapMapResult != VK_SUCCESS || mappedSamplerHeapPtr == nullptr) {
         throw std::runtime_error(std::format("Failed to map sampler descriptor heap memory (VkResult={})",
                                              static_cast<int>(samplerHeapMapResult)));

@@ -6,22 +6,9 @@
 #include <iostream>
 #include <mimalloc.h>
 
-// TODO move resources like Texture data to its own texture class
-// TODO add functions to ownership
-// TODO rewrite sync functions to async (like for ones what fill up command
-// buffers)
 // TODO add support for GLTF and KTX2
-// TODO Imgui integration
-// TODO Instanced rendering
-// TODO Dynamic uniforms and descriptors
 // TODO Pipeline cache
-// TODO Multi-threaded command buffer generation
-// TODO Multiple subpasses
-// TODO Integrate VMA for memory management
-// TODO Integrate Volk
-// TODO Rebase project structure to use different files and dirs
-// TODO (createVertexBuffer, createIndexBuffer, createTextureImage) are still
-// using the "single-time command" pattern
+// TODO (createVertexBuffer, createIndexBuffer, createTextureImage) are still using the "single-time command" pattern
 
 void CheckSTL() {
     std::cout << "--------------------------------------------------\n";

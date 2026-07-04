@@ -8,5 +8,5 @@ set(UTIL_SOURCES
 )
 
 add_library(engine_util SHARED ${UTIL_SOURCES})
-target_link_libraries(engine_util PUBLIC engine_build_config ThirdParty::all)
+target_link_libraries(engine_util PUBLIC engine_build_config ThirdParty::all ThirdPartyImpl)
 target_precompile_headers(engine_util PRIVATE ${PCH_HEADER})

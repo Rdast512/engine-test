@@ -143,11 +143,11 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
             TracyVkZone(tracyContext->handle(), *commandBuffers[currentFrame], "GPU_TransitionToRender");
         }
 #endif
-        transitionImageLayout(
-            &commandBuffers[currentFrame], swapChain.swapChainImages[imageIndex], 1, vk::ImageLayout::eUndefined,
-            vk::ImageLayout::eColorAttachmentOptimal, colorRange, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-            vk::PipelineStageFlagBits2::eTopOfPipe, vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-            vk::AccessFlagBits2::eNone, vk::AccessFlagBits2::eColorAttachmentWrite);
+        transitionImageLayout(&commandBuffers[currentFrame], swapChain.swapChainImages[imageIndex], 1,
+                              vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal, colorRange,
+                              VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, vk::PipelineStageFlagBits2::eTopOfPipe,
+                              vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eNone,
+                              vk::AccessFlagBits2::eColorAttachmentWrite);
     }
 
     const vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
@@ -191,21 +191,15 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 
         // TODO optimize branch prediction by spliting one rendering function into two and just decinding what to use.
         // After that use a pointer to that function.
-        if (descriptorManager.usesDescriptorHeaps()) {
-            const auto& resourceHeapInfo = descriptorManager.getResourceHeapInfo();
-            const auto& samplerHeapInfo = descriptorManager.getSamplerHeapInfo();
-            commandBuffers[currentFrame].bindResourceHeapEXT(resourceHeapInfo);
-            commandBuffers[currentFrame].bindSamplerHeapEXT(samplerHeapInfo);
-
+        const auto& resourceHeapInfo = descriptorManager.getResourceHeapInfo();
+        const auto& samplerHeapInfo = descriptorManager.getSamplerHeapInfo();
+        commandBuffers[currentFrame].bindResourceHeapEXT(resourceHeapInfo);
+        commandBuffers[currentFrame].bindSamplerHeapEXT(samplerHeapInfo);
+        for (const auto& gameObject : resourceManager.objects) {
             PushData pushData{};
-            const VkBufferDeviceAddressInfo uboAddressInfo = {
-                .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                .pNext = nullptr,
-                .buffer = *resourceManager.uniformBuffers[currentFrame],
-            };
-            pushData.uboAddress = vkGetBufferDeviceAddress(*device.getDevice(), &uboAddressInfo);
+            pushData.uboAddress = gameObject.uboAddresses[currentFrame];
             pushData.texture = {
-                .resourceIndex = descriptorManager.getTextureDescriptorIndex(),
+                .resourceIndex = gameObject.textureIndex,
                 .samplerIndex = 0,
             };
             pushData.samplerHandle = {
@@ -220,13 +214,9 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
                 .data = vk::HostAddressRangeConstEXT{.address = &pushData, .size = sizeof(PushData)}};
             commandBuffers[currentFrame].pushDataEXT(pushDataInfo);
 
-        } else {
-            commandBuffers[currentFrame].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pipeline.pipelineLayout,
-                                                            0, *descriptorManager.descriptorSets[currentFrame], {});
+
+            commandBuffers[currentFrame].drawIndexed(gameObject.indexCount, 1, gameObject.firstIndex, 0, 0);
         }
-
-
-        commandBuffers[currentFrame].drawIndexed(static_cast<uint32_t>(indexCount), 1, 0, 0, 0);
     }
 
     if (imguiEnabled) {

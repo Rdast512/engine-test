@@ -24,51 +24,6 @@ ResourceManager::~ResourceManager()
 {
     log_info("ResourceManager destructor called");
 
-    // // Uniform buffers: unmap then destroy with VMA
-    // for (size_t i = 0; i < uniformBuffersMemory.size(); ++i)
-    // {
-    //     if (uniformBuffersMemory[i] != nullptr)
-    //     {
-    //         vmaUnmapMemory(allocator.allocator, uniformBuffersMemory[i]);
-    //         VkBuffer raw = uniformBuffers[i].release();
-    //         vmaDestroyBuffer(allocator.allocator, raw, uniformBuffersMemory[i]);
-    //     }
-    // }
-    //
-    // // Vertex buffer
-    // if (vertexBufferMemory != nullptr)
-    // {
-    //     VkBuffer raw = vertexBuffer.release();
-    //     vmaDestroyBuffer(allocator.allocator, raw, vertexBufferMemory);
-    // }
-    //
-    // // Staging buffer
-    // if (stagingBufferMemory != nullptr)
-    // {
-    //     VkBuffer raw = stagingBuffer.release();
-    //     vmaDestroyBuffer(allocator.allocator, raw, stagingBufferMemory);
-    // }
-    //
-    // // Index buffer
-    // if (indexBufferMemory != nullptr)
-    // {
-    //     VkBuffer raw = indexBuffer.release();
-    //     vmaDestroyBuffer(allocator.allocator, raw, indexBufferMemory);
-    // }
-    //
-    // // Color image
-    // if (colorImageMemory != nullptr)
-    // {
-    //     VkImage raw = colorImage.release();
-    //     vmaDestroyImage(allocator.allocator, raw, colorImageMemory);
-    // }
-    //
-    // // Depth image
-    // if (depthImageMemory != nullptr)
-    // {
-    //     VkImage raw = depthImage.release();
-    //     vmaDestroyImage(allocator.allocator, raw, depthImageMemory);
-    // }
 }
 
 void ResourceManager::init()
@@ -122,7 +77,7 @@ void ResourceManager::updateUniformBuffers(uint32_t currentImage)
     proj[1][1] *= -1; // Flip Y for Vulkan
     for (auto& gameObject : objects) {
         // Apply continuous rotation to the object
-        gameObject.rotation.y += 0.001f; // Slow rotation around Y axis
+        gameObject.rotation.y += 0.01f; // Slow rotation around Y axis
 
         // Get the model matrix for this object
         glm::mat4 initialRotation = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
@@ -294,9 +249,6 @@ void ResourceManager::createUniformBuffer(Object obj)
 {
     ZoneScopedN("ResourceManager::createUniformBuffers");
     log_info("ResourceManager::createUniformBuffers() started");
-    obj.uniformBuffers.clear();
-    obj.uniformBuffersMemory.clear();
-    obj.uniformBuffersMapped.clear();
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
         vk::raii::Buffer buffer({});
@@ -307,12 +259,12 @@ void ResourceManager::createUniformBuffer(Object obj)
                      vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
                      bufferMem, allocator.allocator, device, queueFamilyIndices,
                      std::format("UniformBufferMemory_{}_{}", i, obj.name));
-        obj.uniformBuffers.emplace_back(std::move(buffer));
-        obj.uniformBuffersMemory.emplace_back(bufferMem);
+        obj.uniformBuffers[i] = std::move(buffer);
+        obj.uniformBuffersMemory[i] = bufferMem;
         void* data = nullptr;
         vmaMapMemory(allocator.allocator, bufferMem, &data);
-        obj.uniformBuffersMapped.emplace_back(data);
-        obj.uboAddresses.emplace_back(device.getBufferAddress({.buffer = *obj.uniformBuffers[i]}));
+        obj.uniformBuffersMapped[i] = data;
+        obj.uboAddresses[i] = device.getBufferAddress({.buffer = *obj.uniformBuffers[i]});
     }
 }
 
@@ -322,9 +274,6 @@ void ResourceManager::createUniformBuffers()
     ZoneScopedN("ResourceManager::createUniformBuffers");
     log_info("ResourceManager::createUniformBuffers() started");
     for (auto& object : objects) {
-        object.uniformBuffers.clear();
-        object.uniformBuffersMemory.clear();
-        object.uniformBuffersMapped.clear();
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
             vk::raii::Buffer buffer({});
@@ -335,12 +284,12 @@ void ResourceManager::createUniformBuffers()
                          vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
                          bufferMem, allocator.allocator, device, queueFamilyIndices,
                          std::format("UniformBufferMemory_{}_{}", i, object.name));
-            object.uniformBuffers.emplace_back(std::move(buffer));
-            object.uniformBuffersMemory.emplace_back(bufferMem);
+            object.uniformBuffers[i] = std::move(buffer);
+            object.uniformBuffersMemory[i] = bufferMem;
             void* data = nullptr;
             vmaMapMemory(allocator.allocator, bufferMem, &data);
-            object.uniformBuffersMapped.emplace_back(data);
-            object.uboAddresses.emplace_back(device.getBufferAddress({.buffer = *object.uniformBuffers[i]}));
+            object.uniformBuffersMapped[i] = data;
+            object.uboAddresses[i] = device.getBufferAddress({.buffer = *object.uniformBuffers[i]});
             // setDebugName(device, object.uniformBuffers.back(), std::format("UniformBuffer_{}_{}", i, object.name));
         }
     }

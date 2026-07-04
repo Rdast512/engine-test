@@ -2,11 +2,11 @@
 
 
 
-TextureManager::TextureManager(Device& deviceWrapper, VkAllocator& allocator) :
+TextureManager::TextureManager(Device& deviceWrapper, const VkAllocator& allocator, DescriptorManager &descriptorManager) :
     deviceWrapper(deviceWrapper), physicalDevice(deviceWrapper.getPhysicalDevice()), device(deviceWrapper.getDevice()),
     graphicsQueue(deviceWrapper.getGraphicsQueue()), transferQueue(deviceWrapper.getTransferQueue()),
     graphicsQueueFamilyIndex(deviceWrapper.getGraphicsIndex()),
-    transferQueueFamilyIndex(deviceWrapper.getTransferIndex()), allocator(allocator)
+    transferQueueFamilyIndex(deviceWrapper.getTransferIndex()), allocator(allocator), descriptorManager(descriptorManager)
 {
     log_info("TextureManager::TextureManager() started");
     vk::CommandPoolCreateInfo poolInfo{.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
@@ -45,7 +45,7 @@ void TextureManager::init()
     createTextureSampler();
 }
 
-void TextureManager::createTextureImage(Object obj)
+uint32_t TextureManager::createTextureImage(std::string texturePath_)
 {
     ZoneScopedN("TextureManager::createTextureImage");
     log_info("TextureManager::createTextureImage() started");
@@ -53,6 +53,11 @@ void TextureManager::createTextureImage(Object obj)
     int texHeight = 0;
     int texChannels = 0;
     const auto texturePath = TEXTURE_PATH.string();
+    if (loadedTextures.find(texturePath) != loadedTextures.end())
+    {
+        log_info("Texture already loaded, returning existing descriptor index");
+        return loadedTextures[texturePath].descriptorHeapIndex;
+    }
     TextureAsset textureAsset = {};
 
     stbi_uc* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -102,21 +107,22 @@ void TextureManager::createTextureImage(Object obj)
     endSingleTimeCommands(commandBuffer, graphicsQueue);
 
     generateMipmaps(textureAsset.textureImage, vk::Format::eR8G8B8A8Srgb, texWidth, texHeight, mipLevels);
+    // textureImageview creation
+    vk::ImageViewCreateInfo viewInfo;
+    {
+        ZoneScopedN("TextureManager::createTextureImageView");
+        log_info("TextureManager::createTextureImageView() started");
+        viewInfo = {.image = textureAsset.textureImage,
+                                         .viewType = vk::ImageViewType::e2D,
+                                         .format = vk::Format::eR8G8B8A8Srgb,
+                                         .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, mipLevels, 0, 1}};
+        textureAsset.textureImageView = vk::raii::ImageView(device, viewInfo);
+    }
+    descriptorManager.writeImageDescriptor(textureAsset, viewInfo);
     loadedTextures[texturePath] = std::move(textureAsset);
-    createTextureImageView(&loadedTextures[texturePath]);
+    return loadedTextures[texturePath].descriptorHeapIndex;
 }
 
-void TextureManager::createTextureImageView(std::unordered_map<std::string, TextureAsset>::mapped_type* texture_asset)
-{
-    ZoneScopedN("TextureManager::createTextureImageView");
-    log_info("TextureManager::createTextureImageView() started");
-    vk::ImageViewCreateInfo viewInfo{.image = texture_asset->textureImage,
-                                     .viewType = vk::ImageViewType::e2D,
-                                     .format = vk::Format::eR8G8B8A8Srgb,
-                                     .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, mipLevels, 0, 1}};
-    textureImageViewCreateInfo = viewInfo;
-    texture_asset->textureImageView = vk::raii::ImageView(device, viewInfo);
-}
 
 void TextureManager::createTextureSampler()
 {

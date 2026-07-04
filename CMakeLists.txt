@@ -46,12 +46,12 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU"
   # - leak: memory leaks
   # - thread: data races
   # - memory: uninitialized reads (slower, often incompatible with others)
-  option(ENABLE_SANITIZERS "Enable AddressSanitizer + UndefinedBehaviorSanitizer in Debug and Release builds" ON)
+  option(ENABLE_SANITIZERS "Enable AddressSanitizer + UndefinedBehaviorSanitizer in Debug builds" ON)
   if (ENABLE_SANITIZERS)
-    add_compile_options("$<$<OR:$<CONFIG:Debug>,$<CONFIG:Release>>:-fsanitize=address,undefined>"
-                            "$<$<OR:$<CONFIG:Debug>,$<CONFIG:Release>>:-fno-omit-frame-pointer>"
-                            "$<$<OR:$<CONFIG:Debug>,$<CONFIG:Release>>:-fno-optimize-sibling-calls>")
-    add_link_options("$<$<OR:$<CONFIG:Debug>,$<CONFIG:Release>>:-fsanitize=address,undefined>")
+    add_compile_options("$<$<CONFIG:Debug>:-fsanitize=address,undefined>"
+                            "$<$<CONFIG:Debug>:-fno-omit-frame-pointer>"
+                            "$<$<CONFIG:Debug>:-fno-optimize-sibling-calls>")
+    add_link_options("$<$<CONFIG:Debug>:-fsanitize=address,undefined>")
   endif ()
 
   if (WIN32)

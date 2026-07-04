@@ -1,11 +1,13 @@
 #pragma once
 
-#define GLM_ENABLE_EXPERIMENTAL
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <array>
-#include <glm/glm.hpp>
-#include <glm/gtx/hash.hpp>
-#include <vulkan/vulkan.hpp>
+
+struct TextureAsset {
+    vk::raii::Image textureImage = nullptr;
+    vk::raii::ImageView textureImageView = nullptr;;
+    VmaAllocation textureImageMemory = nullptr;
+    uint32_t descriptorHeapIndex;
+};
+
 
 struct Vertex
 {

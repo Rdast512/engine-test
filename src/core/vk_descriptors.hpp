@@ -1,16 +1,10 @@
 #pragma once
-#include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
 #include "types.hpp"
 
-class ResourceManager;
-
 class DescriptorManager
 {
-    void createDescriptorSetLayout();
-    void createDescriptorPool();
-    void createDescriptorSets();
     void createHeaps();
     void createHeapDescriptors();
     void createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::DeviceSize samplerHeapSize);
@@ -26,7 +20,8 @@ class DescriptorManager
     vk::DeviceSize imageDescriptorAlignment = 0;
 
 public:
-    DescriptorManager(const vk::raii::Device& device, ResourceManager& resourceManager,
+    DescriptorManager(const vk::raii::Device& device, VmaAllocator allocator,
+                      const std::vector<uint32_t>& queueFamilyIndices,
                       const HardwareCapabilities& capabilities);
 
     ~DescriptorManager();
@@ -45,13 +40,13 @@ public:
     [[nodiscard]] auto getSamplerHeapInfo() const -> const vk::BindHeapInfoEXT& { return samplerHeapInfo; }
     [[nodiscard]] auto getTextureDescriptorIndex() const -> uint32_t;
     [[nodiscard]] auto getSamplerDescriptorIndex() const -> uint32_t;
-    [[nodiscard]] auto writeImageDescriptor(const vk::ImageViewCreateInfo& imageView) -> uint32_t;
+    void writeImageDescriptor(TextureAsset& textureAsset, const vk::ImageViewCreateInfo& imageViewCreateInfo);
 
 
 
     const vk::raii::Device& device;
-    ResourceManager& resourceManager;
-    const std::vector<vk::raii::Buffer>& uniformBuffers;
+    VmaAllocator allocator;
+    const std::vector<uint32_t>& queueFamilyIndices;
     const HardwareCapabilities& capabilities;
     DescriptorBindingMode descriptorBindingMode = DescriptorBindingMode::DescriptorHeaps;
 

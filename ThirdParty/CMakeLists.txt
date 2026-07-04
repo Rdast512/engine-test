@@ -183,7 +183,7 @@ FetchContent_Declare(
 FetchContent_Declare(
         SDL3
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG release-3.4.10
+        GIT_TAG release-3.4.12
         GIT_SHALLOW TRUE
 )
 
@@ -375,8 +375,17 @@ target_include_directories(ThirdPartyHeaders INTERFACE
 )
 add_library(ThirdParty::headers ALIAS ThirdPartyHeaders)
 
+# Compile it as a STATIC library
+add_library(ThirdPartyImpl STATIC implementations.cpp)
+
+# IMPORTANT: Because this static lib will be linked into a SHARED library (engine_util.dll),
+# it must be compiled with Position Independent Code (PIC).
+set_target_properties(ThirdPartyImpl PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+
 # 2. All-in-one Interface for libs
 add_library(ThirdPartyLibs INTERFACE)
+
 target_link_libraries(ThirdPartyLibs INTERFACE
         ThirdParty::headers
         Vulkan::Vulkan
@@ -393,6 +402,9 @@ target_link_libraries(ThirdPartyLibs INTERFACE
         ThirdParty::mimalloc
         Taskflow::Taskflow
 )
+
+# Link it to your interface so it gets the includes
+target_link_libraries(ThirdPartyImpl PUBLIC ThirdPartyLibs)
 
 
 add_library(ThirdParty::all ALIAS ThirdPartyLibs)

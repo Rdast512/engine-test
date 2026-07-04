@@ -17,6 +17,12 @@
 #include <cassert>
 #include <algorithm>
 #include <chrono>
+#include <atomic>
+#include <format>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <unordered_set>
 
 // Third Party
 #include <SDL3/SDL.h>
@@ -40,4 +46,8 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include "vma/vk_mem_alloc.h"
-#include "../ThirdParty/termcolor.hpp"
+#include "tiny_obj_loader.h"
+#include "tiny_gltf_v3.h"
+#include "termcolor.hpp"
+#include "mimalloc.h"
+#include "stb_image.h"

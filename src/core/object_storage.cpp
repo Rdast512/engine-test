@@ -1,6 +1,5 @@
 #include "../core/object_storage.hpp"
 
-#include <glm/gtc/matrix_transform.hpp>
 
 // ============================================================================
 // Object

@@ -1,4 +1,3 @@
-#pragma once
 // single header files go here for their implementation will work. Owerwise it wont compile. Still need to include the headers in src files for usage of libs.
 #define VMA_VULKAN_VERSION 1004000
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
