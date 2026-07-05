@@ -22,3 +22,6 @@ vcpkg_installed/
 renderDoc.cap
 /docs/
 /docs
+/.reasonix
+/.codegraph
+reasonix.toml
