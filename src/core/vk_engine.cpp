@@ -237,7 +237,14 @@ void Engine::run()
             ImGui_ImplVulkan_NewFrame();
             ImGui_ImplSDL3_NewFrame();
             ImGui::NewFrame();
-            ImGui::ShowDemoWindow();
+            // Simple ImGui UI: an editable asset path field above a button that calls an Engine stub handler.
+            ImGui::Begin("Engine Controls");
+            ImGui::InputText("Assets Path", assetsPathInput, IM_ARRAYSIZE(assetsPathInput));
+            if (ImGui::Button("Do Action"))
+            {
+                scanFolder();
+            }
+            ImGui::End();
             ImGui::Render();
         }
 
@@ -268,6 +275,12 @@ void Engine::render()
     {
         renderer->drawFrame();
     }
+}
+
+void Engine::scanFolder()
+{
+
+    log_info("ImGui scanFolder started");
 }
 
 void Engine::shutdown() { cleanup(); }

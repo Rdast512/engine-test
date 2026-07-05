@@ -413,14 +413,15 @@ void Device::createLogicalDevice()
         vk::PhysicalDeviceHostImageCopyPropertiesEXT, // Maybe not ext
         vk::PhysicalDeviceTexelBufferAlignmentPropertiesEXT, // Maybe not ext + after that comes only khr when baseline
                                                              // 2060
-        vk::PhysicalDeviceDescriptorBufferPropertiesEXT, vk::PhysicalDeviceFragmentShadingRatePropertiesKHR,
+        vk::PhysicalDeviceDescriptorBufferPropertiesEXT,vk::PhysicalDeviceFragmentShadingRatePropertiesKHR,
         vk::PhysicalDeviceAccelerationStructurePropertiesKHR, vk::PhysicalDeviceOpacityMicromapPropertiesEXT,
         vk::PhysicalDeviceDepthStencilResolveProperties, vk::PhysicalDeviceDriverProperties,
         vk::PhysicalDeviceMaintenance3Properties, vk::PhysicalDeviceMaintenance4Properties,
         vk::PhysicalDeviceMaintenance5Properties, vk::PhysicalDeviceMaintenance6Properties,
         vk::PhysicalDeviceMaintenance7PropertiesKHR, vk::PhysicalDeviceMaintenance9PropertiesKHR,
         vk::PhysicalDeviceMaintenance10PropertiesKHR, vk::PhysicalDevicePipelineBinaryPropertiesKHR,
-        vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
+    vk::PhysicalDeviceRayTracingPipelinePropertiesKHR, vk::PhysicalDevicePartitionedAccelerationStructurePropertiesNV,
+    vk::PhysicalDeviceClusterAccelerationStructurePropertiesNV>();
     capabilities.properties2 = propertiesChain.get<vk::PhysicalDeviceProperties2>();
     capabilities.vulkan11 = propertiesChain.get<vk::PhysicalDeviceVulkan11Properties>();
     capabilities.vulkan12 = propertiesChain.get<vk::PhysicalDeviceVulkan12Properties>();
@@ -450,6 +451,8 @@ void Device::createLogicalDevice()
     capabilities.maintenance10 = propertiesChain.get<vk::PhysicalDeviceMaintenance10PropertiesKHR>();
     capabilities.pipelineBinary = propertiesChain.get<vk::PhysicalDevicePipelineBinaryPropertiesKHR>();
     capabilities.rayTracingPipeline = propertiesChain.get<vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
+    capabilities.partitionedAccelerationStructure = propertiesChain.get<vk::PhysicalDevicePartitionedAccelerationStructurePropertiesNV>();
+    capabilities.clusterAccelerationStructure = propertiesChain.get<vk::PhysicalDeviceClusterAccelerationStructurePropertiesNV>();
 
     const auto descriptorHeapFeatureQuery =
         physicalDevice.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceDescriptorHeapFeaturesEXT>();
@@ -483,7 +486,8 @@ void Device::createLogicalDevice()
         vk::PhysicalDeviceMaintenance8FeaturesKHR, vk::PhysicalDeviceMaintenance9FeaturesKHR,
         vk::PhysicalDeviceMaintenance10FeaturesKHR, vk::PhysicalDeviceCopyMemoryIndirectFeaturesKHR,
         vk::PhysicalDevicePresentModeFifoLatestReadyFeaturesKHR,
-        vk::PhysicalDeviceShaderUntypedPointersFeaturesKHR>
+        vk::PhysicalDeviceShaderUntypedPointersFeaturesKHR, vk::PhysicalDeviceClusterAccelerationStructureFeaturesNV,
+        vk::PhysicalDevicePartitionedAccelerationStructureFeaturesNV>
         featureChain = {// vk::PhysicalDeviceFeatures2
                         {.features =
                              {
@@ -519,8 +523,8 @@ void Device::createLogicalDevice()
                          .maintenance5 = true,
                          .maintenance6 = true,
                          .hostImageCopy = true},
-                        // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT (disabled: extension not enabled)
-                        {},
+                        // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
+                        {.extendedDynamicState = true},
                         // vk::PhysicalDeviceDescriptorHeapFeaturesEXT
                         {.descriptorHeap = descriptorHeapFeatureSupported},
                         // vk::PhysicalDeviceDescriptorBufferFeaturesEXT
@@ -558,7 +562,7 @@ void Device::createLogicalDevice()
                         // vk::PhysicalDeviceAccelerationStructureFeaturesKHR
                         {.accelerationStructure = true},
                         // vk::PhysicalDeviceRayTracingPipelineFeaturesKHR
-                        {.rayTracingPipeline = true, .rayTracingPipelineTraceRaysIndirect = true},
+                        {.rayTracingPipeline = true, .rayTracingPipelineTraceRaysIndirect = true, .rayTraversalPrimitiveCulling = true},
                         // vk::PhysicalDeviceRayQueryFeaturesKHR
                         {.rayQuery = true},
                         // vk::PhysicalDeviceRayTracingMaintenance1FeaturesKHR
@@ -580,7 +584,12 @@ void Device::createLogicalDevice()
                         // vk::PhysicalDevicePresentModeFifoLatestReadyFeaturesKHR
                         {.presentModeFifoLatestReady = true},
                         // vk::PhysicalDeviceShaderUntypedPointersFeaturesKHR};
-                        {.shaderUntypedPointers = true}};
+                        {.shaderUntypedPointers = true},
+                        // vk::PhysicalDeviceClusterAccelerationStructureFeaturesNV
+                        {.clusterAccelerationStructure = true},
+                        // vk::PhysicalDevicePartitionedAccelerationStructureFeaturesNV
+                        {.partitionedAccelerationStructure = true}
+        };
 
     // Each unique queue family needs exactly one VkDeviceQueueCreateInfo entry.
     // Requesting the same family index twice is a validation error, so we gate each

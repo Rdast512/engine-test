@@ -38,6 +38,7 @@ class Engine{
     VkFormat imguiDepthFormat = VK_FORMAT_UNDEFINED;
     VkPipelineRenderingCreateInfoKHR imguiPipelineRenderingInfo{};
     std::vector<Object> objects;
+    char assetsPathInput[260] = "C/path";
     void createImGuiDescriptorPool();
 
 public:
@@ -47,4 +48,6 @@ public:
     void render();
     void cleanup();
     void shutdown();
+    // ImGui callback stub: invoked when the demo button is pressed. Implement later.
+    void scanFolder();
 };

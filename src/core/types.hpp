@@ -107,6 +107,8 @@ struct HardwareCapabilities
     vk::PhysicalDeviceMaintenance10PropertiesKHR maintenance10;
     vk::PhysicalDevicePipelineBinaryPropertiesKHR pipelineBinary;
     vk::PhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipeline;
+    vk::PhysicalDeviceClusterAccelerationStructurePropertiesNV clusterAccelerationStructure;
+    vk::PhysicalDevicePartitionedAccelerationStructurePropertiesNV partitionedAccelerationStructure;
 };
 
 struct EngineContext

@@ -65,7 +65,6 @@ class Device
         vk::KHRPresentModeFifoLatestReadyExtensionName,
         vk::KHRCopyMemoryIndirectExtensionName,
         vk::KHRShaderUntypedPointersExtensionName,
-        vk::KHRDynamicRenderingLocalReadExtensionName,
         // EXT
         vk::EXTOpacityMicromapExtensionName,
         vk::EXTMemoryBudgetExtensionName,
@@ -81,7 +80,9 @@ class Device
         // vk::EXTGraphicsPipelineLibraryExtensionName,
         vk::EXTPresentTimingExtensionName,
         vk::EXTRayTracingInvocationReorderExtensionName,
+        vk::EXTExtendedDynamicState3ExtensionName,
         vk::NVClusterAccelerationStructureExtensionName,
+        vk::NVPartitionedAccelerationStructureExtensionName
     };
 
     SDL_Window* window = nullptr; ///< Non-owning pointer to the SDL3 window used for surface creation.
