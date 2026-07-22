@@ -68,7 +68,6 @@ public:
     //   3. uniformBuffersMemory  (vkFreeMemory, which implicitly unmaps)
     std::string name;
 
-    // TODO there should be only 2 unique things of this so array would be better
     std::array<void*, 2> uniformBuffersMapped = {nullptr, nullptr};
     std::array<vk::raii::Buffer, 2> uniformBuffers = {nullptr, nullptr};
     std::array<VmaAllocation, 2> uniformBuffersMemory = {nullptr, nullptr};

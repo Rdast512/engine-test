@@ -2,6 +2,8 @@
 
 
 
+// Construct a TextureManager which holds Vulkan device/queue handles and
+// creates a command pool for short-lived transfer/graphics commands.
 TextureManager::TextureManager(Device& deviceWrapper, const VkAllocator& allocator, DescriptorManager &descriptorManager) :
     deviceWrapper(deviceWrapper), physicalDevice(deviceWrapper.getPhysicalDevice()), device(deviceWrapper.getDevice()),
     graphicsQueue(deviceWrapper.getGraphicsQueue()), transferQueue(deviceWrapper.getTransferQueue()),
@@ -14,6 +16,8 @@ TextureManager::TextureManager(Device& deviceWrapper, const VkAllocator& allocat
     commandPool = vk::raii::CommandPool(device, poolInfo);
 }
 
+// Destructor — intended to release or schedule release of texture-related
+// resources (images, buffers). Actual VMA cleanup may be handled elsewhere.
 TextureManager::~TextureManager()
 {
     log_info("TextureManager destructor called");
@@ -35,6 +39,8 @@ TextureManager::~TextureManager()
     log_info("TextureManager resources destroyed");
 }
 
+// Initialize the texture manager (currently creates sampler; can be
+// extended to pre-load textures or other setup).
 void TextureManager::init()
 {
     ZoneScopedN("TextureManager::init");
@@ -45,6 +51,8 @@ void TextureManager::init()
     createTextureSampler();
 }
 
+// Load an image from disk using stb, upload it to a GPU image, generate
+// mipmaps and create an image view + descriptor. Returns a descriptor index.
 uint32_t TextureManager::createTextureImage(std::string texturePath_)
 {
     ZoneScopedN("TextureManager::createTextureImage");
@@ -60,8 +68,8 @@ uint32_t TextureManager::createTextureImage(std::string texturePath_)
     }
     TextureAsset textureAsset = {};
 
-    stbi_uc* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-    if (!pixels)
+    stbi_uc const* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    if (pixels == nullptr)
     {
         throw std::runtime_error("failed to load texture image: " + texturePath);
     }
@@ -124,6 +132,8 @@ uint32_t TextureManager::createTextureImage(std::string texturePath_)
 }
 
 
+// Create a Vulkan sampler configured for trilinear filtering and anisotropy
+// using device limits.
 void TextureManager::createTextureSampler()
 {
     ZoneScopedN("TextureManager::createTextureSampler");
@@ -145,6 +155,196 @@ void TextureManager::createTextureSampler()
     textureSampler = vk::raii::Sampler(device, samplerInfo);
 }
 
+// ── format-detecting texture loader ─────────────────────────
+// (non-integrated — review and wire into your pipeline)
+
+namespace {
+
+enum class TextureFormat { Ktx, Png, Unknown };
+
+// Detect a texture file format from its filename extension (KTX vs PNG/etc).
+TextureFormat detectFormat(std::string_view path)
+{
+    const auto dot = path.rfind('.');
+    if (dot == std::string_view::npos) return TextureFormat::Unknown;
+
+    const std::string_view ext = path.substr(dot);
+    if (ext == ".ktx" || ext == ".ktx2") return TextureFormat::Ktx;
+    if (ext == ".png"  || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp") return TextureFormat::Png;
+    return TextureFormat::Unknown;
+}
+
+} // anonymous namespace
+
+// High-level texture loader that chooses between KTX (fast GPU upload)
+// and a PNG/STB fallback. Caches loaded textures and returns a descriptor.
+uint32_t TextureManager::loadTexture(std::string_view texturePath)
+{
+    ZoneScopedN("TextureManager::loadTexture");
+    const std::string path(texturePath);
+
+    if (loadedTextures.find(path) != loadedTextures.end()) {
+        log_info(std::format("Texture already loaded: {}", path));
+        return loadedTextures[path].descriptorHeapIndex;
+    }
+
+    const TextureFormat fmt = detectFormat(path);
+    log_info(std::format("loadTexture: {} → {}", path,
+                         fmt == TextureFormat::Ktx ? "KTX/KTX2" :
+                         fmt == TextureFormat::Png ? "PNG/STB" : "Unknown"));
+
+    // ── KTX / KTX2 path ──────────────────────────────────
+    if (fmt == TextureFormat::Ktx) {
+        // 1. Initialise KTX device-info block with raw Vulkan handles
+        ktxVulkanDeviceInfo vdi{};
+        const KTX_error_code ctorRes = ktxVulkanDeviceInfo_Construct(
+            &vdi,
+            *physicalDevice,
+            *device,
+            *graphicsQueue,
+            *commandPool,
+            nullptr);   // VkAllocationCallbacks
+
+        if (ctorRes != KTX_SUCCESS) {
+            throw std::runtime_error("ktxVulkanDeviceInfo_Construct failed");
+        }
+
+        // 2. Load the KTX file (auto-detects KTX1 vs KTX2)
+        ktxTexture* kTexture = nullptr;
+        KTX_error_code result = ktxTexture_CreateFromNamedFile(
+            path.c_str(),
+            KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
+            &kTexture);
+
+        if (result != KTX_SUCCESS || !kTexture) {
+            ktxVulkanDeviceInfo_Destruct(&vdi);
+            throw std::runtime_error("Failed to load KTX texture: " + path);
+        }
+
+        // 3. Upload to the GPU — ktx creates the VkImage + VkDeviceMemory
+        ktxVulkanTexture vkTex{};
+        result = ktxTexture_VkUpload(kTexture, &vdi, &vkTex);
+
+        // CPU-side KTX data no longer needed after upload
+        ktxTexture_Destroy(kTexture);
+        ktxVulkanDeviceInfo_Destruct(&vdi);
+
+        if (result != KTX_SUCCESS) {
+            throw std::runtime_error("Failed to upload KTX texture to GPU: " + path);
+        }
+
+        const VkFormat vkFormat  = vkTex.imageFormat;
+        const uint32_t width     = vkTex.width;
+        const uint32_t height    = vkTex.height;
+        const uint32_t levels    = vkTex.levelCount;
+
+        log_info(std::format("KTX texture uploaded: {}×{}, {} mips, format={}",
+                             width, height, levels, static_cast<uint32_t>(vkFormat)));
+
+        // 4. Build a Vulkan-Hpp ImageView from the raw VkImage.
+        //    The ImageView does NOT own the image — ownership stays with
+        //    ktxVulkanTexture (cleanup via ktxVulkanTexture_Destruct).
+        TextureAsset asset{};
+        vk::ImageViewCreateInfo const viewInfo{
+            .image       = vk::Image(vkTex.image),   // non-owning wrapper
+            .viewType    = static_cast<vk::ImageViewType>(vkTex.viewType),
+            .format      = static_cast<vk::Format>(vkFormat),
+            .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, levels, 0, 1}};
+        asset.textureImageView = vk::raii::ImageView(device, viewInfo);
+
+        descriptorManager.writeImageDescriptor(asset, viewInfo);
+
+        // 5. Cache: store the ktxVulkanTexture so we can destroy it later.
+        //    A production integration would likely keep a dedicated map of
+        //    raw Vulkan resources keyed by path.
+        //
+        //    TODO(integration): extend TextureAsset (or add a side-map) so
+        //    that the destructor calls ktxVulkanTexture_Destruct on the
+        //    stored ktxVulkanTexture handles.
+        loadedTextures[path] = std::move(asset);
+        return loadedTextures[path].descriptorHeapIndex;
+    }
+
+    // ── PNG / STB fallback ───────────────────────────────
+    // Mirrors the existing createTextureImage() pipeline but actually
+    // honours the supplied path instead of hard-coding TEXTURE_PATH.
+    {
+        int texWidth  = 0;
+        int texHeight = 0;
+        int texChannels = 0;
+
+        stbi_uc const* pixels = stbi_load(path.c_str(), &texWidth, &texHeight,
+                                          &texChannels, STBI_rgb_alpha);
+        if (!pixels) {
+            throw std::runtime_error("Failed to load texture via stb: " + path);
+        }
+
+        if (stagingBufferMemory != nullptr) {
+            VkBuffer rawStaging = stagingBuffer.release();
+            vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
+            stagingBufferMemory = nullptr;
+        }
+
+        vk::DeviceSize imageSize =
+            static_cast<vk::DeviceSize>(texWidth) * static_cast<vk::DeviceSize>(texHeight) * 4;
+        mipLevels = static_cast<uint32_t>(
+            std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+
+        createBuffer(imageSize,
+                     vk::BufferUsageFlagBits::eTransferSrc,
+                     vk::MemoryPropertyFlagBits::eHostVisible |
+                         vk::MemoryPropertyFlagBits::eHostCoherent,
+                     stagingBuffer, stagingBufferMemory,
+                     "TextureStagingBufferMemory");
+        setDebugName(device, stagingBuffer, "TextureStagingBuffer");
+
+        void* data = nullptr;
+        vmaMapMemory(allocator.allocator, stagingBufferMemory, &data);
+        memcpy(data, pixels, static_cast<size_t>(imageSize));
+        vmaUnmapMemory(allocator.allocator, stagingBufferMemory);
+        stbi_image_free(const_cast<stbi_uc*>(pixels));
+
+        TextureAsset asset{};
+        createImage(static_cast<uint32_t>(texWidth),
+                    static_cast<uint32_t>(texHeight), mipLevels,
+                    vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal,
+                    vk::ImageUsageFlagBits::eTransferSrc |
+                        vk::ImageUsageFlagBits::eTransferDst |
+                        vk::ImageUsageFlagBits::eSampled,
+                    vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    asset.textureImage, asset.textureImageMemory,
+                    "TextureImageMemory");
+        setDebugName(device, asset.textureImage, "TextureImage");
+
+        auto cmdBuffer = beginSingleTimeCommands(graphicsQueue);
+        transitionImageLayout(&cmdBuffer, *asset.textureImage, mipLevels,
+                              vk::ImageLayout::eUndefined,
+                              vk::ImageLayout::eTransferDstOptimal);
+        copyBufferToImage(cmdBuffer, stagingBuffer, asset.textureImage,
+                          static_cast<uint32_t>(texWidth),
+                          static_cast<uint32_t>(texHeight));
+        endSingleTimeCommands(cmdBuffer, graphicsQueue);
+
+        generateMipmaps(asset.textureImage, vk::Format::eR8G8B8A8Srgb,
+                        texWidth, texHeight, mipLevels);
+
+        vk::ImageViewCreateInfo viewInfo{
+            .image = asset.textureImage,
+            .viewType = vk::ImageViewType::e2D,
+            .format = vk::Format::eR8G8B8A8Srgb,
+            .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, mipLevels, 0, 1}};
+        asset.textureImageView = vk::raii::ImageView(device, viewInfo);
+
+        descriptorManager.writeImageDescriptor(asset, viewInfo);
+        loadedTextures[path] = std::move(asset);
+
+        log_info(std::format("STB texture loaded: {}×{}, {} mips", texWidth, texHeight, mipLevels));
+        return loadedTextures[path].descriptorHeapIndex;
+    }
+}
+
+// Find a suitable memory type index on the physical device that satisfies
+// the requested property flags and type filter.
 uint32_t TextureManager::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
 {
     log_info("TextureManager::findMemoryType() started");
@@ -159,6 +359,7 @@ uint32_t TextureManager::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyF
     throw std::runtime_error("failed to find suitable memory type");
 }
 
+// Create a buffer of given size/usage and allocate memory through VMA.
 void TextureManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
                                   vk::raii::Buffer& buffer, VmaAllocation& bufferMemory,
                                   std::string_view memoryDebugBaseName)
@@ -172,8 +373,7 @@ void TextureManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usag
     //                              transferQueueFamilyIndex != UINT32_MAX &&
     //                              transferQueueFamilyIndex !=
     //                              graphicsQueueFamilyIndex;
-    // TODO currently disable concurrent sharing for buffers until testing is
-    // done
+    // TODO currently disable concurrent sharing for buffers until testing is done
     const bool needsConcurrent = false;
     vk::BufferCreateInfo bufferInfo{.size = size,
                                     .usage = usage,
@@ -197,6 +397,9 @@ void TextureManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usag
     allocator.alocateBuffer(bufferInfo, allocInfo, buffer, bufferMemory, memoryDebugBaseName);
 }
 
+// Create an image with the requested properties and allocate GPU memory
+// for it via VMA. Returns the vk::ImageCreateInfo used (for callers that
+// need it).
 vk::ImageCreateInfo TextureManager::createImage(uint32_t width, uint32_t height, uint32_t mipLevelsIn, vk::Format format,
                                  vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
                                  vk::raii::Image& image, VmaAllocation& imageMemory,
@@ -233,6 +436,8 @@ vk::ImageCreateInfo TextureManager::createImage(uint32_t width, uint32_t height,
     return imageInfo;
 }
 
+// Allocate and begin a short-lived command buffer for immediate-submit
+// operations (one-time use), returned in recording state.
 vk::raii::CommandBuffer TextureManager::beginSingleTimeCommands(const vk::raii::Queue& queue)
 {
     ZoneScopedN("TextureManager::beginSingleTimeCommands");
@@ -246,6 +451,8 @@ vk::raii::CommandBuffer TextureManager::beginSingleTimeCommands(const vk::raii::
     return commandBuffer;
 }
 
+// End the one-time command buffer, submit it to the provided queue and
+// wait for completion (synchronous helper).
 void TextureManager::endSingleTimeCommands(vk::raii::CommandBuffer& commandBuffer, const vk::raii::Queue& queue)
 {
     ZoneScopedN("TextureManager::endSingleTimeCommands");
@@ -257,6 +464,8 @@ void TextureManager::endSingleTimeCommands(vk::raii::CommandBuffer& commandBuffe
 }
 
 
+// Record a command to copy buffer contents into the given image (used for
+// staging uploads).
 void TextureManager::copyBufferToImage(vk::raii::CommandBuffer& commandBuffer, const vk::raii::Buffer& buffer,
                                        const vk::raii::Image& image, uint32_t width, uint32_t height)
 {
@@ -272,6 +481,8 @@ void TextureManager::copyBufferToImage(vk::raii::CommandBuffer& commandBuffer, c
     commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, {region});
 }
 
+// Generate mipmaps on the GPU by successively blitting between mip levels
+// and transitioning layouts appropriately.
 void TextureManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFormat, int32_t texWidth,
                                      int32_t texHeight, uint32_t mipLevelsIn)
 {

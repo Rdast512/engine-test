@@ -8,6 +8,7 @@
 #include "imgui_impl_vulkan.h"
 
 
+
 Engine::~Engine() { cleanup(); }
 
 void Engine::initialize()
@@ -20,11 +21,10 @@ void Engine::initialize()
     window = SDL_CreateWindow("Vulkan", static_cast<int>(WIDTH), static_cast<int>(HEIGHT),
                               SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
-    if (!window)
+    if (window == nullptr)
     {
         throw std::runtime_error("Failed to create window");
     }
-
 
     if (enableImGui)
     {
@@ -232,20 +232,7 @@ void Engine::run()
 
         if (enableImGui)
         {
-            ZoneScopedN("ImGuiNewFrame");
-            // Start ImGui frame
-            ImGui_ImplVulkan_NewFrame();
-            ImGui_ImplSDL3_NewFrame();
-            ImGui::NewFrame();
-            // Simple ImGui UI: an editable asset path field above a button that calls an Engine stub handler.
-            ImGui::Begin("Engine Controls");
-            ImGui::InputText("Assets Path", assetsPathInput, IM_ARRAYSIZE(assetsPathInput));
-            if (ImGui::Button("Do Action"))
-            {
-                scanFolder();
-            }
-            ImGui::End();
-            ImGui::Render();
+            drawImGui();
         }
 
         if (!minimized && !quit)
@@ -277,10 +264,127 @@ void Engine::render()
     }
 }
 
+void Engine::drawImGui()
+{
+    ZoneScopedN("ImGuiNewFrame");
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
+
+    // Simple ImGui UI: asset discovery, selection, and placeholder loading controls.
+    ImGui::Begin("Engine Controls");
+    ImGui::InputText("Assets Path", &assetsPathInput[0], IM_ARRAYSIZE(assetsPathInput));
+    if (ImGui::Button("Scan Folder"))
+    {
+        scanFolder();
+    }
+
+    if (discoveredAssets.empty())
+    {
+        ImGui::TextUnformatted("No .gltf or .glb assets found yet. Scan a folder to populate the dropdown.");
+    }
+    else
+    {
+        if (selectedAssetIndex < 0 || static_cast<std::size_t>(selectedAssetIndex) >= discoveredAssets.size())
+        {
+            selectedAssetIndex = 0;
+        }
+
+        const std::size_t selectedIndex = static_cast<std::size_t>(selectedAssetIndex);
+        const std::string preview = discoveredAssets.at(selectedIndex).string();
+        if (ImGui::BeginCombo("Discovered Assets", preview.c_str()))
+        {
+            for (std::size_t i = 0; i < discoveredAssets.size(); ++i)
+            {
+                const bool isSelected = (selectedIndex == i);
+                const std::string itemLabel = discoveredAssets.at(i).string();
+                if (ImGui::Selectable(itemLabel.c_str(), isSelected))
+                {
+                    selectedAssetIndex = static_cast<int>(i);
+                }
+
+                if (isSelected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+
+            ImGui::EndCombo();
+        }
+    }
+
+    ImGui::InputFloat3("Model Position", &loadedModelPosition[0]);
+    if (ImGui::Button("Load Object"))
+    {
+        loadObject();
+    }
+    ImGui::End();
+    ImGui::Render();
+}
+
+
 void Engine::scanFolder()
 {
+    discoveredAssets.clear();
+    selectedAssetIndex = -1;
 
-    log_info("ImGui scanFolder started");
+    std::filesystem::path rootPath = assetsPathInput;
+    if (rootPath.empty())
+    {
+        rootPath = ENGINE_MODELS_DIR;
+    }
+
+    std::error_code errorCode;
+    if (!std::filesystem::exists(rootPath, errorCode) || !std::filesystem::is_directory(rootPath, errorCode))
+    {
+        log_info("ImGui scanFolder failed: invalid asset directory");
+        return;
+    }
+
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(rootPath, std::filesystem::directory_options::skip_permission_denied, errorCode))
+    {
+        if (errorCode)
+        {
+            break;
+        }
+
+        if (!entry.is_regular_file(errorCode))
+        {
+            continue;
+        }
+
+        std::string extension = entry.path().extension().string();
+        std::ranges::transform(extension, extension.begin(), [](unsigned char character) -> char {
+            return static_cast<char>(std::tolower(character));
+        });
+
+        if (extension == ".gltf" || extension == ".glb")
+        {
+            discoveredAssets.emplace_back(entry.path());
+        }
+    }
+
+    std::ranges::sort(discoveredAssets);
+    if (!discoveredAssets.empty())
+    {
+        selectedAssetIndex = 0;
+    }
+
+    log_info("ImGui scanFolder found assets");
+}
+
+void Engine::loadObject()
+{
+    if (selectedAssetIndex < 0 || static_cast<std::size_t>(selectedAssetIndex) >= discoveredAssets.size())
+    {
+        log_info("Load Object: no selected asset");
+        return;
+    }
+
+    const std::string assetPath = discoveredAssets[selectedAssetIndex].string();
+    const std::string logMsg = "Load Object - Index: " + std::to_string(selectedAssetIndex) + ", Path: " + assetPath;
+    log_info(logMsg);
+    assetsLoader->loadModel(assetPath);
 }
 
 void Engine::shutdown() { cleanup(); }

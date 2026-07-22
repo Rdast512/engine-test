@@ -38,8 +38,13 @@ class Engine{
     VkFormat imguiDepthFormat = VK_FORMAT_UNDEFINED;
     VkPipelineRenderingCreateInfoKHR imguiPipelineRenderingInfo{};
     std::vector<Object> objects;
-    char assetsPathInput[260] = "C/path";
+    std::vector<std::filesystem::path> discoveredAssets;
+    int selectedAssetIndex = -1;
+    float loadedModelPosition[3] = {0.0f, 0.0f, 0.0f};
+    char assetsPathInput[260] = ENGINE_MODELS_DIR;
     void createImGuiDescriptorPool();
+    void drawImGui();
+    void loadObject();
 
 public:
     ~Engine();

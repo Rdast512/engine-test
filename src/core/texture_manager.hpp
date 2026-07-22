@@ -10,7 +10,7 @@
 #include "../util/vk_utils.hpp"
 #include "../static_headers/logger.hpp"
 #include "vk_descriptors.hpp"
-
+#include "ktxvulkan.h"
 
 
 
@@ -27,6 +27,11 @@ public:
     [[nodiscard]] uint32_t getMipLevels() const { return mipLevels; }
     [[nodiscard]] uint32_t createTextureImage(std::string texturePath_);
 
+    // ── format-detecting loader (non-integrated) ──────────
+    // Inspects the file extension and routes to the KTX or
+    // stb (PNG/etc.) pipeline accordingly.
+    [[nodiscard]] uint32_t loadTexture(std::string_view texturePath);
+
 private:
     void createTextureSampler();
 
@@ -34,7 +39,7 @@ private:
     void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
                       vk::raii::Buffer &buffer, VmaAllocation &bufferMemory,
                       std::string_view memoryDebugBaseName = "TextureBufferMemory");
-    [[nodiscard]] vk::ImageCreateInfo createImage(uint32_t width, uint32_t height, uint32_t mipLevelsIn, vk::Format format,
+    vk::ImageCreateInfo createImage(uint32_t width, uint32_t height, uint32_t mipLevelsIn, vk::Format format,
                      vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
                      vk::raii::Image &image, VmaAllocation &imageMemory,
                      std::string_view memoryDebugBaseName = "TextureImageMemory");

@@ -479,7 +479,8 @@ void Device::createLogicalDevice()
         vk::PhysicalDeviceRayTracingInvocationReorderFeaturesEXT, vk::PhysicalDeviceTexelBufferAlignmentFeaturesEXT,
         vk::PhysicalDeviceOpacityMicromapFeaturesEXT,
         // KHR
-        vk::PhysicalDeviceFragmentShadingRateFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
+        vk::PhysicalDeviceFragmentShadingRateFeaturesKHR, vk::PhysicalDeviceDeviceAddressCommandsFeaturesKHR,
+        vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceRayQueryFeaturesKHR,
         vk::PhysicalDeviceRayTracingMaintenance1FeaturesKHR, vk::PhysicalDevicePipelineBinaryFeaturesKHR,
         vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR, vk::PhysicalDeviceMaintenance7FeaturesKHR,
@@ -559,6 +560,8 @@ void Device::createLogicalDevice()
                         {.pipelineFragmentShadingRate = true,
                          .primitiveFragmentShadingRate = true,
                          .attachmentFragmentShadingRate = true},
+                        // vk::PhysicalDeviceDeviceAddressCommandsFeaturesKHR
+                        {.deviceAddressCommands = true},
                         // vk::PhysicalDeviceAccelerationStructureFeaturesKHR
                         {.accelerationStructure = true},
                         // vk::PhysicalDeviceRayTracingPipelineFeaturesKHR
