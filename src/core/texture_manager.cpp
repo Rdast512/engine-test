@@ -46,91 +46,8 @@ void TextureManager::init()
     ZoneScopedN("TextureManager::init");
     log_info("TextureManager::init() started");
     log_info("TextureManager initialized");
-    // createTextureImage();
-    // createTextureImageView();
     createTextureSampler();
 }
-
-// Load an image from disk using stb, upload it to a GPU image, generate
-// mipmaps and create an image view + descriptor. Returns a descriptor index.
-uint32_t TextureManager::createTextureImage(std::string texturePath_)
-{
-    ZoneScopedN("TextureManager::createTextureImage");
-    log_info("TextureManager::createTextureImage() started");
-    int texWidth = 0;
-    int texHeight = 0;
-    int texChannels = 0;
-    const auto texturePath = TEXTURE_PATH.string();
-    if (loadedTextures.find(texturePath) != loadedTextures.end())
-    {
-        log_info("Texture already loaded, returning existing descriptor index");
-        return loadedTextures[texturePath].descriptorHeapIndex;
-    }
-    TextureAsset textureAsset = {};
-
-    stbi_uc const* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-    if (pixels == nullptr)
-    {
-        throw std::runtime_error("failed to load texture image: " + texturePath);
-    }
-
-    if (stagingBufferMemory != nullptr)
-    {
-        VkBuffer rawStaging = stagingBuffer.release();
-        vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
-        stagingBufferMemory = nullptr;
-    }
-
-    vk::DeviceSize imageSize = static_cast<vk::DeviceSize>(texWidth) * static_cast<vk::DeviceSize>(texHeight) * 4;
-    mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
-
-    createBuffer(imageSize, vk::BufferUsageFlagBits::eTransferSrc,
-                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer,
-                 stagingBufferMemory, "TextureStagingBufferMemory");
-    setDebugName(device, stagingBuffer, "TextureStagingBuffer");
-
-    // void *data = stagingBufferMemory.mapMemory(0, imageSize);
-    // memcpy(data, pixels, static_cast<size_t>(imageSize));
-    // stagingBufferMemory.unmapMemory();
-    // stbi_image_free(pixels);
-
-    void* data = nullptr;
-    vmaMapMemory(allocator.allocator, stagingBufferMemory, &data);
-    memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vmaUnmapMemory(allocator.allocator, stagingBufferMemory);
-
-    auto imgCreateInfo = createImage(static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), mipLevels, vk::Format::eR8G8B8A8Srgb,
-                vk::ImageTiling::eOptimal,
-                vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst |
-                    vk::ImageUsageFlagBits::eSampled,
-                vk::MemoryPropertyFlagBits::eDeviceLocal, textureAsset.textureImage, textureAsset.textureImageMemory,
-                "TextureImageMemory");
-    setDebugName(device, textureAsset.textureImage, "TextureImage");
-
-    auto commandBuffer = beginSingleTimeCommands(graphicsQueue);
-    transitionImageLayout(&commandBuffer, *textureAsset.textureImage, mipLevels, vk::ImageLayout::eUndefined,
-                                          vk::ImageLayout::eTransferDstOptimal);
-    copyBufferToImage(commandBuffer, stagingBuffer, textureAsset.textureImage, static_cast<uint32_t>(texWidth),
-                      static_cast<uint32_t>(texHeight));
-    endSingleTimeCommands(commandBuffer, graphicsQueue);
-
-    generateMipmaps(textureAsset.textureImage, vk::Format::eR8G8B8A8Srgb, texWidth, texHeight, mipLevels);
-    // textureImageview creation
-    vk::ImageViewCreateInfo viewInfo;
-    {
-        ZoneScopedN("TextureManager::createTextureImageView");
-        log_info("TextureManager::createTextureImageView() started");
-        viewInfo = {.image = textureAsset.textureImage,
-                                         .viewType = vk::ImageViewType::e2D,
-                                         .format = vk::Format::eR8G8B8A8Srgb,
-                                         .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, mipLevels, 0, 1}};
-        textureAsset.textureImageView = vk::raii::ImageView(device, viewInfo);
-    }
-    descriptorManager.writeImageDescriptor(textureAsset, viewInfo);
-    loadedTextures[texturePath] = std::move(textureAsset);
-    return loadedTextures[texturePath].descriptorHeapIndex;
-}
-
 
 // Create a Vulkan sampler configured for trilinear filtering and anisotropy
 // using device limits.
@@ -156,7 +73,6 @@ void TextureManager::createTextureSampler()
 }
 
 // ── format-detecting texture loader ─────────────────────────
-// (non-integrated — review and wire into your pipeline)
 
 namespace {
 
@@ -178,7 +94,7 @@ TextureFormat detectFormat(std::string_view path)
 
 // High-level texture loader that chooses between KTX (fast GPU upload)
 // and a PNG/STB fallback. Caches loaded textures and returns a descriptor.
-uint32_t TextureManager::loadTexture(std::string_view texturePath)
+uint32_t TextureManager::loadTexture(std::string texturePath)
 {
     ZoneScopedN("TextureManager::loadTexture");
     const std::string path(texturePath);
@@ -266,8 +182,6 @@ uint32_t TextureManager::loadTexture(std::string_view texturePath)
     }
 
     // ── PNG / STB fallback ───────────────────────────────
-    // Mirrors the existing createTextureImage() pipeline but actually
-    // honours the supplied path instead of hard-coding TEXTURE_PATH.
     {
         int texWidth  = 0;
         int texHeight = 0;

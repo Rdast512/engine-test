@@ -25,12 +25,10 @@ public:
     [[nodiscard]] const vk::raii::Sampler &getTextureSampler() const { return textureSampler; }
     [[nodiscard]] const vk::ImageViewCreateInfo &gettextureImageViewCreateInfo() const { return textureImageViewCreateInfo; }
     [[nodiscard]] uint32_t getMipLevels() const { return mipLevels; }
-    [[nodiscard]] uint32_t createTextureImage(std::string texturePath_);
-
-    // ── format-detecting loader (non-integrated) ──────────
+    // Format-detecting texture loader.
     // Inspects the file extension and routes to the KTX or
     // stb (PNG/etc.) pipeline accordingly.
-    [[nodiscard]] uint32_t loadTexture(std::string_view texturePath);
+    [[nodiscard]] uint32_t loadTexture(std::string texturePath);
 
 private:
     void createTextureSampler();
