@@ -76,7 +76,7 @@ void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPro
                   std::string_view memoryDebugBaseName, VmaAllocationCreateFlags extraAllocationFlags)
 {
     ZoneScopedN("createBuffer");
-    log_info("createBuffer() started");
+    log_info("createBuffer() started", "Utils");
 
     vk::BufferCreateInfo bufferInfo{.size = size,
                                     .usage = usage,

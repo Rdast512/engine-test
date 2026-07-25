@@ -1,1 +1,0 @@
-Flag T1 - descriptor heap debug. To be deleted.

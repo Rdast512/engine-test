@@ -21,6 +21,10 @@ auto get_logger() -> spdlog::logger & {
 }
 } // namespace
 
-void log_info(std::string_view message) {
-	get_logger().info("{}", message);
+void log_info(std::string_view message, std::string_view subsystem) {
+	get_logger().info("[{}] {}", subsystem, message);
+}
+
+void log_error(std::string_view message, std::string_view subsystem) {
+	get_logger().error("[{}] {}", subsystem, message);
 }

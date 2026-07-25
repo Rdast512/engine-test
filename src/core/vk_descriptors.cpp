@@ -80,7 +80,7 @@ void DescriptorManager::createHeaps()
     // resourceHeapSize += minResourceHeapReservedRange;
 
     log_info(std::format("Creating resource descriptor heap: size={} imageDesc={} reserve={}", resourceHeapSize,
-                         imageDescriptorSize, minResourceHeapReservedRange));
+                         imageDescriptorSize, minResourceHeapReservedRange), "DescriptorManager");
 
     vk::DeviceSize samplerHeapSize = capabilities.descriptorHeap.maxSamplerHeapSize;
 
@@ -90,7 +90,7 @@ void DescriptorManager::createHeaps()
     // samplerHeapSize += minSamplerHeapReservedRange;
 
     log_info(std::format("Creating sampler descriptor heap: size={} samplerDesc={} reserve={}", samplerHeapSize,
-                         samplerDescriptorSize, minSamplerHeapReservedRange));
+                         samplerDescriptorSize, minSamplerHeapReservedRange), "DescriptorManager");
 
     createHeapBuffers(resourceHeapSize, samplerHeapSize);
 }
@@ -126,8 +126,8 @@ void DescriptorManager::writeImageDescriptor(TextureAsset& textureAsset, const v
         device.writeResourceDescriptorsEXT(resources, descriptors);
     }
 
-    log_info(std::format("[T1] Descriptor heap image layout imageDescSize={} imageAlign={} imageIndex={}",
-                         imageDescriptorSize, imageDescriptorAlignment, currentResOffset / imageDescriptorAlignment));
+    log_info(std::format("Descriptor heap image layout imageDescSize={} imageAlign={} imageIndex={}",
+                         imageDescriptorSize, imageDescriptorAlignment, currentResOffset / imageDescriptorAlignment), "DescriptorHeap");
     textureAsset.descriptorHeapIndex = (currentResOffset / imageDescriptorAlignment);
 }
 
@@ -165,10 +165,10 @@ void DescriptorManager::createHeapDescriptors()
         device.writeSamplerDescriptorsEXT(samplerInfo, samplerWrite);
     }
 
-    log_info(std::format("[T1] Descriptor heap sampler layout samplerDescSize={} "
+    log_info(std::format("Descriptor heap sampler layout samplerDescSize={} "
                          "samplerAlign={} samplerIndex={}",
                          samplerDescriptorSize,
-                         samplerDescriptorAlignment, getSamplerDescriptorIndex()));
+                         samplerDescriptorAlignment, getSamplerDescriptorIndex()), "DescriptorHeap");
 }
 
 void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::DeviceSize samplerHeapSize)
@@ -203,7 +203,7 @@ void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::D
         .reservedRangeSize = minResourceHeapReservedRange,
     };
     log_info(std::format("Resource heap GPU address=0x{:016x}, reservedOffset={}, reservedSize={}", resourceHeapAddress,
-                         resourceHeapInfo.reservedRangeOffset, resourceHeapInfo.reservedRangeSize));
+                         resourceHeapInfo.reservedRangeOffset, resourceHeapInfo.reservedRangeSize), "DescriptorManager");
 
     createBuffer(
         samplerHeapSize,
@@ -235,7 +235,7 @@ void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::D
         .reservedRangeSize = minSamplerHeapReservedRange,
     };
     log_info(std::format("Sampler heap GPU address=0x{:016x}, reservedOffset={}, reservedSize={}", samplerHeapAddress,
-                         samplerHeapInfo.reservedRangeOffset, samplerHeapInfo.reservedRangeSize));
+                         samplerHeapInfo.reservedRangeOffset, samplerHeapInfo.reservedRangeSize), "DescriptorManager");
 }
 
 

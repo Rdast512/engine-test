@@ -37,7 +37,7 @@ void Engine::initialize()
     }
     else
     {
-        log_info("ImGui disabled by Engine::enableImGui toggle");
+        log_info("ImGui disabled by Engine::enableImGui toggle", "Engine");
     }
 
     objects = std::vector<Object>();
@@ -256,6 +256,7 @@ void Engine::run()
     deviceRef.waitIdle();
 }
 
+
 void Engine::render()
 {
     if (renderer)
@@ -328,16 +329,16 @@ void Engine::scanFolder()
     discoveredAssets.clear();
     selectedAssetIndex = -1;
 
-    std::filesystem::path rootPath = assetsPathInput;
+    std::filesystem::path rootPath = std::filesystem::path(assetsPathInput).make_preferred();
     if (rootPath.empty())
     {
-        rootPath = ENGINE_MODELS_DIR;
+        rootPath = std::filesystem::path(ENGINE_MODELS_DIR).make_preferred();
     }
 
     std::error_code errorCode;
     if (!std::filesystem::exists(rootPath, errorCode) || !std::filesystem::is_directory(rootPath, errorCode))
     {
-        log_info("ImGui scanFolder failed: invalid asset directory");
+        log_info("ImGui scanFolder failed: invalid asset directory", "Engine");
         return;
     }
 
@@ -360,7 +361,9 @@ void Engine::scanFolder()
 
         if (extension == ".gltf" || extension == ".glb")
         {
-            discoveredAssets.emplace_back(entry.path());
+            auto assetPath = entry.path();
+            assetPath.make_preferred();
+            discoveredAssets.emplace_back(std::move(assetPath));
         }
     }
 
@@ -370,20 +373,19 @@ void Engine::scanFolder()
         selectedAssetIndex = 0;
     }
 
-    log_info("ImGui scanFolder found assets");
+    log_info("ImGui scanFolder found assets", "Engine");
 }
 
 void Engine::loadObject()
 {
     if (selectedAssetIndex < 0 || static_cast<std::size_t>(selectedAssetIndex) >= discoveredAssets.size())
     {
-        log_info("Load Object: no selected asset");
+        log_info("Load Object: no selected asset", "Engine");
         return;
     }
 
     const std::string assetPath = discoveredAssets[selectedAssetIndex].string();
-    const std::string logMsg = "Load Object - Index: " + std::to_string(selectedAssetIndex) + ", Path: " + assetPath;
-    log_info(logMsg);
+    log_info("Load Object started", "Engine");
     assetsLoader->loadModel(assetPath);
 }
 
@@ -406,9 +408,13 @@ void Engine::cleanup()
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplSDL3_Shutdown();
         ImGui::DestroyContext();
-        imguiDescriptorPool.reset();
+        // clear() destroys the VkDescriptorPool. reset() is vkResetDescriptorPool and
+        // leaves the raii handle (and its DeviceDispatcher*) alive past device.reset().
+        imguiDescriptorPool.clear();
     }
 
+    objects.clear();
+    log_info("Objects cleared", "Engine");
     // Explicitly clear command buffers before destroying other resources
     if (resourceManager)
     {
@@ -420,18 +426,19 @@ void Engine::cleanup()
     pipeline.reset();
     descriptorManager.reset();
     textureManager.reset();
-    resourceManager.reset();
-    log_info("Resources cleaned up");
+    resourceManager.reset(); // before assetsLoader: holds refs to its vertex/index vectors
+    assetsLoader.reset();
+    log_info("Resources cleaned up", "Engine");
     swapChain.reset();
-    log_info("Swap chain cleaned up");
+    log_info("Swap chain cleaned up", "Engine");
     allocator.reset();
-    log_info("Allocator cleaned up");
-    device.reset();
-    log_info("Device cleaned up");
+    log_info("Allocator cleaned up", "Engine");
     SDL_DestroyWindow(window);
-    log_info("Window destroyed");
+    log_info("Window destroyed", "Engine");
     window = nullptr;
     SDL_Quit();
+    device.reset();
+    log_info("Device cleaned up", "Engine");
     initialized = false;
-    log_info("Engine cleaned up");
+    log_info("Engine cleaned up", "Engine");
 }

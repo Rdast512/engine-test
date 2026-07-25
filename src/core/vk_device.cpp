@@ -243,8 +243,8 @@ void Device::pickPhysicalDevice()
     auto ret = physicalDevice.getQueueFamilyProperties2();
 
     log_info(std::format("Using physical device: {}",
-                         std::string_view(physicalDevice.getProperties2().properties.deviceName.data())));
-    log_info(std::format("Queue amount: {}", ret.size()));
+                         std::string_view(physicalDevice.getProperties2().properties.deviceName.data())), "Device");
+    log_info(std::format("Queue amount: {}", ret.size()), "Device");
     for (const auto& qfp : ret) {
         const bool graphics =
             (qfp.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eGraphics) != static_cast<vk::QueueFlags>(0);
@@ -253,7 +253,7 @@ void Device::pickPhysicalDevice()
         const bool transfer =
             (qfp.queueFamilyProperties.queueFlags & vk::QueueFlagBits::eTransfer) != static_cast<vk::QueueFlags>(0);
         log_info(std::format("Queue family count: {} graphics: {} compute: {} transfer: {}",
-                             qfp.queueFamilyProperties.queueCount, graphics, compute, transfer));
+                             qfp.queueFamilyProperties.queueCount, graphics, compute, transfer), "Device");
     }
 }
 
@@ -378,7 +378,7 @@ void Device::createLogicalDevice()
 
     for (size_t i = 0; i < queueFamilyProps.size(); ++i) {
         const auto& props = queueFamilyProps[i].get<vk::QueueFamilyOwnershipTransferPropertiesKHR>();
-        log_info(std::format("Queue family {} ownership properties:", i));
+        log_info(std::format("Queue family {} ownership properties:", i), "Device");
         auto mask = props.optimalImageTransferToQueueFamilies;
         std::string out = std::format("optimalImageTransferToQueueFamilies: 0x{:x} (dec {}) binary {}\n", mask, mask,
                                       std::bitset<32>(mask).to_string());
@@ -399,7 +399,7 @@ void Device::createLogicalDevice()
                 out += std::format("{}", setIndices[j]);
             }
         }
-        log_info(out);
+        log_info(out, "Device");
     }
 
     auto propertiesChain = physicalDevice.getProperties2<
@@ -633,9 +633,9 @@ void Device::createLogicalDevice()
     vkdevice = vk::raii::Device(physicalDevice, deviceCreateInfo);
 
     if (descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps) {
-        log_info("Descriptor binding mode: DescriptorHeaps (descriptor heap feature supported)");
+        log_info("Descriptor binding mode: DescriptorHeaps (descriptor heap feature supported)", "Device");
     } else {
-        log_info("Descriptor binding mode: LegacySets (descriptor heap feature unsupported on this GPU)");
+        log_info("Descriptor binding mode: LegacySets (descriptor heap feature unsupported on this GPU)", "Device");
     }
 
     setDebugName(vkdevice, instance, "Instance");
@@ -648,23 +648,23 @@ void Device::createLogicalDevice()
 
     // Print queue family usage
     if (graphicsIndex == presentIndex) {
-        log_info(std::format("Using single queue for graphics and present: {}", graphicsIndex));
+        log_info(std::format("Using single queue for graphics and present: {}", graphicsIndex), "Device");
     } else {
-        log_info("Using separate queues for graphics and present");
+        log_info("Using separate queues for graphics and present", "Device");
     }
 
     if (transferIndex != graphicsIndex && transferIndex != presentIndex) {
-        log_info(std::format("Using transfer queue family {}", transferIndex));
+        log_info(std::format("Using transfer queue family {}", transferIndex), "Device");
     } else {
-        log_info("No separate transfer queue found, sharing with graphics/present queue");
+        log_info("No separate transfer queue found, sharing with graphics/present queue", "Device");
     }
 
     if (computeIndex != graphicsIndex && computeIndex != presentIndex && computeIndex != transferIndex) {
-        log_info(std::format("Using dedicated compute queue family {}", computeIndex));
+        log_info(std::format("Using dedicated compute queue family {}", computeIndex), "Device");
     } else if (computeIndex == transferIndex) {
-        log_info(std::format("Using shared transfer+compute queue family {}", computeIndex));
+        log_info(std::format("Using shared transfer+compute queue family {}", computeIndex), "Device");
     } else {
-        log_info("No separate compute queue found, sharing with graphics/present queue");
+        log_info("No separate compute queue found, sharing with graphics/present queue", "Device");
     }
 
     if (transferIndex != UINT32_MAX) {
@@ -687,7 +687,7 @@ void Device::createLogicalDevice()
     log_info(std::format("Using graphics queue: {} | present queue: {} | transfer queue: {} | compute queue: {}",
                          graphicsIndex, presentIndex,
                          (transferIndex != UINT32_MAX ? std::to_string(transferIndex) : "N/A"),
-                         (computeIndex != UINT32_MAX ? std::to_string(computeIndex) : "N/A")));
+                         (computeIndex != UINT32_MAX ? std::to_string(computeIndex) : "N/A")), "Device");
 
     queueFamilyIndices.push_back(graphicsIndex);
 

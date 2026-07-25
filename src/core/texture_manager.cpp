@@ -10,33 +10,67 @@ TextureManager::TextureManager(Device& deviceWrapper, const VkAllocator& allocat
     graphicsQueueFamilyIndex(deviceWrapper.getGraphicsIndex()),
     transferQueueFamilyIndex(deviceWrapper.getTransferIndex()), allocator(allocator), descriptorManager(descriptorManager)
 {
-    log_info("TextureManager::TextureManager() started");
+    log_info("Constructor started", "TextureManager");
     vk::CommandPoolCreateInfo poolInfo{.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
                                        .queueFamilyIndex = graphicsQueueFamilyIndex};
     commandPool = vk::raii::CommandPool(device, poolInfo);
+}
+
+// Resolve a relative path relative to the executable directory.
+// If the path is already absolute, return it unchanged.
+std::string TextureManager::resolvePath(std::string_view path)
+{
+    std::filesystem::path fsPath(path);
+
+    // If the path is already absolute, return it as-is
+    if (fsPath.is_absolute()) {
+        return fsPath.string();
+    }
+
+    // Get the executable path and resolve the relative path from it
+    // Note: std::filesystem::current_path() gets the CWD,
+    // but we resolve relative to the executable location instead
+    // This requires getting the module/executable path from the OS
+
+    // For Windows, we can use GetModuleFileNameA or look for a runtime-cached path
+    // For cross-platform, assume current_path for now, or store exe path during init
+
+    // Fallback: try current_path first, then if not found and relative,
+    // we resolve relative to where we'd expect assets (../textures from build dir)
+    std::filesystem::path resolved = std::filesystem::current_path() / fsPath;
+
+    if (std::filesystem::exists(resolved)) {
+        log_info(std::format("Resolved path: {} -> {}", path, resolved.string()), "TextureManager");
+        return resolved.string();
+    }
+
+    // If not found relative to CWD, log warning and return original
+    // (let the loader try and fail with a more informative error)
+    log_info(std::format("Path not found relative to CWD: {}; trying original", path), "TextureManager");
+    return std::string(path);
 }
 
 // Destructor — intended to release or schedule release of texture-related
 // resources (images, buffers). Actual VMA cleanup may be handled elsewhere.
 TextureManager::~TextureManager()
 {
-    log_info("TextureManager destructor called");
+    log_info("Destructor called", "TextureManager");
 
-    // Texture image
-    // if (textureImageMemory != nullptr)
-    // {
-    //     VkImage raw = textureImage.release();
-    //     vmaDestroyImage(allocator.allocator, raw, textureImageMemory);
-    // }
-    //
-    // // Staging buffer
-    // if (stagingBufferMemory != nullptr)
-    // {
-    //     VkBuffer raw = stagingBuffer.release();
-    //     vmaDestroyBuffer(allocator.allocator, raw, stagingBufferMemory);
-    // }
+    for (auto& [path, asset] : loadedTextures) {
+        if (asset.textureImageMemory != nullptr) {
+            VkImage raw = asset.textureImage.release();
+            vmaDestroyImage(allocator.allocator, raw, asset.textureImageMemory);
+            asset.textureImageMemory = nullptr;
+        }
+    }
+    loadedTextures.clear();
 
-    log_info("TextureManager resources destroyed");
+    if (stagingBufferMemory != nullptr) {
+        VkBuffer raw = stagingBuffer.release();
+        vmaDestroyBuffer(allocator.allocator, raw, stagingBufferMemory);
+        stagingBufferMemory = nullptr;
+    }
+    log_info("Resources destroyed", "TextureManager");
 }
 
 // Initialize the texture manager (currently creates sampler; can be
@@ -44,8 +78,8 @@ TextureManager::~TextureManager()
 void TextureManager::init()
 {
     ZoneScopedN("TextureManager::init");
-    log_info("TextureManager::init() started");
-    log_info("TextureManager initialized");
+    log_info("init() started", "TextureManager");
+    log_info("Initialized", "TextureManager");
     createTextureSampler();
 }
 
@@ -54,7 +88,7 @@ void TextureManager::init()
 void TextureManager::createTextureSampler()
 {
     ZoneScopedN("TextureManager::createTextureSampler");
-    log_info("TextureManager::createTextureSampler() started");
+    log_info("createTextureSampler() started", "TextureManager");
     vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
     vk::SamplerCreateInfo samplerInfo{.magFilter = vk::Filter::eLinear,
                                       .minFilter = vk::Filter::eLinear,
@@ -97,17 +131,18 @@ TextureFormat detectFormat(std::string_view path)
 uint32_t TextureManager::loadTexture(std::string texturePath)
 {
     ZoneScopedN("TextureManager::loadTexture");
-    const std::string path(texturePath);
-
+    const std::string path = resolvePath(texturePath);
+    const std::filesystem::path fsPath = resolvePath(texturePath);
+    log_info(std::format("loadTexture() started for {}", fsPath.string()), "TextureManager");
     if (loadedTextures.find(path) != loadedTextures.end()) {
-        log_info(std::format("Texture already loaded: {}", path));
+        log_info(std::format("Texture already loaded: {}", path), "TextureManager");
         return loadedTextures[path].descriptorHeapIndex;
     }
 
     const TextureFormat fmt = detectFormat(path);
     log_info(std::format("loadTexture: {} → {}", path,
                          fmt == TextureFormat::Ktx ? "KTX/KTX2" :
-                         fmt == TextureFormat::Png ? "PNG/STB" : "Unknown"));
+                         fmt == TextureFormat::Png ? "PNG/STB" : "Unknown"), "TextureManager");
 
     // ── KTX / KTX2 path ──────────────────────────────────
     if (fmt == TextureFormat::Ktx) {
@@ -155,7 +190,7 @@ uint32_t TextureManager::loadTexture(std::string texturePath)
         const uint32_t levels    = vkTex.levelCount;
 
         log_info(std::format("KTX texture uploaded: {}×{}, {} mips, format={}",
-                             width, height, levels, static_cast<uint32_t>(vkFormat)));
+                             width, height, levels, static_cast<uint32_t>(vkFormat)), "TextureManager");
 
         // 4. Build a Vulkan-Hpp ImageView from the raw VkImage.
         //    The ImageView does NOT own the image — ownership stays with
@@ -252,7 +287,7 @@ uint32_t TextureManager::loadTexture(std::string texturePath)
         descriptorManager.writeImageDescriptor(asset, viewInfo);
         loadedTextures[path] = std::move(asset);
 
-        log_info(std::format("STB texture loaded: {}×{}, {} mips", texWidth, texHeight, mipLevels));
+        log_info(std::format("STB texture loaded: {}×{}, {} mips", texWidth, texHeight, mipLevels), "TextureManager");
         return loadedTextures[path].descriptorHeapIndex;
     }
 }
@@ -261,7 +296,7 @@ uint32_t TextureManager::loadTexture(std::string texturePath)
 // the requested property flags and type filter.
 uint32_t TextureManager::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
 {
-    log_info("TextureManager::findMemoryType() started");
+    log_info("findMemoryType() started", "TextureManager");
     vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties2().memoryProperties;
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
     {
@@ -279,7 +314,7 @@ void TextureManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usag
                                   std::string_view memoryDebugBaseName)
 {
     ZoneScopedN("TextureManager::createBuffer");
-    log_info("TextureManager::createBuffer() started");
+    log_info("createBuffer() started", "TextureManager");
     // const bool needsConcurrent = (usage &
     // vk::BufferUsageFlagBits::eTransferSrc ||
     //                               usage &
@@ -320,7 +355,7 @@ vk::ImageCreateInfo TextureManager::createImage(uint32_t width, uint32_t height,
                                  std::string_view memoryDebugBaseName)
 {
     ZoneScopedN("TextureManager::createImage");
-    log_info("TextureManager::createImage() started");
+    log_info("createImage() started", "TextureManager");
     const bool needsConcurrent =
         (usage & vk::ImageUsageFlagBits::eTransferSrc || usage & vk::ImageUsageFlagBits::eTransferDst) &&
         transferQueueFamilyIndex != UINT32_MAX && transferQueueFamilyIndex != graphicsQueueFamilyIndex;
@@ -355,7 +390,7 @@ vk::ImageCreateInfo TextureManager::createImage(uint32_t width, uint32_t height,
 vk::raii::CommandBuffer TextureManager::beginSingleTimeCommands(const vk::raii::Queue& queue)
 {
     ZoneScopedN("TextureManager::beginSingleTimeCommands");
-    log_info("TextureManager::beginSingleTimeCommands() started");
+    log_info("beginSingleTimeCommands() started", "TextureManager");
     vk::CommandBufferAllocateInfo allocInfo{
         .commandPool = commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1};
     auto commandBuffers = device.allocateCommandBuffers(allocInfo);
@@ -370,7 +405,7 @@ vk::raii::CommandBuffer TextureManager::beginSingleTimeCommands(const vk::raii::
 void TextureManager::endSingleTimeCommands(vk::raii::CommandBuffer& commandBuffer, const vk::raii::Queue& queue)
 {
     ZoneScopedN("TextureManager::endSingleTimeCommands");
-    log_info("TextureManager::endSingleTimeCommands() started");
+    log_info("endSingleTimeCommands() started", "TextureManager");
     commandBuffer.end();
     vk::SubmitInfo submitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandBuffer};
     queue.submit(submitInfo, nullptr);
@@ -384,7 +419,7 @@ void TextureManager::copyBufferToImage(vk::raii::CommandBuffer& commandBuffer, c
                                        const vk::raii::Image& image, uint32_t width, uint32_t height)
 {
     ZoneScopedN("TextureManager::copyBufferToImage");
-    log_info("TextureManager::copyBufferToImage() started");
+    log_info("copyBufferToImage() started", "TextureManager");
     vk::BufferImageCopy region{.bufferOffset = 0,
                                .bufferRowLength = 0,
                                .bufferImageHeight = 0,
@@ -401,7 +436,7 @@ void TextureManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFor
                                      int32_t texHeight, uint32_t mipLevelsIn)
 {
     ZoneScopedN("TextureManager::generateMipmaps");
-    log_info("TextureManager::generateMipmaps() started");
+    log_info("generateMipmaps() started", "TextureManager");
     vk::FormatProperties formatProperties = physicalDevice.getFormatProperties2(imageFormat).formatProperties;
     if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
     {

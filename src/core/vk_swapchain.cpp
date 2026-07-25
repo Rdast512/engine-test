@@ -16,7 +16,7 @@ SwapChain::SwapChain(SDL_Window *window, const Device &device)
 
 void SwapChain::init() {
     ZoneScopedN("SwapChain::init");
-    log_info("Initialized SwapChain");
+    log_info("Initialized SwapChain", "SwapChain");
     createSwapChain();
     createImageViews();
 }
@@ -50,7 +50,7 @@ vk::Extent2D SwapChain::chooseSwapExtent(
     }
     int width, height;
     SDL_GetWindowSizeInPixels(window, &width, &height);
-    log_info(std::format("Window size: {}x{}", width, height));
+    log_info(std::format("Window size: {}x{}", width, height), "SwapChain");
 
     return {std::clamp<uint32_t>(static_cast<uint32_t>(width), capabilities.minImageExtent.width,
                                  capabilities.maxImageExtent.width),
@@ -107,9 +107,9 @@ void SwapChain::createSwapChain() {
         reinterpret_cast<const VkPhysicalDeviceSurfaceInfo2KHR*>(&surfaceInfo2),
         reinterpret_cast<VkSurfaceCapabilities2KHR*>(&caps2Chain.get<vk::SurfaceCapabilities2KHR>()));
 
-    log_info(std::format("Chosen present mode: {} | compatible modes:", vk::to_string(chosenPresentMode)));
+    log_info(std::format("Chosen present mode: {} | compatible modes:", vk::to_string(chosenPresentMode)), "SwapChain");
     for (const auto& mode : compatibleModes) {
-        log_info(std::format("  {}", vk::to_string(mode)));
+        log_info(std::format("  {}", vk::to_string(mode)), "SwapChain");
     }
 
     vk::SwapchainPresentModesCreateInfoKHR modesInfo{

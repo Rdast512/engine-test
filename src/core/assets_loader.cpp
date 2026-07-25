@@ -200,13 +200,29 @@ static std::vector<char> readFile(const std::string& filename)
 }
 
 
-AssetsLoader::AssetsLoader(std::vector<Object> &objectsIn, TextureManager &textureManager) : vertices(), indices(), objects(objectsIn), textureManager(textureManager) { log_info("AssetsLoader initialized"); }
+AssetsLoader::AssetsLoader(std::vector<Object> &objectsIn, TextureManager &textureManager) : vertices(), indices(), objects(objectsIn), textureManager(textureManager) { log_info("AssetsLoader initialized", "AssetLoader"); }
 
 
 void AssetsLoader::loadModel(std::string modelPath)
 {
-    if (loadGltfModel(modelPath)) return;
-    loadObjModel(modelPath);
+    const bool isGltf = modelPath.ends_with(".gltf") || modelPath.ends_with(".glb");
+    const bool isObj  = modelPath.ends_with(".obj");
+
+    if (isGltf)
+    {
+        loadGltfModel(modelPath);
+        return;
+    }
+
+    if (isObj)
+    {
+        loadObjModel(modelPath);
+        return;
+    }
+
+    // Unknown extension — try glTF first, fall back to OBJ.
+    if (!loadGltfModel(modelPath))
+        loadObjModel(modelPath);
 }
 
 bool AssetsLoader::loadGltfModel(const std::string& modelPath)
@@ -223,14 +239,34 @@ bool AssetsLoader::loadGltfModel(const std::string& modelPath)
         &model, &errors, modelPath.c_str(),
         static_cast<uint32_t>(modelPath.size()), &opts);
 
-    if (rc != TG3_OK || model.meshes_count == 0) {
+    if (rc != TG3_OK || model.meshes_count == 0)
+    {
+        const uint32_t errorCount = tg3_errors_count(&errors);
+        if (errorCount > 0)
+        {
+            std::string details;
+            for (uint32_t i = 0; i < errorCount; ++i)
+            {
+                const tg3_error_entry* entry = tg3_errors_get(&errors, i);
+                details += std::format("  [{}/{}] {}", static_cast<int>(entry->severity),
+                                       static_cast<int>(entry->code), entry->message);
+                if (entry->json_path && entry->json_path[0] != '\0')
+                    details += std::format(" (at {})", entry->json_path);
+                details += '\n';
+            }
+            log_error(std::format("Failed to parse glTF (rc={}):\n{}", static_cast<int>(rc), details), "AssetLoader");
+        }
+        else
+        {
+            log_error(std::format("Failed to parse glTF: rc={}", static_cast<int>(rc)), "AssetLoader");
+        }
         tg3_model_free(&model);
         tg3_error_stack_free(&errors);
         return false;
     }
 
     log_info(std::format("Loading glTF: {} meshes, {} nodes",
-                         model.meshes_count, model.nodes_count));
+                         model.meshes_count, model.nodes_count), "AssetLoader");
 
     std::unordered_map<Vertex, uint32_t> uniqueVertices{};
     uint32_t indexCount = 0;
@@ -267,7 +303,7 @@ bool AssetsLoader::loadGltfModel(const std::string& modelPath)
                 tcAcc >= 0 ? static_cast<uint32_t>(tg3_num_components(model.accessors[tcAcc].type)) : 0;
             const uint32_t vertexCount = model.accessors[posAcc].count;
 
-            auto emitVertex = [&](uint32_t vi) {
+            auto emitVertex = [&](uint32_t vi) -> void {
                 if (vi >= vertexCount) return;
                 Vertex vertex{};
                 vertex.pos = {positions[vi * posComps + 0],
@@ -300,22 +336,25 @@ bool AssetsLoader::loadGltfModel(const std::string& modelPath)
     currentIndex += indexCount;
 
     log_info(std::format("Model loaded (glTF): {} | vertices: {} | indices: {}",
-                         modelPath, vertices.size(), indices.size()));
+                         modelPath, vertices.size(), indices.size()), "AssetLoader");
 
     tg3_model_free(&model);
     tg3_error_stack_free(&errors);
     return true;
 }
 
-void AssetsLoader::loadObjModel(const std::string& modelPath)
+bool AssetsLoader::loadObjModel(const std::string& modelPath)
 {
+    log_info(std::format("Loading OBJ: {}", modelPath), "AssetLoader");
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
     std::string err;
 
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, modelPath.c_str())) {
-        throw std::runtime_error(err);
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, modelPath.c_str()))
+    {
+        log_error(std::format("Failed to load OBJ: {}", err), "AssetLoader");
+        return false;
     }
 
     std::unordered_map<Vertex, uint32_t> uniqueVertices{};
@@ -347,5 +386,6 @@ void AssetsLoader::loadObjModel(const std::string& modelPath)
     objects.push_back(std::move(object));
     currentIndex += indexCount;
     log_info(std::format("Model loaded (OBJ): {} | vertices: {} | indices: {}",
-                         modelPath, vertices.size(), indices.size()));
+                         modelPath, vertices.size(), indices.size()), "AssetLoader");
+    return true;
 }

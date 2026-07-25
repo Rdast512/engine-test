@@ -26,7 +26,7 @@ public:
 	void createDepthResources();
 	void createVertexBuffer();
 	void createIndexBuffer();
-    void createUniformBuffer(Object obj);
+    void createUniformBuffer(Object& obj);
     void createUniformBuffers();
 	void createColorResources();
     void createObjectStorage();

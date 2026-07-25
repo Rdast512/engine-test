@@ -47,7 +47,8 @@ public:
         std::string* err = nullptr,
         const tg3_parse_options* options = nullptr);
 
-
+    // helper functions to
+    [[nodiscard]] const std::vector<Object>& getObjects() const { return objects; }
     [[nodiscard]] const std::vector<uint32_t>& getIndices() const { return indices; }
     [[nodiscard]] const std::vector<Vertex>& getVertices() const { return vertices; }
 
@@ -58,7 +59,7 @@ private:
     // Format-specific model-loading helpers called by loadModel.
     // Returns true on success (no fallback needed).
     bool loadGltfModel(const std::string& modelPath);
-    void loadObjModel(const std::string& modelPath);
+    bool loadObjModel(const std::string& modelPath);
     uint32_t currentIndex = 0;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;

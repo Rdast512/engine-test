@@ -17,19 +17,24 @@ ResourceManager::ResourceManager(const Device& deviceWrapper, const VkAllocator&
     transferQueue(deviceWrapper.getTransferQueue()), transferIndex(deviceWrapper.getTransferIndex()),
     msaaSamples(deviceWrapper.getMsaaSamples()), vertices(verticesIn), indices(indicesIn), objects(objectsIn)
 {
-    log_info("ResourceManager initialized");
+    log_info("Initialized", "ResourceManager");
 }
 
 ResourceManager::~ResourceManager()
 {
-    log_info("ResourceManager destructor called");
-
+    log_info("Destructor called", "ResourceManager");
+    {
+        if (vertexBufferMemory)  { VkBuffer raw = vertexBuffer.release();  vmaDestroyBuffer(allocator.allocator, raw, vertexBufferMemory); }
+        if (indexBufferMemory)   { VkBuffer raw = indexBuffer.release();   vmaDestroyBuffer(allocator.allocator, raw, indexBufferMemory); }
+        if (colorImageMemory)    { VkImage  raw = colorImage.release();    vmaDestroyImage (allocator.allocator, raw, colorImageMemory); }
+        if (depthImageMemory)    { VkImage  raw = depthImage.release();    vmaDestroyImage (allocator.allocator, raw, depthImageMemory); }
+    }
 }
 
 void ResourceManager::init()
 {
     ZoneScopedN("ResourceManager::init");
-    log_info("ResourceManager::init() started");
+    log_info("init() started", "ResourceManager");
     createObjectStorage();
     createCommandPool();
     createCommandBuffers();
@@ -42,13 +47,13 @@ void ResourceManager::init()
 void ResourceManager::createObjectStorage()
 {
     ZoneScopedN("ResourceManager::createObjectStorage");
-    log_info("ResourceManager::createObjectStorage() started");
+    log_info("createObjectStorage() started", "ResourceManager");
 }
 
 void ResourceManager::createSyncObjects()
 {
     ZoneScopedN("ResourceManager::createSyncObjects");
-    log_info("ResourceManager::createSyncObjects() started");
+    log_info("createSyncObjects() started", "ResourceManager");
     presentCompleteSemaphore.clear();
     renderFinishedSemaphore.clear();
     inFlightFences.clear();
@@ -99,7 +104,7 @@ void ResourceManager::updateUniformBuffers(uint32_t currentImage)
 void ResourceManager::createCommandPool()
 {
     ZoneScopedN("ResourceManager::createCommandPool");
-    log_info("ResourceManager::createCommandPool() started");
+    log_info("createCommandPool() started", "ResourceManager");
     vk::CommandPoolCreateInfo poolInfo{.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
                                        .queueFamilyIndex = graphicsIndex};
     commandPool = vk::raii::CommandPool(device, poolInfo);
@@ -115,7 +120,7 @@ void ResourceManager::createCommandPool()
 void ResourceManager::createCommandBuffers()
 {
     ZoneScopedN("ResourceManager::createCommandBuffers");
-    log_info("ResourceManager::createCommandBuffers() started");
+    log_info("createCommandBuffers() started", "ResourceManager");
     commandBuffers.clear();
     vk::CommandBufferAllocateInfo allocInfo{.commandPool = commandPool,
                                             .level = vk::CommandBufferLevel::ePrimary,
@@ -133,13 +138,13 @@ void ResourceManager::createCommandBuffers()
             setDebugName(device, transferCommandBuffer[i], std::format("TransferCommandBuffer_{}", i));
         }
     }
-    log_info(std::format("Command buffers allocated: {}", commandBuffers.size()));
-    log_info(std::format("Transfer command buffers allocated: {}", transferCommandBuffer.size()));
+    log_info(std::format("Command buffers allocated: {}", commandBuffers.size()), "ResourceManager");
+    log_info(std::format("Transfer command buffers allocated: {}", transferCommandBuffer.size()), "ResourceManager");
 }
 
 [[nodiscard]] vk::raii::ShaderModule ResourceManager::createShaderModule(const std::vector<char>& code) const
 {
-    log_info("ResourceManager::createShaderModule() started");
+    log_info("createShaderModule() started", "ResourceManager");
     vk::ShaderModuleCreateInfo createInfo{.codeSize = code.size() * sizeof(char),
                                           .pCode = reinterpret_cast<const uint32_t*>(code.data())};
     vk::raii::ShaderModule shaderModule{device, createInfo};
@@ -148,7 +153,7 @@ void ResourceManager::createCommandBuffers()
 
 void ResourceManager::copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& dstBuffer, vk::DeviceSize size)
 {
-    log_info("ResourceManager::copyBuffer() started");
+    log_info("copyBuffer() started", "ResourceManager");
     transferCommandBuffer[0].begin(vk::CommandBufferBeginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     transferCommandBuffer[0].copyBuffer(srcBuffer, dstBuffer, vk::BufferCopy(0, 0, size));
     transferCommandBuffer[0].end();
@@ -162,7 +167,7 @@ void ResourceManager::copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& 
 void ResourceManager::endCommandBuffer(vk::raii::CommandBuffer& commandBuffer, const vk::raii::Queue& queue)
 {
     ZoneScopedN("ResourceManager::endCommandBuffer");
-    log_info("ResourceManager::endCommandBuffer() started");
+    log_info("endCommandBuffer() started", "ResourceManager");
     commandBuffer.end();
     vk::SubmitInfo submitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandBuffer};
     queue.submit(submitInfo, nullptr);
@@ -172,8 +177,8 @@ void ResourceManager::endCommandBuffer(vk::raii::CommandBuffer& commandBuffer, c
 void ResourceManager::createVertexBuffer()
 {
     ZoneScopedN("ResourceManager::createVertexBuffer");
-    log_info("ResourceManager::createVertexBuffer() started");
-    log_info(std::format("Creating vertex buffer with {} vertices", vertices.size()));
+    log_info("createVertexBuffer() started", "ResourceManager");
+    log_info(std::format("Creating vertex buffer with {} vertices", vertices.size()), "ResourceManager");
 
     vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
@@ -211,8 +216,8 @@ void ResourceManager::createVertexBuffer()
 void ResourceManager::createIndexBuffer()
 {
     ZoneScopedN("ResourceManager::createIndexBuffer");
-    log_info("ResourceManager::createIndexBuffer() started");
-    log_info(std::format("Creating index buffer with {} indices", indices.size()));
+    log_info("createIndexBuffer() started", "ResourceManager");
+    log_info(std::format("Creating index buffer with {} indices", indices.size()), "ResourceManager");
     vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
     // Ensure previous staging allocation is released before reusing the member buffer
     if (stagingBufferMemory != nullptr) {
@@ -245,10 +250,11 @@ void ResourceManager::createIndexBuffer()
     }
 }
 
-void ResourceManager::createUniformBuffer(Object obj)
+void ResourceManager::createUniformBuffer(Object& obj)
 {
     ZoneScopedN("ResourceManager::createUniformBuffers");
-    log_info("ResourceManager::createUniformBuffers() started");
+    log_info("createUniformBuffers() started", "ResourceManager");
+    obj.vmaAllocator = allocator.allocator;
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
         vk::raii::Buffer buffer({});
@@ -272,8 +278,9 @@ void ResourceManager::createUniformBuffer(Object obj)
 void ResourceManager::createUniformBuffers()
 {
     ZoneScopedN("ResourceManager::createUniformBuffers");
-    log_info("ResourceManager::createUniformBuffers() started");
+    log_info("createUniformBuffers() started", "ResourceManager");
     for (auto& object : objects) {
+        object.vmaAllocator = allocator.allocator;
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
             vk::raii::Buffer buffer({});
@@ -321,7 +328,7 @@ void ResourceManager::createUniformBuffers()
 vk::Format ResourceManager::findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling,
                                                 vk::FormatFeatureFlags features)
 {
-    log_info("ResourceManager::findSupportedFormat() started");
+    log_info("findSupportedFormat() started", "ResourceManager");
     for (const auto format : candidates) {
         vk::FormatProperties props = physicalDevice.getFormatProperties2(format).formatProperties;
 
@@ -337,7 +344,7 @@ vk::Format ResourceManager::findSupportedFormat(const std::vector<vk::Format>& c
 
 uint32_t ResourceManager::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
 {
-    log_info("ResourceManager::findMemoryType() started");
+    log_info("findMemoryType() started", "ResourceManager");
     vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties2().memoryProperties;
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
@@ -351,7 +358,7 @@ uint32_t ResourceManager::findMemoryType(uint32_t typeFilter, vk::MemoryProperty
 vk::raii::ImageView ResourceManager::createImageView(vk::raii::Image& image, vk::Format format,
                                                      vk::ImageAspectFlags aspectFlags, uint32_t mipLevels)
 {
-    log_info("ResourceManager::createImageView() started");
+    log_info("createImageView() started", "ResourceManager");
     vk::ImageViewCreateInfo viewInfo{.image = image,
                                      .viewType = vk::ImageViewType::e2D,
                                      .format = format,
@@ -366,7 +373,7 @@ vk::raii::ImageView ResourceManager::createImageView(vk::raii::Image& image, vk:
 void ResourceManager::createColorResources()
 {
     ZoneScopedN("ResourceManager::createColorResources");
-    log_info("ResourceManager::createColorResources() started");
+    log_info("createColorResources() started", "ResourceManager");
     if (swapChainImageFormat == vk::Format::eUndefined) {
         return;
     }
@@ -402,7 +409,7 @@ void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipL
                                   VmaAllocation& imageMemory, std::string_view memoryDebugBaseName)
 {
     ZoneScopedN("ResourceManager::createImage");
-    log_info("ResourceManager::createImage() started");
+    log_info("createImage() started", "ResourceManager");
     // Determine sharing mode based on usage
     vk::SharingMode sharingMode = vk::SharingMode::eExclusive;
     std::vector<uint32_t> queueIndices;
@@ -437,23 +444,23 @@ void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipL
 
 vk::Format ResourceManager::findDepthFormat()
 {
-    log_info("ResourceManager::findDepthFormat() started");
+    log_info("findDepthFormat() started", "ResourceManager");
     return findSupportedFormat({vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
                                vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
 }
 
 void ResourceManager::updateSwapChainExtent(const vk::Extent2D newExtent)
 {
-    log_info("ResourceManager::updateSwapChainExtent() started");
+    log_info("updateSwapChainExtent() started", "ResourceManager");
     swapChainExtent = newExtent;
 }
 
 void ResourceManager::createDepthResources()
 {
     ZoneScopedN("ResourceManager::createDepthResources");
-    log_info("ResourceManager::createDepthResources() started");
+    log_info("createDepthResources() started", "ResourceManager");
     vk::Format depthFormat = findDepthFormat();
-    log_info(std::format("Depth format selected: {}", vk::to_string(depthFormat)));
+    log_info(std::format("Depth format selected: {}", vk::to_string(depthFormat)), "ResourceManager");
 
     // Destroy previous depth resources before recreating
     if (depthImageMemory != nullptr) {
@@ -480,7 +487,7 @@ void ResourceManager::createDepthResources()
 
 bool ResourceManager::hasStencilComponent(vk::Format format)
 {
-    log_info("ResourceManager::hasStencilComponent() started");
+    log_info("hasStencilComponent() started", "ResourceManager");
     return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint;
 }
 
@@ -488,7 +495,7 @@ void ResourceManager::copyBufferToImage(const vk::raii::Buffer& buffer, vk::raii
                                         uint32_t height)
 {
     ZoneScopedN("ResourceManager::copyBufferToImage");
-    log_info("ResourceManager::copyBufferToImage() started");
+    log_info("copyBufferToImage() started", "ResourceManager");
 
     vk::BufferImageCopy region{.bufferOffset = 0,
                                .bufferRowLength = 0,
@@ -503,7 +510,7 @@ void ResourceManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFo
                                       int32_t texHeight, uint32_t mipLevels)
 {
     ZoneScopedN("ResourceManager::generateMipmaps");
-    log_info("ResourceManager::generateMipmaps() started");
+    log_info("generateMipmaps() started", "ResourceManager");
     // Check for blit support
     vk::FormatProperties formatProperties = physicalDevice.getFormatProperties2(imageFormat).formatProperties;
     if (!(formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {

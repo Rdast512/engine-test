@@ -13,18 +13,19 @@ class Object
 public:
     Object() = default;
 
+    Object(uint32_t current_index, uint32_t index_count, uint32_t create_texture_image)
+        : firstIndex(current_index), indexCount(index_count), textureIndex(create_texture_image) {}
 
-
-    Object(uint32_t current_index, uint32_t index_count, uint32_t create_texture_image) : firstIndex(current_index), indexCount(index_count), textureIndex(create_texture_image) {}
-    ;
-
-    // All GPU resources are released automatically (reverse declaration order).
-    ~Object() = default;
+    // Frees VMA uniform-buffer allocations via the stored allocator handle.
+    ~Object();
 
     // --- Move semantics (required because vk::raii types are move-only) ---
+    // Custom move: VmaAllocation/void* are trivial and would be shallow-copied by
+    // =default, leaving the moved-from Object able to double-free in ~Object.
+    // Object(Object&& other) noexcept;
+    // Object& operator=(Object&& other) noexcept;
     Object(Object&& other) noexcept = default;
     Object& operator=(Object&& other) noexcept = default;
-
     // Copying is not meaningful for GPU resources.
     Object(const Object&) = delete;
     Object& operator=(const Object&) = delete;
@@ -62,16 +63,20 @@ public:
 
 
     // --- GPU resources (owned) ---
-    // Destruction order (reverse declaration) matters:
-    //   1. uniformBuffersMapped  (no-op for void*)
-    //   2. uniformBuffers        (vkDestroyBuffer)
-    //   3. uniformBuffersMemory  (vkFreeMemory, which implicitly unmaps)
+    // Cleanup order (handled by the destructor body):
+    //   1. vk::raii::Buffer handles are released
+    //   2. VMA allocations are freed via vmaDestroyBuffer
+    //   3. Member destructors run (no-op for released/null handles)
     std::string name;
 
     std::array<void*, 2> uniformBuffersMapped = {nullptr, nullptr};
     std::array<vk::raii::Buffer, 2> uniformBuffers = {nullptr, nullptr};
     std::array<VmaAllocation, 2> uniformBuffersMemory = {nullptr, nullptr};
     std::array<vk::DeviceAddress, 2> uboAddresses = {0, 0};
+
+    // VMA allocator handle — set by ResourceManager when uniform buffers are
+    // allocated. Used by the destructor to free VMA-backed resources.
+    VmaAllocator vmaAllocator = nullptr;
     // draw inderect will replace this data
     uint32_t firstIndex;          // Offset into the global index buffer
     uint32_t indexCount;          // How many indices to draw

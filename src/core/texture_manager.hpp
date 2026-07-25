@@ -11,6 +11,7 @@
 #include "../static_headers/logger.hpp"
 #include "vk_descriptors.hpp"
 #include "ktxvulkan.h"
+#include <filesystem>
 
 
 
@@ -32,6 +33,9 @@ public:
 
 private:
     void createTextureSampler();
+
+    // Resolve a path relative to the executable directory if it's a relative path
+    [[nodiscard]] std::string resolvePath(std::string_view path);
 
     auto findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) -> uint32_t;
     void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
