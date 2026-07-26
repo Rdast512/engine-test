@@ -386,7 +386,9 @@ void Engine::loadObject()
 
     const std::string assetPath = discoveredAssets[selectedAssetIndex].string();
     log_info("Load Object started", "Engine");
+    device->getDevice().waitIdle();
     assetsLoader->loadModel(assetPath);
+    resourceManager->recreateObjectsBuffers();
 }
 
 void Engine::shutdown() { cleanup(); }

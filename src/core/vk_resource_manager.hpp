@@ -30,6 +30,7 @@ public:
     void createUniformBuffers();
 	void createColorResources();
     void createObjectStorage();
+    void recreateObjectsBuffers();
 	void setSwapChainImageCount(uint32_t count) { swapChainImageCount = count; createSyncObjects(); }
 
 	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char> &code) const;
@@ -64,6 +65,7 @@ static void endCommandBuffer(vk::raii::CommandBuffer &commandBuffer, const vk::r
 	const std::vector<uint32_t> &queueFamilyIndices;
 	const vk::raii::Queue &graphicsQueue;
 	const vk::raii::Queue &transferQueue;
+    const HardwareCapabilities hardwareCapabilities;
     std::vector<Object> &objects;
 	uint32_t graphicsIndex;
 	uint32_t transferIndex;

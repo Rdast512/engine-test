@@ -205,28 +205,37 @@ AssetsLoader::AssetsLoader(std::vector<Object> &objectsIn, TextureManager &textu
 
 void AssetsLoader::loadModel(std::string modelPath)
 {
-    const bool isGltf = modelPath.ends_with(".gltf") || modelPath.ends_with(".glb");
-    const bool isObj  = modelPath.ends_with(".obj");
+    // Normalise to native separators once so every loader receives a
+    // clean, OS-consistent path regardless of how it was supplied.
+    const std::string path = std::filesystem::path(modelPath).make_preferred().string();
+
+    const bool isGltf = path.ends_with(".gltf") || path.ends_with(".glb");
+    const bool isObj  = path.ends_with(".obj");
 
     if (isGltf)
     {
-        loadGltfModel(modelPath);
+        loadGltfModel(path);
         return;
     }
 
     if (isObj)
     {
-        loadObjModel(modelPath);
+        loadObjModel(path);
         return;
     }
 
     // Unknown extension — try glTF first, fall back to OBJ.
-    if (!loadGltfModel(modelPath))
-        loadObjModel(modelPath);
+    if (!loadGltfModel(path))
+        loadObjModel(path);
 }
 
 bool AssetsLoader::loadGltfModel(const std::string& modelPath)
 {
+    // glTF uses forward-slash URIs internally; normalise the base path
+    // to avoid mixed separators when the library resolves external .bin
+    // references (e.g. "models/AnimatedCube.bin" under "models\" on Windows).
+    const std::string normalizedPath = std::filesystem::path(modelPath).generic_string();
+
     tg3_model model{};
     tg3_error_stack errors;
     tg3_error_stack_init(&errors);
@@ -236,8 +245,8 @@ bool AssetsLoader::loadGltfModel(const std::string& modelPath)
     opts.parse_float32 = 1;
 
     const tg3_error_code rc = tg3_parse_file(
-        &model, &errors, modelPath.c_str(),
-        static_cast<uint32_t>(modelPath.size()), &opts);
+        &model, &errors, normalizedPath.c_str(),
+        static_cast<uint32_t>(normalizedPath.size()), &opts);
 
     if (rc != TG3_OK || model.meshes_count == 0)
     {
@@ -331,7 +340,21 @@ bool AssetsLoader::loadGltfModel(const std::string& modelPath)
         }
     }
 
-    Object object(currentIndex, indexCount, textureManager.loadTexture(std::string(model.images[0].uri.data)));
+    // Resolve the glTF image URI relative to the model file's directory.
+    // Embedded images (bufferView / data URI) are not handled here — the
+    // texture manager would receive an empty path and fail gracefully.
+    std::string imagePath;
+    if (model.images_count > 0 && model.images[0].uri.data && model.images[0].uri.len > 0)
+    {
+        const std::string_view uri(model.images[0].uri.data, model.images[0].uri.len);
+        if (!uri.starts_with("data:"))
+        {
+            const auto modelDir = std::filesystem::path(modelPath).parent_path();
+            imagePath = (modelDir / uri).string();
+        }
+    }
+    Object object(currentIndex, indexCount, textureManager.loadTexture(imagePath));
+    log_info(std::format("Loaded model current index: {} | index count: {}", currentIndex, indexCount), "AssetLoader");
     objects.push_back(std::move(object));
     currentIndex += indexCount;
 
@@ -351,6 +374,7 @@ bool AssetsLoader::loadObjModel(const std::string& modelPath)
     std::vector<tinyobj::material_t> materials;
     std::string err;
 
+    // tinyobj wraps standard C file I/O — native separators are correct.
     if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, modelPath.c_str()))
     {
         log_error(std::format("Failed to load OBJ: {}", err), "AssetLoader");
@@ -381,8 +405,8 @@ bool AssetsLoader::loadObjModel(const std::string& modelPath)
             indexCount++;
         }
     }
-
     Object object(currentIndex, indexCount, textureManager.loadTexture(TEXTURE_PATH.string()));
+    log_info(std::format("Loaded model current index: {} | index count: {}", currentIndex, indexCount));
     objects.push_back(std::move(object));
     currentIndex += indexCount;
     log_info(std::format("Model loaded (OBJ): {} | vertices: {} | indices: {}",

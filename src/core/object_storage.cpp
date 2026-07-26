@@ -95,13 +95,16 @@ Object::~Object()
         // 1. Release every vk::raii::Buffer wrapper unconditionally.
         //    This nulls the internal dispatcher pointer so the wrapper
         //    destructor never touches the Device after device.reset().
-        //    Must happen BEFORE any VMA teardown that may fail early.
         VkBuffer rawBuf = VK_NULL_HANDLE;
         if (*uniformBuffers[i] != VK_NULL_HANDLE)
         {
             rawBuf = uniformBuffers[i].release();
         }
 
+        // If the buffer handle was already null (moved-from state
+        // after a std::vector reallocation), the VMA allocation was
+        // transferred to the new owner — skip teardown for this slot.
+        if (rawBuf == VK_NULL_HANDLE) continue;
         if (vmaAllocator == nullptr) continue;
         if (uniformBuffersMemory[i] == nullptr) continue;
 

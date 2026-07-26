@@ -15,7 +15,7 @@ ResourceManager::ResourceManager(const Device& deviceWrapper, const VkAllocator&
     device(deviceWrapper.getDevice()), queueFamilyIndices(deviceWrapper.getQueueFamilyIndices()),
     graphicsIndex(deviceWrapper.getGraphicsIndex()), graphicsQueue(deviceWrapper.getGraphicsQueue()),
     transferQueue(deviceWrapper.getTransferQueue()), transferIndex(deviceWrapper.getTransferIndex()),
-    msaaSamples(deviceWrapper.getMsaaSamples()), vertices(verticesIn), indices(indicesIn), objects(objectsIn)
+    msaaSamples(deviceWrapper.getMsaaSamples()), vertices(verticesIn), indices(indicesIn), objects(objectsIn), hardwareCapabilities(deviceWrapper.getHardwareCapabilities())
 {
     log_info("Initialized", "ResourceManager");
 }
@@ -181,13 +181,13 @@ void ResourceManager::createVertexBuffer()
     log_info(std::format("Creating vertex buffer with {} vertices", vertices.size()), "ResourceManager");
 
     vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
+    hardwareCapabilities.properties2.properties.limits;
     // Ensure previous staging allocation is released before reusing the member buffer
-    if (stagingBufferMemory != nullptr) {
-        VkBuffer rawStaging = stagingBuffer.release();
-        vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
-        stagingBufferMemory = nullptr;
-    }
+    // if (stagingBufferMemory != nullptr) {
+    //     VkBuffer rawStaging = stagingBuffer.release();
+    //     vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
+    //     stagingBufferMemory = nullptr;
+    // }
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer,
@@ -198,6 +198,12 @@ void ResourceManager::createVertexBuffer()
     vmaMapMemory(allocator.allocator, stagingBufferMemory, &dataStaging);
     memcpy(dataStaging, vertices.data(), bufferSize);
     vmaUnmapMemory(allocator.allocator, stagingBufferMemory);
+
+    if (vertexBufferMemory != nullptr) {
+        VkBuffer rawVertex = vertexBuffer.release();
+        vmaDestroyBuffer(allocator.allocator, rawVertex, vertexBufferMemory);
+        vertexBufferMemory = nullptr;
+    }
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
                  vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory, allocator.allocator, device, queueFamilyIndices, "VertexBufferMemory");
@@ -220,11 +226,11 @@ void ResourceManager::createIndexBuffer()
     log_info(std::format("Creating index buffer with {} indices", indices.size()), "ResourceManager");
     vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
     // Ensure previous staging allocation is released before reusing the member buffer
-    if (stagingBufferMemory != nullptr) {
-        VkBuffer rawStaging = stagingBuffer.release();
-        vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
-        stagingBufferMemory = nullptr;
-    }
+    // if (stagingBufferMemory != nullptr) {
+    //     VkBuffer rawStaging = stagingBuffer.release();
+    //     vmaDestroyBuffer(allocator.allocator, rawStaging, stagingBufferMemory);
+    //     stagingBufferMemory = nullptr;
+    // }
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer,
@@ -235,6 +241,12 @@ void ResourceManager::createIndexBuffer()
     vmaMapMemory(allocator.allocator, stagingBufferMemory, &data);
     memcpy(data, indices.data(), bufferSize);
     vmaUnmapMemory(allocator.allocator, stagingBufferMemory);
+
+    if (indexBufferMemory != nullptr) {
+        VkBuffer rawIndex = indexBuffer.release();
+        vmaDestroyBuffer(allocator.allocator, rawIndex, indexBufferMemory);
+        indexBufferMemory = nullptr;
+    }
 
     createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
                  vk::MemoryPropertyFlagBits::eDeviceLocal, indexBuffer, indexBufferMemory, allocator.allocator, device, queueFamilyIndices, "IndexBufferMemory");
@@ -323,6 +335,15 @@ void ResourceManager::createUniformBuffers()
     //
     //     setDebugName(device, uniformBuffers.back(), std::format("UniformBuffer_{}", i));
     // }
+}
+
+void ResourceManager::recreateObjectsBuffers()
+{
+    ZoneScopedN("ResourceManager::recreateVertexIndexBuffers");
+    log_info("recreateVertexIndexBuffers() started", "ResourceManager");
+    createVertexBuffer();
+    createIndexBuffer();
+    createUniformBuffers();
 }
 
 vk::Format ResourceManager::findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling,
