@@ -26,6 +26,8 @@ void Engine::initialize()
         throw std::runtime_error("Failed to create window");
     }
 
+    SDL_SetWindowRelativeMouseMode(window, true);
+
     if (enableImGui)
     {
         // Setup Platform/Renderer backends
@@ -178,6 +180,7 @@ void Engine::run()
 
     bool quit = false;
     bool minimized = false;
+    bool mouseCaptured = true;   // tracks SDL relative-mouse state
     lastTime = std::chrono::high_resolution_clock::now();
     fpsTime = lastTime;
     const double targetMs = 1000.0 / 60.0; // 60 FPS
@@ -215,6 +218,21 @@ void Engine::run()
                 {
                     quit = true;
                 }
+                else if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_ESCAPE)
+                {
+                    // Toggle relative mouse mode so the user can free the
+                    // cursor to interact with ImGui panels.
+                    mouseCaptured = !mouseCaptured;
+                    SDL_SetWindowRelativeMouseMode(window, mouseCaptured);
+                }
+                else if (e.type == SDL_EVENT_MOUSE_MOTION && mouseCaptured)
+                {
+                    camera->rotate(-e.motion.xrel, e.motion.yrel);
+                }
+                else if (e.type == SDL_EVENT_WINDOW_FOCUS_GAINED)
+                {
+                    SDL_SetWindowRelativeMouseMode(window, mouseCaptured);
+                }
                 else if (e.type == SDL_EVENT_WINDOW_RESIZED)
                 {
                     if (swapChain && renderer)
@@ -242,23 +260,23 @@ void Engine::run()
         if (!minimized && !quit)
         {
             // ── Camera keyboard movement ──────────────────────────
-            // WASD        → X/Z plane  (A/D left/right, W/S forward/back)
-            // LShift      → +Y (up)
-            // LCtrl       → -Y (down)
+            // WASD        → forward / back / left / right
+            // LShift      → up (+Y)
+            // LCtrl       → down (-Y)
             {
                 const float dt = std::chrono::duration<float>(currentTime - lastTime).count();
                 const float speed = 5.0f;
-                const auto step = static_cast<glm::int32_t>(std::max(1.0f, speed * dt));
+                const float step = speed * dt;
 
                 int keyCount = 0;
                 const bool* keys = SDL_GetKeyboardState(&keyCount);
 
-                if (keys[SDL_SCANCODE_W])      camera->addToZ(-step);
-                if (keys[SDL_SCANCODE_S])      camera->addToZ( step);
-                if (keys[SDL_SCANCODE_A])      camera->addToX(-step);
-                if (keys[SDL_SCANCODE_D])      camera->addToX( step);
-                if (keys[SDL_SCANCODE_LSHIFT]) camera->addToY( step);
-                if (keys[SDL_SCANCODE_LCTRL])  camera->addToY(-step);
+                if (keys[SDL_SCANCODE_W])      camera->moveForward( step);
+                if (keys[SDL_SCANCODE_S])      camera->moveForward(-step);
+                if (keys[SDL_SCANCODE_A])      camera->moveRight  (-step);
+                if (keys[SDL_SCANCODE_D])      camera->moveRight  ( step);
+                if (keys[SDL_SCANCODE_LSHIFT]) camera->moveUp     ( step);
+                if (keys[SDL_SCANCODE_LCTRL])  camera->moveUp     (-step);
             }
 
             ZoneScopedN("DrawFrame");

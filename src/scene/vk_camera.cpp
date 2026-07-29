@@ -1,12 +1,14 @@
 #include "vk_camera.hpp"
 
+#include <glm/gtc/constants.hpp>
 
 Camera::Camera(SwapChain& swapChain) : swapChain(swapChain)
 {
     cameraData.cameraPos = glm::vec3(2.0f, 2.0f, 6.0f);
 
     glm::mat4 proj = glm::perspective(glm::radians(45.0f),
-                                     static_cast<float>(swapChain.swapChainExtent.width) / static_cast<float>(swapChain.swapChainExtent.height),
+                                     static_cast<float>(swapChain.swapChainExtent.width) /
+                                         static_cast<float>(swapChain.swapChainExtent.height),
                                      0.1f, 20.0f);
     proj[1][1] *= -1;
     cameraData.proj = proj;
@@ -35,32 +37,46 @@ Camera::~Camera()
     }
 }
 
-void Camera::addToX(glm::int32_t delta)
+// ── Free-fly movement ────────────────────────────────────────────
+
+void Camera::moveForward(float delta) { cameraData.cameraPos += forward * delta; }
+void Camera::moveRight(float delta)   { cameraData.cameraPos += right * delta; }
+void Camera::moveUp(float delta)      { cameraData.cameraPos += worldUp * delta; }
+
+void Camera::rotate(float yawDelta, float pitchDelta)
 {
-    cameraData.cameraPos.x += delta;
-}
-void Camera::addToY(glm::int32_t delta)
-{
-    cameraData.cameraPos.y += delta;
-}
-void Camera::addToZ(glm::int32_t delta)
-{
-    cameraData.cameraPos.z += delta;
+    yaw   += yawDelta * kMouseSensitivity;
+    pitch += pitchDelta * kMouseSensitivity;
+
+    // Clamp pitch to avoid gimbal lock / view flipping
+    if (pitch > kPitchLimit)  pitch = kPitchLimit;
+    if (pitch < -kPitchLimit) pitch = -kPitchLimit;
 }
 
-void Camera::moveTo(int32_t x, int32_t y, int32_t z)
+// ── Recompute basis vectors from yaw/pitch ───────────────────────
+
+void Camera::updateVectors()
 {
-    cameraData.cameraPos = glm::vec3(x, y, z);
+    // Standard FPS camera basis:
+    //   forward = direction the camera looks
+    //   right   = perpendicular to forward and world-up
+    forward.x = cosf(pitch) * sinf(yaw);
+    forward.y = -sinf(pitch);
+    forward.z = cosf(pitch) * cosf(yaw);
+    forward   = glm::normalize(forward);
+
+    right = glm::normalize(glm::cross(forward, worldUp));
 }
+
+// ── GPU upload ───────────────────────────────────────────────────
 
 void Camera::updateCameraData(uint8_t currentImage)
 {
     ZoneScopedN("Camera::updateCameraData");
 
-    const glm::vec3 target(0.0f, 0.0f, 0.0f);
-    const glm::vec3 up(0.0f, 1.0f, 0.0f);
+    updateVectors();
 
-    cameraData.view     = glm::lookAt(cameraData.cameraPos, target, up);
+    cameraData.view     = glm::lookAt(cameraData.cameraPos, cameraData.cameraPos + forward, worldUp);
     cameraData.viewProj = cameraData.proj * cameraData.view;
 
     memcpy(this->cameraBuffersMapped[currentImage], &this->cameraData, sizeof(this->cameraData));
