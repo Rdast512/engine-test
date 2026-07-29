@@ -242,23 +242,23 @@ void Engine::run()
         if (!minimized && !quit)
         {
             // ── Camera keyboard movement ──────────────────────────
-            // WASD        → X/Y plane  (A/D left/right, W/S up/down)
-            // LShift      → +Z (forward)
-            // LCtrl       → -Z (backward)
+            // WASD        → X/Z plane  (A/D left/right, W/S forward/back)
+            // LShift      → +Y (up)
+            // LCtrl       → -Y (down)
             {
                 const float dt = std::chrono::duration<float>(currentTime - lastTime).count();
-                const float speed = 5.0f;   // units per second
+                const float speed = 5.0f;
                 const auto step = static_cast<glm::int32_t>(std::max(1.0f, speed * dt));
 
                 int keyCount = 0;
                 const bool* keys = SDL_GetKeyboardState(&keyCount);
 
-                if (keys[SDL_SCANCODE_W])      camera->addToY( step);
-                if (keys[SDL_SCANCODE_S])      camera->addToY(-step);
+                if (keys[SDL_SCANCODE_W])      camera->addToZ(-step);
+                if (keys[SDL_SCANCODE_S])      camera->addToZ( step);
                 if (keys[SDL_SCANCODE_A])      camera->addToX(-step);
                 if (keys[SDL_SCANCODE_D])      camera->addToX( step);
-                if (keys[SDL_SCANCODE_LSHIFT]) camera->addToZ( step);
-                if (keys[SDL_SCANCODE_LCTRL])  camera->addToZ(-step);
+                if (keys[SDL_SCANCODE_LSHIFT]) camera->addToY( step);
+                if (keys[SDL_SCANCODE_LCTRL])  camera->addToY(-step);
             }
 
             ZoneScopedN("DrawFrame");

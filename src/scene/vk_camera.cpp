@@ -3,14 +3,13 @@
 
 Camera::Camera(SwapChain& swapChain) : swapChain(swapChain)
 {
-    glm::mat4 const view = glm::lookAt(glm::vec3(2.0f, 2.0f, 6.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    cameraData.cameraPos = glm::vec3(2.0f, 2.0f, 6.0f);
+
     glm::mat4 proj = glm::perspective(glm::radians(45.0f),
                                      static_cast<float>(swapChain.swapChainExtent.width) / static_cast<float>(swapChain.swapChainExtent.height),
                                      0.1f, 20.0f);
     proj[1][1] *= -1;
-    cameraData.view = view;
     cameraData.proj = proj;
-
 }
 
 Camera::~Camera()
@@ -57,7 +56,12 @@ void Camera::moveTo(int32_t x, int32_t y, int32_t z)
 void Camera::updateCameraData(uint8_t currentImage)
 {
     ZoneScopedN("Camera::updateCameraData");
-    // Camera and projection matrices (shared by all objects)
-    // Copy the UBO data to the mapped memory
+
+    const glm::vec3 target(0.0f, 0.0f, 0.0f);
+    const glm::vec3 up(0.0f, 1.0f, 0.0f);
+
+    cameraData.view     = glm::lookAt(cameraData.cameraPos, target, up);
+    cameraData.viewProj = cameraData.proj * cameraData.view;
+
     memcpy(this->cameraBuffersMapped[currentImage], &this->cameraData, sizeof(this->cameraData));
 }
