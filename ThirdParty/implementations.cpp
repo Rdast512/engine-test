@@ -1,5 +1,7 @@
 // single header files go here for their implementation will work. Owerwise it wont compile. Still need to include the headers in src files for usage of libs.
 #define VMA_MAKE_LEAK_LOG
+#define VMA_LEAK_LOG_FORMAT(format, ...) \
+    do { printf((format), __VA_ARGS__); printf("\n"); } while(false)
 #define VMA_VULKAN_VERSION 1004000
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1

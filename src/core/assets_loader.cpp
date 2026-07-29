@@ -203,7 +203,7 @@ static std::vector<char> readFile(const std::string& filename)
 AssetsLoader::AssetsLoader(std::vector<Object> &objectsIn, TextureManager &textureManager) : vertices(), indices(), objects(objectsIn), textureManager(textureManager) { log_info("AssetsLoader initialized", "AssetLoader"); }
 
 
-void AssetsLoader::loadModel(std::string modelPath)
+void AssetsLoader::loadModel(std::string modelPath, glm::vec3 xyz)
 {
     // Normalise to native separators once so every loader receives a
     // clean, OS-consistent path regardless of how it was supplied.
@@ -214,22 +214,20 @@ void AssetsLoader::loadModel(std::string modelPath)
 
     if (isGltf)
     {
-        loadGltfModel(path);
+        loadGltfModel(path, xyz);
         return;
     }
 
     if (isObj)
     {
-        loadObjModel(path);
+        loadObjModel(path, xyz);
         return;
     }
 
-    // Unknown extension — try glTF first, fall back to OBJ.
-    if (!loadGltfModel(path))
-        loadObjModel(path);
+    assert(false && "Unsupported model format");
 }
 
-bool AssetsLoader::loadGltfModel(const std::string& modelPath)
+bool AssetsLoader::loadGltfModel(const std::string& modelPath, glm::vec3 xyz)
 {
     // glTF uses forward-slash URIs internally; normalise the base path
     // to avoid mixed separators when the library resolves external .bin
@@ -354,6 +352,7 @@ bool AssetsLoader::loadGltfModel(const std::string& modelPath)
         }
     }
     Object object(currentIndex, indexCount, textureManager.loadTexture(imagePath));
+    object.position = glm::vec3{xyz[0], xyz[1], xyz[2]};
     log_info(std::format("Loaded model current index: {} | index count: {}", currentIndex, indexCount), "AssetLoader");
     objects.push_back(std::move(object));
     currentIndex += indexCount;
@@ -366,7 +365,7 @@ bool AssetsLoader::loadGltfModel(const std::string& modelPath)
     return true;
 }
 
-bool AssetsLoader::loadObjModel(const std::string& modelPath)
+bool AssetsLoader::loadObjModel(const std::string& modelPath, glm::vec3 xyz)
 {
     log_info(std::format("Loading OBJ: {}", modelPath), "AssetLoader");
     tinyobj::attrib_t attrib;
@@ -406,6 +405,7 @@ bool AssetsLoader::loadObjModel(const std::string& modelPath)
         }
     }
     Object object(currentIndex, indexCount, textureManager.loadTexture(TEXTURE_PATH.string()));
+    object.position = glm::vec3{xyz[0], xyz[1], xyz[2]};
     log_info(std::format("Loaded model current index: {} | index count: {}", currentIndex, indexCount));
     objects.push_back(std::move(object));
     currentIndex += indexCount;

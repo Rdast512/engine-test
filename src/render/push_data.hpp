@@ -17,6 +17,14 @@ struct PushData {
     SlangHandle samplerHandle;
 };
 
+struct PushData2
+{
+    vk::DeviceAddress cameraAddress;
+    vk::DeviceAddress ObjectUBAddress;
+    SlangHandle texture;
+    SlangHandle samplerHandle;
+};
+
 static_assert(sizeof(SlangHandle) == sizeof(uint32_t) * 2,
               "Descriptor handle push layout must be uint2");
 static_assert(sizeof(SlangHandle) == 8);

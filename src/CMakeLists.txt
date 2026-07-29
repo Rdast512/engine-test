@@ -52,6 +52,7 @@ target_link_libraries(engine_runtime
         engine_render
         engine_util
         engine_postprocessing
+        engine_scene
         ThirdParty::all
 )
 

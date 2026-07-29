@@ -2,11 +2,11 @@
 #include <optional>
 #include <string_view>
 #include <vulkan/vulkan_raii.hpp>
-#include "../Constants.h"
 #include "../core/types.hpp"
 #include "object_storage.hpp"
 #include "vk_allocator.hpp"
 #include "vk_device.hpp"
+#include "scene/vk_camera.hpp"
 
 // Manages GPU resources (buffers, images, command pools) using Device + Assets data.
 class ResourceManager {
@@ -31,6 +31,7 @@ public:
 	void createColorResources();
     void createObjectStorage();
     void recreateObjectsBuffers();
+    void createCameraBuffers(Camera& camera);
 	void setSwapChainImageCount(uint32_t count) { swapChainImageCount = count; createSyncObjects(); }
 
 	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char> &code) const;

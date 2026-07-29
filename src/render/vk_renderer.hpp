@@ -1,10 +1,9 @@
 #pragma once
-
-#include "../core/vk_descriptors.hpp"
-#include "../core/vk_device.hpp"
-#include "../core/vk_resource_manager.hpp"
-#include "../core/vk_swapchain.hpp"
+#include "core/vk_descriptors.hpp"
+#include "core/vk_resource_manager.hpp"
+#include "core/vk_swapchain.hpp"
 #include "vk_pipeline.hpp"
+#include "scene/vk_camera.hpp"
 
 class VkTracyContext;
 
@@ -16,6 +15,7 @@ public:
 			 ResourceManager& resourceManager,
 			 DescriptorManager& descriptorManager,
 			 Pipeline& pipeline,
+			 Camera& camera,
 			 VkTracyContext* tracyContext = nullptr,
 			 bool imguiEnabled = true);
 
@@ -23,6 +23,8 @@ public:
 	void rebuildSwapchainResources() const;
 	void drawFrame();
 	void waitIdle() const;
+
+    uint32_t currentFrame = 0;
 
 private:
 	void recordCommandBuffer(uint32_t imageIndex);
@@ -32,9 +34,9 @@ private:
 	ResourceManager& resourceManager;
 	DescriptorManager& descriptorManager;
 	Pipeline& pipeline;
+	Camera& camera;
 	VkTracyContext* tracyContext = nullptr;
 	bool imguiEnabled = true;
 
-	uint32_t currentFrame = 0;
 	uint32_t semaphoreIndex = 0;
 };

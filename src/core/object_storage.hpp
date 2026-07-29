@@ -73,7 +73,7 @@ public:
     std::array<vk::raii::Buffer, 2> uniformBuffers = {nullptr, nullptr};
     std::array<VmaAllocation, 2> uniformBuffersMemory = {nullptr, nullptr};
     std::array<vk::DeviceAddress, 2> uboAddresses = {0, 0};
-
+    glm::mat4 modelMatrix;
     // VMA allocator handle — set by ResourceManager when uniform buffers are
     // allocated. Used by the destructor to free VMA-backed resources.
     VmaAllocator vmaAllocator = nullptr;

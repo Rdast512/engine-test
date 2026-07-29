@@ -54,6 +54,53 @@ struct UniformBufferObject
 };
 
 
+struct alignas(16) CameraData {
+    // Primary Matrices
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::mat4 viewProj;
+
+    // Inverses (for ray tracing, deferred depth reconstruction, world-space position calculation)
+    glm::mat4 invView;
+    glm::mat4 invProj;
+    glm::mat4 invViewProj;
+
+    // Temporal (for Motion Vectors / TAA / Velocity Buffers)
+    glm::mat4 prevViewProj;
+
+    // Position & View Parameters
+    glm::vec3 cameraPos;       // World-space camera position (for specular/lighting calculations)
+    float nearZ;               // Near clipping plane
+
+    glm::vec2 renderTargetSize;// Width, Height in pixels
+    glm::vec2 invRenderTargetSize; // 1.0 / Width, 1.0 / Height
+
+    glm::vec2 jitterOffset;    // TAA subpixel jitter offset
+    float farZ;                // Far clipping plane
+    float frameDeltaTime;      // Delta time in seconds
+    glm::vec4 cameraParams; // reserved
+};
+
+struct alignas(16) ObjectUB {
+    // Transform Matrices
+    glm::mat4 modelMatrix;     // World transformation matrix (64 bytes)
+    glm::mat4 prevModelMatrix; // Previous frame world matrix for temporal motion vectors (64 bytes)
+
+    // // Direct BDA Geometry Pointers
+    // uint64_t vertexBufferAddress; // GPU Virtual Address of vertex array (8 bytes)
+    // uint64_t indexBufferAddress;  // GPU Virtual Address of index array (8 bytes)
+
+    // Bounding Box / Sphere for GPU Culling (Frustum & Occlusion)
+    glm::vec4 boundingSphere;     // xyz = center, w = radius (16 bytes)
+
+    // Resource & Material Handles
+    uint32_t materialID;          // Index into global Material SSBO array (4 bytes)
+    uint32_t instanceFlags;        // Bit flags (e.g., bit 0: dynamic, bit 1: cast shadow) (4 bytes)
+    uint32_t baseVertex;          // Vertex offset in buffer (4 bytes)
+    uint32_t baseIndex;           // Index offset in buffer (4 bytes)
+};
+
+
 struct EngineSettings
 {
     uint8_t x_resolution;

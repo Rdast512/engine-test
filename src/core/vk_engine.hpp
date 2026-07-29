@@ -10,6 +10,7 @@
 #include "vk_device.hpp"
 #include "vk_resource_manager.hpp"
 #include "vk_swapchain.hpp"
+#include "scene/vk_camera.hpp"
 
 
 class Engine{
@@ -25,6 +26,7 @@ class Engine{
     std::unique_ptr<VkTracyContext> tracyContext;
     std::unique_ptr<TextureManager> textureManager;
     std::unique_ptr<DescriptorManager> descriptorManager;
+    std::unique_ptr<Camera> camera;
     std::unique_ptr<Pipeline> pipeline;
     std::unique_ptr<Renderer> renderer;
     bool initialized = false;

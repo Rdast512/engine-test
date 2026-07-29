@@ -1,9 +1,6 @@
 #include "vk_renderer.hpp"
-
 #include "push_data.hpp"
-
 #include "../Constants.h"
-#include "../static_headers/logger.hpp"
 #include "../util/vk_tracy.hpp"
 #include "../util/vk_utils.hpp"
 #include "imgui.h"
@@ -12,10 +9,10 @@
 #include <format>
 
 Renderer::Renderer(Device& device, SwapChain& swapChain, ResourceManager& resourceManager,
-                   DescriptorManager& descriptorManager, Pipeline& pipeline, VkTracyContext* tracyContext,
+                   DescriptorManager& descriptorManager, Pipeline& pipeline, Camera& camera, VkTracyContext* tracyContext,
                    bool imguiEnabled) :
     device(device), swapChain(swapChain), resourceManager(resourceManager), descriptorManager(descriptorManager),
-    pipeline(pipeline), tracyContext(tracyContext), imguiEnabled(imguiEnabled)
+    pipeline(pipeline), tracyContext(tracyContext), imguiEnabled(imguiEnabled), camera(camera)
 {
 }
 
@@ -189,15 +186,15 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
                          static_cast<float>(swapChain.swapChainExtent.height), 0.0f, 1.0f));
         commandBuffers[currentFrame].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain.swapChainExtent));
 
-        // TODO optimize branch prediction by spliting one rendering function into two and just decinding what to use.
         // After that use a pointer to that function.
         const auto& resourceHeapInfo = descriptorManager.getResourceHeapInfo();
         const auto& samplerHeapInfo = descriptorManager.getSamplerHeapInfo();
         commandBuffers[currentFrame].bindResourceHeapEXT(resourceHeapInfo);
         commandBuffers[currentFrame].bindSamplerHeapEXT(samplerHeapInfo);
         for (const auto& gameObject : resourceManager.objects) {
-            PushData pushData{};
-            pushData.uboAddress = gameObject.uboAddresses[currentFrame];
+            PushData2 pushData{};
+            pushData.ObjectUBAddress = gameObject.uboAddresses[currentFrame];
+            pushData.cameraAddress = camera.getCameraBufferAddresses()[currentFrame];
             pushData.texture = {
                 .resourceIndex = gameObject.textureIndex,
                 .samplerIndex = 0,
@@ -207,11 +204,11 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
                 .samplerIndex = 0,
             };
 
-            vk::PushDataInfoEXT pushDataInfo = {
+            vk::PushDataInfoEXT const pushDataInfo = {
                 .sType = vk::StructureType::ePushDataInfoEXT,
                 .pNext = nullptr,
                 .offset = 0,
-                .data = vk::HostAddressRangeConstEXT{.address = &pushData, .size = sizeof(PushData)}};
+                .data = vk::HostAddressRangeConstEXT{.address = &pushData, .size = sizeof(PushData2)}};
             commandBuffers[currentFrame].pushDataEXT(pushDataInfo);
 
 

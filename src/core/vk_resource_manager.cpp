@@ -3,12 +3,11 @@
 #include <format>
 #include <glm/gtc/matrix_transform.hpp>
 #include <stdexcept>
-#include "../Constants.h"
-#include "../static_headers/logger.hpp"
-#include "../util/debug.hpp"
-#include "../util/vk_tracy.hpp"
-#include "../util/vk_utils.hpp"
-#include "vk_device.hpp"
+#include "Constants.h"
+#include "static_headers/logger.hpp"
+#include "util/debug.hpp"
+#include "util/vk_tracy.hpp"
+#include "util/vk_utils.hpp"
 
 ResourceManager::ResourceManager(const Device& deviceWrapper, const VkAllocator& allocator, const std::vector<Vertex>& verticesIn, const std::vector<uint32_t>& indicesIn, std::vector<Object>& objectsIn):
     deviceWrapper(deviceWrapper), allocator(allocator), physicalDevice(deviceWrapper.getPhysicalDevice()),
@@ -70,16 +69,7 @@ void ResourceManager::createSyncObjects()
 void ResourceManager::updateUniformBuffers(uint32_t currentImage)
 {
     ZoneScopedN("ResourceManager::updateUniformBuffer");
-    static auto startTime = std::chrono::high_resolution_clock::now();
-
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float>(currentTime - startTime).count();
     // Camera and projection matrices (shared by all objects)
-    glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 6.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 proj = glm::perspective(glm::radians(45.0f),
-                                     static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height),
-                                     0.1f, 20.0f);
-    proj[1][1] *= -1; // Flip Y for Vulkan
     for (auto& gameObject : objects) {
         // Apply continuous rotation to the object
         gameObject.rotation.y += 0.01f; // Slow rotation around Y axis
@@ -88,15 +78,15 @@ void ResourceManager::updateUniformBuffers(uint32_t currentImage)
         glm::mat4 initialRotation = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         glm::mat4 model = gameObject.getModelMatrix() * initialRotation;
 
-        // Create and update the UBO
-        UniformBufferObject ubo{
-            .model = model,
-            .view = view,
-            .proj = proj
+
+        ObjectUB const uboData{
+            .modelMatrix = model,
+            .prevModelMatrix = gameObject.modelMatrix,
         };
+        gameObject.modelMatrix = model; // Update the previous model matrix for the next frame
 
         // Copy the UBO data to the mapped memory
-        memcpy(gameObject.uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+        memcpy(gameObject.uniformBuffersMapped[currentImage], &uboData, sizeof(uboData));
     }
 }
 
@@ -262,13 +252,37 @@ void ResourceManager::createIndexBuffer()
     }
 }
 
+void ResourceManager::createCameraBuffers(Camera& camera)
+{
+    ZoneScopedN("ResourceManager::createCameraBuffers");
+    log_info("createCameraBuffers() started", "ResourceManager");
+    camera.allocator = allocator.allocator;
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vk::DeviceSize bufferSize = sizeof(CameraData);
+        vk::raii::Buffer buffer({});
+        VmaAllocation bufferMem = nullptr;
+        createBuffer(bufferSize,
+                     vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
+                         vk::BufferUsageFlagBits::eShaderDeviceAddress,
+                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
+                     bufferMem, allocator.allocator, device, queueFamilyIndices,
+                     std::format("CameraUniformBufferMemory_{}", i));
+        camera.cameraBuffers[i] = std::move(buffer);
+        camera.cameraBuffersMemory[i] = bufferMem;
+        void* data = nullptr;
+        vmaMapMemory(allocator.allocator, bufferMem, &data);
+        camera.cameraBuffersMapped[i] = data;
+        camera.cameraBufferAddresses[i] = device.getBufferAddress({.buffer = *camera.cameraBuffers[i]});
+    }
+}
+
 void ResourceManager::createUniformBuffer(Object& obj)
 {
     ZoneScopedN("ResourceManager::createUniformBuffers");
     log_info("createUniformBuffers() started", "ResourceManager");
     obj.vmaAllocator = allocator.allocator;
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+        vk::DeviceSize bufferSize = sizeof(ObjectUB);
         vk::raii::Buffer buffer({});
         VmaAllocation bufferMem = nullptr;
         createBuffer(bufferSize,
@@ -294,7 +308,7 @@ void ResourceManager::createUniformBuffers()
     for (auto& object : objects) {
         object.vmaAllocator = allocator.allocator;
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+            vk::DeviceSize bufferSize = sizeof(ObjectUB);
             vk::raii::Buffer buffer({});
             VmaAllocation bufferMem = nullptr;
             createBuffer(bufferSize,
@@ -343,7 +357,6 @@ void ResourceManager::recreateObjectsBuffers()
     log_info("recreateVertexIndexBuffers() started", "ResourceManager");
     createVertexBuffer();
     createIndexBuffer();
-    createUniformBuffers();
 }
 
 vk::Format ResourceManager::findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling,

@@ -55,15 +55,17 @@ void Engine::initialize()
     swapChain = std::make_unique<SwapChain>(window, *device);
     swapChain->init();
 
+    camera = std::make_unique<Camera>(*swapChain);
     textureManager = std::make_unique<TextureManager>(*device, *allocator, *descriptorManager);
     textureManager->init();
 
     assetsLoader = std::make_unique<AssetsLoader>(objects, *textureManager);
 
-    assetsLoader->loadModel(MODEL_PATH.string());
+    assetsLoader->loadModel(MODEL_PATH.string(),{0.0f, 0.0f, 0.0f});
     resourceManager =
         std::make_unique<ResourceManager>(*device, *allocator, assetsLoader->getVertices(), assetsLoader->getIndices(), objects);
     resourceManager->init();
+    resourceManager->createCameraBuffers(*camera);
 
     tracyContext = std::make_unique<VkTracyContext>();
     {
@@ -83,6 +85,7 @@ void Engine::initialize()
         createImGuiDescriptorPool();
     }
 
+
     pipeline = std::make_unique<Pipeline>(*resourceManager,
                                           *descriptorManager,
                                           device->getDevice(),
@@ -95,6 +98,7 @@ void Engine::initialize()
                                           *resourceManager,
                                           *descriptorManager,
                                           *pipeline,
+                                          *camera,
                                           tracyContext.get(),
                                           enableImGui);
     renderer->rebuildSwapchainResources();
@@ -237,8 +241,29 @@ void Engine::run()
 
         if (!minimized && !quit)
         {
+            // ── Camera keyboard movement ──────────────────────────
+            // WASD        → X/Y plane  (A/D left/right, W/S up/down)
+            // LShift      → +Z (forward)
+            // LCtrl       → -Z (backward)
+            {
+                const float dt = std::chrono::duration<float>(currentTime - lastTime).count();
+                const float speed = 5.0f;   // units per second
+                const auto step = static_cast<glm::int32_t>(std::max(1.0f, speed * dt));
+
+                int keyCount = 0;
+                const bool* keys = SDL_GetKeyboardState(&keyCount);
+
+                if (keys[SDL_SCANCODE_W])      camera->addToY( step);
+                if (keys[SDL_SCANCODE_S])      camera->addToY(-step);
+                if (keys[SDL_SCANCODE_A])      camera->addToX(-step);
+                if (keys[SDL_SCANCODE_D])      camera->addToX( step);
+                if (keys[SDL_SCANCODE_LSHIFT]) camera->addToZ( step);
+                if (keys[SDL_SCANCODE_LCTRL])  camera->addToZ(-step);
+            }
+
             ZoneScopedN("DrawFrame");
             renderer->drawFrame();
+            camera->updateCameraData(renderer->currentFrame);
         }
         else
         {
@@ -251,6 +276,7 @@ void Engine::run()
         {
             SDL_Delay(static_cast<Uint32>(targetMs - frameDuration));
         }
+        lastTime = currentTime;
         FrameMark;
     }
     deviceRef.waitIdle();
@@ -387,8 +413,9 @@ void Engine::loadObject()
     const std::string assetPath = discoveredAssets[selectedAssetIndex].string();
     log_info("Load Object started", "Engine");
     device->getDevice().waitIdle();
-    assetsLoader->loadModel(assetPath);
+    assetsLoader->loadModel(assetPath, glm::make_vec3(loadedModelPosition));
     resourceManager->recreateObjectsBuffers();
+    resourceManager->createUniformBuffer(*(objects.end()-1));
 }
 
 void Engine::shutdown() { cleanup(); }
@@ -430,6 +457,7 @@ void Engine::cleanup()
     textureManager.reset();
     resourceManager.reset(); // before assetsLoader: holds refs to its vertex/index vectors
     assetsLoader.reset();
+    camera.reset();
     log_info("Resources cleaned up", "Engine");
     swapChain.reset();
     log_info("Swap chain cleaned up", "Engine");

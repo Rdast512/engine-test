@@ -5,6 +5,44 @@ struct UBO
     float4x4 proj;
 };
 
+struct InstanceData
+{
+    float4x4 modelMatrix;
+    float4x4 prevModelMatrix;
+
+    // uint64_t vertexBufferAddress;
+    // uint64_t indexBufferAddress;
+
+    float4 boundingSphere;
+
+    uint32_t materialID;
+    uint32_t instanceFlags;
+    uint32_t baseVertex;
+    uint32_t baseIndex;
+};
+
+struct CameraData
+{
+    float4x4 view;
+    float4x4 proj;
+    float4x4 viewProj;
+
+    float4x4 invView;
+    float4x4 invProj;
+    float4x4 invViewProj;
+
+    float4x4 prevViewProj;
+
+    float3 cameraPos;
+    float nearZ;
+
+    float2 renderTargetSize;
+    float2 invRenderTargetSize;
+
+    float2 jitterOffset;
+    float farZ;
+    float frameDeltaTime;
+};
 
 struct PushData
 {
@@ -21,6 +59,8 @@ struct VSInput
     float3 inColor;
     float2 inTexCoord;
 };
+
+
 
 struct VSOutput
 {
