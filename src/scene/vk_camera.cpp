@@ -5,13 +5,7 @@
 Camera::Camera(SwapChain& swapChain) : swapChain(swapChain)
 {
     cameraData.cameraPos = glm::vec3(2.0f, 2.0f, 6.0f);
-
-    glm::mat4 proj = glm::perspective(glm::radians(45.0f),
-                                     static_cast<float>(swapChain.swapChainExtent.width) /
-                                         static_cast<float>(swapChain.swapChainExtent.height),
-                                     0.1f, 20.0f);
-    proj[1][1] *= -1;
-    cameraData.proj = proj;
+    updateProjection();
 }
 
 Camera::~Camera()
@@ -48,24 +42,55 @@ void Camera::rotate(float yawDelta, float pitchDelta)
     yaw   += yawDelta * kMouseSensitivity;
     pitch += pitchDelta * kMouseSensitivity;
 
-    // Clamp pitch to avoid gimbal lock / view flipping
     if (pitch > kPitchLimit)  pitch = kPitchLimit;
     if (pitch < -kPitchLimit) pitch = -kPitchLimit;
+}
+
+// ── FOV ──────────────────────────────────────────────────────────
+
+void Camera::setFov(float fovVerticalDegrees)
+{
+    fov = glm::radians(fovVerticalDegrees);
+    if (fov < kFovMin) fov = kFovMin;
+    if (fov > kFovMax) fov = kFovMax;
+    projDirty = true;
+}
+
+void Camera::addFov(float deltaDegrees)
+{
+    setFov(glm::degrees(fov) + deltaDegrees);
 }
 
 // ── Recompute basis vectors from yaw/pitch ───────────────────────
 
 void Camera::updateVectors()
 {
-    // Standard FPS camera basis:
-    //   forward = direction the camera looks
-    //   right   = perpendicular to forward and world-up
     forward.x = cosf(pitch) * sinf(yaw);
     forward.y = -sinf(pitch);
     forward.z = cosf(pitch) * cosf(yaw);
     forward   = glm::normalize(forward);
 
     right = glm::normalize(glm::cross(forward, worldUp));
+}
+
+// ── Recompute projection matrix ──────────────────────────────────
+
+void Camera::updateProjection()
+{
+    const float aspect = static_cast<float>(swapChain.swapChainExtent.width) /
+                         static_cast<float>(swapChain.swapChainExtent.height);
+
+    glm::mat4 proj = glm::perspective(fov, aspect, nearPlane, farPlane);
+    proj[1][1] *= -1;  // Vulkan Y-flip
+
+    cameraData.proj              = proj;
+    cameraData.nearZ             = nearPlane;
+    cameraData.farZ              = farPlane;
+    cameraData.renderTargetSize  = glm::vec2(swapChain.swapChainExtent.width,
+                                             swapChain.swapChainExtent.height);
+    cameraData.invRenderTargetSize = 1.0f / cameraData.renderTargetSize;
+
+    projDirty = false;
 }
 
 // ── GPU upload ───────────────────────────────────────────────────
@@ -76,8 +101,20 @@ void Camera::updateCameraData(uint8_t currentImage)
 
     updateVectors();
 
+    if (projDirty)
+        updateProjection();
+
+    cameraData.prevViewProj = prevViewProj;
+
     cameraData.view     = glm::lookAt(cameraData.cameraPos, cameraData.cameraPos + forward, worldUp);
     cameraData.viewProj = cameraData.proj * cameraData.view;
 
+    // Inverses — needed by ray tracing, SSR, screen→world reconstruct.
+    cameraData.invView     = glm::inverse(cameraData.view);
+    cameraData.invProj     = glm::inverse(cameraData.proj);
+    cameraData.invViewProj = glm::inverse(cameraData.viewProj);
+
     memcpy(this->cameraBuffersMapped[currentImage], &this->cameraData, sizeof(this->cameraData));
+
+    prevViewProj = cameraData.viewProj;
 }

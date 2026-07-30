@@ -17,14 +17,19 @@ public:
     void moveUp(float delta);       // along world-up vector
 
     // ── Mouse look ────────────────────────────────────────────
-    // yawDelta, pitchDelta in radians
     void rotate(float yawDelta, float pitchDelta);
+
+    // ── FOV / projection ──────────────────────────────────────
+    // fovVerticalDegrees clamped to [10, 150].
+    void setFov(float fovVerticalDegrees);
+    void addFov(float deltaDegrees);   // for scroll-wheel
+
+    [[nodiscard]] float getFovDegrees() const { return glm::degrees(fov); }
 
     // ── GPU upload ────────────────────────────────────────────
     void updateCameraData(uint8_t currentImage);
 
     [[nodiscard]] const std::array<vk::DeviceAddress, 2>& getCameraBufferAddresses() const noexcept { return cameraBufferAddresses; }
-
     CameraData getCameraData(size_t currentImageIndex) const { return cameraData; }
 
     VmaAllocator allocator = nullptr;
@@ -38,6 +43,7 @@ public:
 
 private:
     void updateVectors();
+    void updateProjection();
 
     // Orientation (radians)
     float yaw   = -glm::half_pi<float>();   // facing -Z initially
@@ -48,6 +54,14 @@ private:
     glm::vec3 right  {1.0f, 0.0f,  0.0f};
     glm::vec3 worldUp{0.0f, 1.0f,  0.0f};
 
-    static constexpr float kPitchLimit = glm::radians(89.0f);
-    static constexpr float kMouseSensitivity = 0.002f;  // rad/pixel
+    // Projection parameters
+    float fov            = glm::radians(45.0f);  // vertical FOV
+    float nearPlane      = 0.1f;
+    float farPlane       = 20.0f;
+    bool  projDirty      = true;
+
+    static constexpr float kPitchLimit       = glm::radians(89.0f);
+    static constexpr float kMouseSensitivity = 0.002f;   // rad/pixel
+    static constexpr float kFovMin           = glm::radians(10.0f);
+    static constexpr float kFovMax           = glm::radians(150.0f);
 };

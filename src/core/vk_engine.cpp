@@ -225,9 +225,28 @@ void Engine::run()
                     mouseCaptured = !mouseCaptured;
                     SDL_SetWindowRelativeMouseMode(window, mouseCaptured);
                 }
+                else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && !mouseCaptured &&
+                         e.button.button == SDL_BUTTON_LEFT)
+                {
+                    // Click-to-capture: re-enable relative mode when the user
+                    // clicks back into the window after alt-tabbing away.
+                    mouseCaptured = true;
+                    SDL_SetWindowRelativeMouseMode(window, true);
+                }
+                else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && mouseCaptured &&
+                         e.button.button == SDL_BUTTON_LEFT)
+                {
+                    // Re-assert relative mode on click — SDL may silently drop
+                    // it on focus loss, and it only takes effect on mouse click.
+                    SDL_SetWindowRelativeMouseMode(window, true);
+                }
                 else if (e.type == SDL_EVENT_MOUSE_MOTION && mouseCaptured)
                 {
                     camera->rotate(-e.motion.xrel, e.motion.yrel);
+                }
+                else if (e.type == SDL_EVENT_MOUSE_WHEEL && mouseCaptured)
+                {
+                    camera->addFov(-e.wheel.y * 2.0f);   // scroll up = zoom in (narrower FOV)
                 }
                 else if (e.type == SDL_EVENT_WINDOW_FOCUS_GAINED)
                 {
@@ -240,6 +259,8 @@ void Engine::run()
                         swapChain->recreateSwapChain();
                         renderer->rebuildSwapchainResources();
                     }
+                    // Aspect ratio changed — force projection rebuild next frame.
+                    camera->setFov(camera->getFovDegrees());
                 }
                 else if (e.type == SDL_EVENT_WINDOW_MINIMIZED)
                 {
