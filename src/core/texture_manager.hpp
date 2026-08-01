@@ -15,7 +15,9 @@
 
 
 
-// Handles loading a single texture and exposes sampler + view for pipelines.
+// Loads textures into GPU images and registers SampledImage descriptors on the
+// resource heap. Sampling state comes from the DescriptorManager sampler heap
+// (not a VkSampler object).
 class TextureManager {
 public:
     explicit TextureManager(Device &deviceWrapper, const VkAllocator &allocator, DescriptorManager &descriptorManager);
@@ -43,13 +45,10 @@ public:
     vk::raii::CommandPool commandPool = nullptr;
     vk::raii::Buffer stagingBuffer = nullptr;
     VmaAllocation stagingBufferMemory = nullptr;
-    vk::raii::Sampler textureSampler = nullptr;
     vk::ImageViewCreateInfo textureImageViewCreateInfo;
     uint32_t mipLevels = 0;
 
 private:
-    void createTextureSampler();
-
     // Resolve a path relative to the executable directory if it's a relative path
     [[nodiscard]] std::string resolvePath(std::string_view path);
 

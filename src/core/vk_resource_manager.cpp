@@ -490,8 +490,11 @@ void ResourceManager::createImage(uint32_t width, uint32_t height, uint32_t mipL
 vk::Format ResourceManager::findDepthFormat()
 {
     log_info("findDepthFormat() started", "ResourceManager");
-    return findSupportedFormat({vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
-                               vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+    // Prefer D24/D16 over D32 (BestPractices-NVIDIA-CreateImage-Depth32Format).
+    // Fall back to D32 only if the preferred formats are unsupported.
+    return findSupportedFormat(
+        {vk::Format::eD24UnormS8Uint, vk::Format::eD16Unorm, vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint},
+        vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
 }
 
 void ResourceManager::updateSwapChainExtent(const vk::Extent2D newExtent)
@@ -518,11 +521,18 @@ void ResourceManager::createDepthResources()
                 vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage,
                 depthImageMemory, "DepthImageMemory");
     setDebugName(device, depthImage, "DepthImage");
+    // View can be depth-only for the attachment; barriers must still cover both aspects
+    // when the format is packed depth/stencil and separateDepthStencilLayouts is off
+    // (VUID-VkImageMemoryBarrier2-image-03320).
     depthImageView = createImageView(depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth, 1);
+    vk::ImageAspectFlags barrierAspects = vk::ImageAspectFlagBits::eDepth;
+    if (hasStencilComponent(depthFormat)) {
+        barrierAspects |= vk::ImageAspectFlagBits::eStencil;
+    }
     commandBuffers[0].begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     transitionImageLayout(&commandBuffers[0], depthImage, 1, vk::ImageLayout::eUndefined,
                           vk::ImageLayout::eDepthStencilAttachmentOptimal,
-                          {.aspectMask = vk::ImageAspectFlagBits::eDepth,
+                          {.aspectMask = barrierAspects,
                            .baseMipLevel = 0,
                            .levelCount = 1,
                            .baseArrayLayer = 0,
@@ -533,7 +543,8 @@ void ResourceManager::createDepthResources()
 bool ResourceManager::hasStencilComponent(vk::Format format)
 {
     log_info("hasStencilComponent() started", "ResourceManager");
-    return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint;
+    return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint ||
+           format == vk::Format::eD16UnormS8Uint;
 }
 
 void ResourceManager::copyBufferToImage(const vk::raii::Buffer& buffer, vk::raii::Image& image, uint32_t width,

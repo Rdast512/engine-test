@@ -3,8 +3,10 @@
 #include "../Constants.h"
 #include "../util/vk_tracy.hpp"
 #include "../util/vk_utils.hpp"
+#if ENGINE_ENABLE_IMGUI
 #include "imgui.h"
 #include "imgui_impl_vulkan.h"
+#endif
 
 #include <format>
 
@@ -147,7 +149,9 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
                               vk::AccessFlagBits2::eColorAttachmentWrite);
     }
 
-    const vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
+    // NVIDIA compressed clear requires all-0 or all-1 components for sRGB targets
+    // (BestPractices-NVIDIA-ClearColor-NotCompressed). Alpha 1.0 blocked compression.
+    const vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 0.0f);
     const vk::ClearValue clearDepth = vk::ClearDepthStencilValue(1.0f, 0);
     vk::RenderingAttachmentInfo colorAttachmentInfo = {.imageView = resourceManager.colorImageView,
                                                        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
@@ -216,6 +220,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
         }
     }
 
+#if ENGINE_ENABLE_IMGUI
     if (imguiEnabled && imguiVisible) {
         ZoneScopedN("RenderImGui");
 #ifdef TRACY_ENABLE
@@ -227,6 +232,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *commandBuffers[currentFrame]);
         }
     }
+#endif
 
     commandBuffers[currentFrame].endRendering();
     {

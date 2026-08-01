@@ -3,9 +3,11 @@
 #include "../static_headers/logger.hpp"
 #include "../util/debug.hpp"
 #include "../util/vk_tracy.hpp"
+#if ENGINE_ENABLE_IMGUI
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_vulkan.h"
+#endif
 
 
 
@@ -13,6 +15,9 @@ Engine::~Engine() { cleanup(); }
 
 void Engine::initialize()
 {
+    // Hard-sync runtime flag to the compile-time switch so a half-enabled path is impossible.
+    enableImGui = (ENGINE_ENABLE_IMGUI != 0);
+
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
         throw std::runtime_error("Failed to initialize SDL: " + std::string(SDL_GetError()));
@@ -28,19 +33,19 @@ void Engine::initialize()
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
+#if ENGINE_ENABLE_IMGUI
     if (enableImGui)
     {
-        // Setup Platform/Renderer backends
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+        log_info("ImGui enabled (ENGINE_ENABLE_IMGUI=1)", "Engine");
     }
-    else
-    {
-        log_info("ImGui disabled by Engine::enableImGui toggle", "Engine");
-    }
+#else
+    log_info("ImGui fully disabled (ENGINE_ENABLE_IMGUI=0) — no context, backends, or GPU resources", "Engine");
+#endif
 
     objects = std::vector<Object>();
     device = std::make_unique<Device>(window, false);
@@ -82,11 +87,12 @@ void Engine::initialize()
     }
 
 
+#if ENGINE_ENABLE_IMGUI
     if (enableImGui)
     {
         createImGuiDescriptorPool();
     }
-
+#endif
 
     pipeline = std::make_unique<Pipeline>(*resourceManager,
                                           *descriptorManager,
@@ -105,10 +111,9 @@ void Engine::initialize()
                                           enableImGui);
     renderer->rebuildSwapchainResources();
 
-
+#if ENGINE_ENABLE_IMGUI
     if (enableImGui)
     {
-        // Setup Platform/Renderer backends
         ImGui_ImplSDL3_InitForVulkan(window);
         ImGui_ImplVulkan_InitInfo init_info = {};
         init_info.ApiVersion = VK_API_VERSION_1_4;
@@ -139,13 +144,15 @@ void Engine::initialize()
             throw std::runtime_error("ImGui_ImplVulkan_Init failed");
         }
     }
+#endif
 
     initialized = true;
 }
 
 void Engine::createImGuiDescriptorPool()
 {
-    // Backends require separate sampled image + sampler descriptors (not combined); follow ImGui recommendations.
+#if ENGINE_ENABLE_IMGUI
+    // Backends require separate sampled image + sampler descriptors (not combined).
     auto& vkDevice = device->vkdevice;
     const uint32_t imguiSampledImageMin = std::max<uint32_t>(IMGUI_IMPL_VULKAN_MINIMUM_SAMPLED_IMAGE_POOL_SIZE, 1000);
     const uint32_t imguiSamplerMin = std::max<uint32_t>(IMGUI_IMPL_VULKAN_MINIMUM_SAMPLER_POOL_SIZE, 1000);
@@ -160,7 +167,6 @@ void Engine::createImGuiDescriptorPool()
                          vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageBufferDynamic, .descriptorCount = 1000},
                          vk::DescriptorPoolSize{.type = vk::DescriptorType::eInputAttachment, .descriptorCount = 1000}};
 
-
     const uint32_t maxSets = 1000 * static_cast<uint32_t>(poolSizes.size());
     vk::DescriptorPoolCreateInfo poolInfo{.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
                                           .maxSets = maxSets,
@@ -168,6 +174,7 @@ void Engine::createImGuiDescriptorPool()
                                           .pPoolSizes = poolSizes.data()};
     imguiDescriptorPool = vk::raii::DescriptorPool(vkDevice, poolInfo);
     setDebugName(vkDevice, imguiDescriptorPool, "ImGuiDescriptorPool");
+#endif
 }
 
 void Engine::run()
@@ -229,20 +236,24 @@ void Engine::run()
             SDL_Event e{};
             while (SDL_PollEvent(&e) != 0)
             {
+#if ENGINE_ENABLE_IMGUI
                 // Only feed ImGui while the UI is open so it cannot steal game input.
                 if (enableImGui && imguiUiOpen)
                 {
                     ImGui_ImplSDL3_ProcessEvent(&e);
                 }
+#endif
 
                 if (e.type == SDL_EVENT_QUIT)
                 {
                     quit = true;
                 }
+#if ENGINE_ENABLE_IMGUI
                 else if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_I && !e.key.repeat)
                 {
                     // I toggles ImGui. While typing in an ImGui field, let 'i' go to the widget.
-                    const bool typingInImGui = imguiUiOpen && ImGui::GetIO().WantTextInput;
+                    const bool typingInImGui =
+                        enableImGui && imguiUiOpen && ImGui::GetIO().WantTextInput;
                     if (!typingInImGui && enableImGui)
                     {
                         imguiUiOpen = !imguiUiOpen;
@@ -254,6 +265,7 @@ void Engine::run()
                         setGameFocus(!imguiUiOpen);
                     }
                 }
+#endif
                 else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && !imguiUiOpen &&
                          e.button.button == SDL_BUTTON_LEFT)
                 {
@@ -294,10 +306,12 @@ void Engine::run()
             }
         }
 
+#if ENGINE_ENABLE_IMGUI
         if (enableImGui && imguiUiOpen)
         {
             drawImGui();
         }
+#endif
 
         if (!minimized && !quit)
         {
@@ -354,12 +368,12 @@ void Engine::render()
 
 void Engine::drawImGui()
 {
+#if ENGINE_ENABLE_IMGUI
     ZoneScopedN("ImGuiNewFrame");
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 
-    // Simple ImGui UI: asset discovery, selection, and placeholder loading controls.
     ImGui::Begin("Engine Controls");
     ImGui::InputText("Assets Path", &assetsPathInput[0], IM_ARRAYSIZE(assetsPathInput));
     if (ImGui::Button("Scan Folder"))
@@ -408,6 +422,7 @@ void Engine::drawImGui()
     }
     ImGui::End();
     ImGui::Render();
+#endif
 }
 
 
@@ -493,6 +508,7 @@ void Engine::cleanup()
         tracyContext.reset();
     }
 
+#if ENGINE_ENABLE_IMGUI
     if (enableImGui)
     {
         ImGui_ImplVulkan_Shutdown();
@@ -502,6 +518,7 @@ void Engine::cleanup()
         // leaves the raii handle (and its DeviceDispatcher*) alive past device.reset().
         imguiDescriptorPool.clear();
     }
+#endif
 
     objects.clear();
     log_info("Objects cleared", "Engine");

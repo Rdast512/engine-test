@@ -132,7 +132,8 @@ void DescriptorManager::writeImageDescriptor(TextureAsset& textureAsset, const v
 }
 
 
-// TODO rename and refactor since sampler only
+// Default linear/anisotropic sampler into the sampler heap only.
+// No VkSampler object — writeSamplerDescriptorsEXT takes SamplerCreateInfo.
 void DescriptorManager::createHeapDescriptors()
 {
     ZoneScopedN("DescriptorManager::createHeapDescriptors");
@@ -141,8 +142,8 @@ void DescriptorManager::createHeapDescriptors()
     samplerDescriptorOffset = currentSampOffset;
 
     const auto maxSamplerAnisotropy = capabilities.properties2.properties.limits.maxSamplerAnisotropy;
-    const auto mipLevels = 1;
 
+    // maxLod large enough for full mip chains (textures write SampledImage separately).
     const vk::SamplerCreateInfo samplerInfo{.magFilter = vk::Filter::eLinear,
                                             .minFilter = vk::Filter::eLinear,
                                             .mipmapMode = vk::SamplerMipmapMode::eLinear,
@@ -155,7 +156,7 @@ void DescriptorManager::createHeapDescriptors()
                                             .compareEnable = vk::False,
                                             .compareOp = vk::CompareOp::eAlways,
                                             .minLod = 0.0f,
-                                            .maxLod = static_cast<float>(mipLevels)};
+                                            .maxLod = vk::LodClampNone};
     const vk::HostAddressRangeEXT samplerWrite{
         .address = static_cast<uint8_t*>(mappedSamplerHeapPtr) + currentSampOffset,
         .size = samplerDescriptorSize,

@@ -17,7 +17,7 @@ public:
 			 Pipeline& pipeline,
 			 Camera& camera,
 			 VkTracyContext* tracyContext = nullptr,
-			 bool imguiEnabled = true);
+			 bool imguiEnabled = false);
 
 	void setTracyContext(VkTracyContext* tracyContextIn);
 	void setImGuiVisible(bool visible) noexcept { imguiVisible = visible; }
@@ -38,7 +38,7 @@ private:
 	Pipeline& pipeline;
 	Camera& camera;
 	VkTracyContext* tracyContext = nullptr;
-	bool imguiEnabled = true;
+	bool imguiEnabled = false;
 	// Drawn only while the UI toggle is open (I key).
 	bool imguiVisible = false;
 

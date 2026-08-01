@@ -62,8 +62,10 @@ vk::Extent2D SwapChain::chooseSwapExtent(
 void SwapChain::createSwapChain() {
     ZoneScopedN("SwapChain::createSwapChain");
 
-    auto surfaceCapabilities =
-        physicalDevice.getSurfaceCapabilitiesKHR(surface);
+    // Prefer surface_capabilities2 (avoids WARNING-legacy-gpdsc2 / getSurfaceCapabilitiesKHR).
+    const vk::PhysicalDeviceSurfaceInfo2KHR surfaceInfo{.surface = *surface};
+    const vk::SurfaceCapabilitiesKHR surfaceCapabilities =
+        physicalDevice.getSurfaceCapabilities2KHR(surfaceInfo).surfaceCapabilities;
     swapChainSurfaceFormat =
         chooseSwapSurfaceFormat(physicalDevice.getSurfaceFormatsKHR(surface));
     swapChainImageFormat = swapChainSurfaceFormat.format;

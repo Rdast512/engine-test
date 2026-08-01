@@ -1,4 +1,5 @@
 #pragma once
+#include "../Constants.h"
 #include "assets_loader.hpp"
 #include "texture_manager.hpp"
 #include "../render/vk_pipeline.hpp"
@@ -14,9 +15,9 @@
 
 
 class Engine{
-    // Manual code toggle: set false to disable all ImGui setup and rendering paths.
-    bool enableImGui = true;
-    // Runtime UI visibility (I key). Hidden + game-focused until toggled open.
+    // Driven by ENGINE_ENABLE_IMGUI (Constants.h). When false, no ImGui Vulkan/SDL backends.
+    bool enableImGui = (ENGINE_ENABLE_IMGUI != 0);
+    // Runtime UI visibility (I key). Hidden + game-focused until toggled open. No-op if !enableImGui.
     bool imguiUiOpen = false;
 
     SDL_Window *window = nullptr;

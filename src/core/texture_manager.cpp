@@ -73,37 +73,14 @@ TextureManager::~TextureManager()
     log_info("Resources destroyed", "TextureManager");
 }
 
-// Initialize the texture manager (currently creates sampler; can be
-// extended to pre-load textures or other setup).
+// Initialize the texture manager. Samplers live in the descriptor-heap sampler
+// heap (writeSamplerDescriptorsEXT) — do not call vkCreateSampler under
+// VK_EXT_descriptor_heap (WARNING-legacy-resource-objects).
 void TextureManager::init()
 {
     ZoneScopedN("TextureManager::init");
     log_info("init() started", "TextureManager");
     log_info("Initialized", "TextureManager");
-    createTextureSampler();
-}
-
-// Create a Vulkan sampler configured for trilinear filtering and anisotropy
-// using device limits.
-void TextureManager::createTextureSampler()
-{
-    ZoneScopedN("TextureManager::createTextureSampler");
-    log_info("createTextureSampler() started", "TextureManager");
-    vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
-    vk::SamplerCreateInfo samplerInfo{.magFilter = vk::Filter::eLinear,
-                                      .minFilter = vk::Filter::eLinear,
-                                      .mipmapMode = vk::SamplerMipmapMode::eLinear,
-                                      .addressModeU = vk::SamplerAddressMode::eRepeat,
-                                      .addressModeV = vk::SamplerAddressMode::eRepeat,
-                                      .addressModeW = vk::SamplerAddressMode::eRepeat,
-                                      .mipLodBias = 0.0f,
-                                      .anisotropyEnable = vk::True,
-                                      .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
-                                      .compareEnable = vk::False,
-                                      .compareOp = vk::CompareOp::eAlways,
-                                      .minLod = 0.0f,
-                                      .maxLod = static_cast<float>(mipLevels)};
-    textureSampler = vk::raii::Sampler(device, samplerInfo);
 }
 
 // ── format-detecting texture loader ─────────────────────────
@@ -440,8 +417,16 @@ void TextureManager::copyBufferToImage(vk::raii::CommandBuffer& commandBuffer, c
     commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, {region});
 }
 
-// Generate mipmaps on the GPU by successively blitting between mip levels
-// and transitioning layouts appropriately.
+// Generate mipmaps on the GPU by successively blitting between mip levels.
+// Layout strategy (avoids BestPractices-PipelineBarrier-readToReadBarrier):
+//   - Each level is written as TransferDst (base copy or blit destination).
+//   - Only promote TransferDst → TransferSrc when that level is about to be a blit source
+//     (write→read — required and not a BP read-to-read).
+//   - After the chain finishes, levels [0, last) sit in TransferSrc; the last level stays
+//     TransferDst. Transition last with TransferDst → ShaderReadOnly (write→read). For the
+//     already-read levels, one barrier covers TransferSrc → ShaderReadOnly (layout change;
+//     availability of the original TransferWrite was established by the earlier Dst→Src
+//     barriers + transfer execution dependency). No per-mip TransferSrc→ShaderRead in the loop.
 void TextureManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFormat, int32_t texWidth,
                                      int32_t texHeight, uint32_t mipLevelsIn)
 {
@@ -460,17 +445,20 @@ void TextureManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFor
 
     for (uint32_t i = 1; i < mipLevelsIn; i++)
     {
-        vk::ImageMemoryBarrier barrier{.srcAccessMask = vk::AccessFlagBits::eTransferWrite,
-                                       .dstAccessMask = vk::AccessFlagBits::eTransferRead,
-                                       .oldLayout = vk::ImageLayout::eTransferDstOptimal,
-                                       .newLayout = vk::ImageLayout::eTransferSrcOptimal,
-                                       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                                       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                                       .image = image,
-                                       .subresourceRange = {vk::ImageAspectFlagBits::eColor, i - 1, 1, 0, 1}};
-
-        commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {},
-                                      nullptr, nullptr, barrier);
+        // Previous level: last write was TransferWrite in TransferDst — make it a blit source.
+        const vk::ImageMemoryBarrier2 toSrc{
+            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .dstAccessMask = vk::AccessFlagBits2::eTransferRead,
+            .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+            .newLayout = vk::ImageLayout::eTransferSrcOptimal,
+            .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+            .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+            .image = image,
+            .subresourceRange = {vk::ImageAspectFlagBits::eColor, i - 1, 1, 0, 1}};
+        const vk::DependencyInfo toSrcDep{.imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &toSrc};
+        commandBuffer.pipelineBarrier2(toSrcDep);
 
         vk::ImageBlit blit{};
         blit.srcSubresource = {vk::ImageAspectFlagBits::eColor, i - 1, 0, 1};
@@ -483,13 +471,8 @@ void TextureManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFor
         commandBuffer.blitImage(image, vk::ImageLayout::eTransferSrcOptimal, image,
                                 vk::ImageLayout::eTransferDstOptimal, {blit}, vk::Filter::eLinear);
 
-        barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
-        barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
-        barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-
-        commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
-                                      {}, nullptr, nullptr, barrier);
+        // Leave level i-1 in TransferSrc; level i remains TransferDst for the next iteration
+        // (or for the final write→shader-read barrier when i is last).
 
         if (mipWidth > 1)
             mipWidth /= 2;
@@ -497,17 +480,51 @@ void TextureManager::generateMipmaps(vk::raii::Image& image, vk::Format imageFor
             mipHeight /= 2;
     }
 
-    vk::ImageMemoryBarrier barrier{.srcAccessMask = vk::AccessFlagBits::eTransferWrite,
-                                   .dstAccessMask = vk::AccessFlagBits::eShaderRead,
-                                   .oldLayout = vk::ImageLayout::eTransferDstOptimal,
-                                   .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-                                   .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                                   .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                                   .image = image,
-                                   .subresourceRange = {vk::ImageAspectFlagBits::eColor, mipLevelsIn - 1, 1, 0, 1}};
-
-    commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, {},
-                                  nullptr, nullptr, barrier);
+    // Final layout: all mips → ShaderReadOnlyOptimal.
+    // - Levels that were blit sources: TransferSrc (read layout) → ShaderReadOnly.
+    // - Last level never needed as a source: TransferDst (write) → ShaderReadOnly.
+    if (mipLevelsIn == 1) {
+        const vk::ImageMemoryBarrier2 toSampled{
+            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+            .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+            .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+            .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+            .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+            .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+            .image = image,
+            .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}};
+        const vk::DependencyInfo dep{.imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &toSampled};
+        commandBuffer.pipelineBarrier2(dep);
+    } else {
+        const vk::ImageMemoryBarrier2 barriers[2] = {
+            // Already-used blit sources [0, last).
+            {.srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+             .srcAccessMask = vk::AccessFlagBits2::eTransferRead,
+             .dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+             .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+             .oldLayout = vk::ImageLayout::eTransferSrcOptimal,
+             .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+             .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+             .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+             .image = image,
+             .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, mipLevelsIn - 1, 0, 1}},
+            // Last mip: still TransferDst after final blit destination write.
+            {.srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+             .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+             .dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+             .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+             .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+             .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+             .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+             .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+             .image = image,
+             .subresourceRange = {vk::ImageAspectFlagBits::eColor, mipLevelsIn - 1, 1, 0, 1}},
+        };
+        const vk::DependencyInfo dep{.imageMemoryBarrierCount = 2, .pImageMemoryBarriers = barriers};
+        commandBuffer.pipelineBarrier2(dep);
+    }
 
     endSingleTimeCommands(commandBuffer, graphicsQueue);
 }
