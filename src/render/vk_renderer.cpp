@@ -216,14 +216,16 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
         }
     }
 
-    if (imguiEnabled) {
+    if (imguiEnabled && imguiVisible) {
         ZoneScopedN("RenderImGui");
 #ifdef TRACY_ENABLE
         if (tracyContext && tracyContext->active()) {
             TracyVkZone(tracyContext->handle(), *commandBuffers[currentFrame], "GPU_ImGui");
         }
 #endif
-        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *commandBuffers[currentFrame]);
+        if (ImGui::GetDrawData() != nullptr) {
+            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *commandBuffers[currentFrame]);
+        }
     }
 
     commandBuffers[currentFrame].endRendering();

@@ -16,6 +16,8 @@
 class Engine{
     // Manual code toggle: set false to disable all ImGui setup and rendering paths.
     bool enableImGui = true;
+    // Runtime UI visibility (I key). Hidden + game-focused until toggled open.
+    bool imguiUiOpen = false;
 
     SDL_Window *window = nullptr;
     std::unique_ptr<Device> device;

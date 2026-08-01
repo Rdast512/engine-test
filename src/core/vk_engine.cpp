@@ -180,11 +180,31 @@ void Engine::run()
 
     bool quit = false;
     bool minimized = false;
-    bool mouseCaptured = true;   // tracks SDL relative-mouse state
+    // Game mode: relative mouse + hidden ImGui. UI mode (I): free cursor, only ImGui focused.
     lastTime = std::chrono::high_resolution_clock::now();
     fpsTime = lastTime;
     const double targetMs = 1000.0 / 60.0; // 60 FPS
     auto& deviceRef = device->vkdevice;
+
+    const auto setGameFocus = [this](bool gameFocused) {
+        // gameFocused = true  → capture mouse, hide cursor (look/move)
+        // gameFocused = false → free mouse, show cursor (ImGui only)
+        SDL_SetWindowRelativeMouseMode(window, gameFocused);
+        if (gameFocused)
+        {
+            SDL_HideCursor();
+        }
+        else
+        {
+            SDL_ShowCursor();
+        }
+    };
+    imguiUiOpen = false;
+    if (renderer)
+    {
+        renderer->setImGuiVisible(false);
+    }
+    setGameFocus(true);
 
     while (!quit)
     {
@@ -209,7 +229,8 @@ void Engine::run()
             SDL_Event e{};
             while (SDL_PollEvent(&e) != 0)
             {
-                if (enableImGui)
+                // Only feed ImGui while the UI is open so it cannot steal game input.
+                if (enableImGui && imguiUiOpen)
                 {
                     ImGui_ImplSDL3_ProcessEvent(&e);
                 }
@@ -218,39 +239,39 @@ void Engine::run()
                 {
                     quit = true;
                 }
-                else if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_ESCAPE)
+                else if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_I && !e.key.repeat)
                 {
-                    // Toggle relative mouse mode so the user can free the
-                    // cursor to interact with ImGui panels.
-                    mouseCaptured = !mouseCaptured;
-                    SDL_SetWindowRelativeMouseMode(window, mouseCaptured);
+                    // I toggles ImGui. While typing in an ImGui field, let 'i' go to the widget.
+                    const bool typingInImGui = imguiUiOpen && ImGui::GetIO().WantTextInput;
+                    if (!typingInImGui && enableImGui)
+                    {
+                        imguiUiOpen = !imguiUiOpen;
+                        if (renderer)
+                        {
+                            renderer->setImGuiVisible(imguiUiOpen);
+                        }
+                        // Open UI → ImGui focus. Close UI → game focus.
+                        setGameFocus(!imguiUiOpen);
+                    }
                 }
-                else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && !mouseCaptured &&
+                else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && !imguiUiOpen &&
                          e.button.button == SDL_BUTTON_LEFT)
                 {
-                    // Click-to-capture: re-enable relative mode when the user
-                    // clicks back into the window after alt-tabbing away.
-                    mouseCaptured = true;
-                    SDL_SetWindowRelativeMouseMode(window, true);
+                    // Re-assert relative mode on click while in game focus — SDL may
+                    // drop it on focus loss until a mouse button is pressed.
+                    setGameFocus(true);
                 }
-                else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && mouseCaptured &&
-                         e.button.button == SDL_BUTTON_LEFT)
-                {
-                    // Re-assert relative mode on click — SDL may silently drop
-                    // it on focus loss, and it only takes effect on mouse click.
-                    SDL_SetWindowRelativeMouseMode(window, true);
-                }
-                else if (e.type == SDL_EVENT_MOUSE_MOTION && mouseCaptured)
+                else if (e.type == SDL_EVENT_MOUSE_MOTION && !imguiUiOpen)
                 {
                     camera->rotate(-e.motion.xrel, e.motion.yrel);
                 }
-                else if (e.type == SDL_EVENT_MOUSE_WHEEL && mouseCaptured)
+                else if (e.type == SDL_EVENT_MOUSE_WHEEL && !imguiUiOpen)
                 {
                     camera->addFov(-e.wheel.y * 2.0f);   // scroll up = zoom in (narrower FOV)
                 }
                 else if (e.type == SDL_EVENT_WINDOW_FOCUS_GAINED)
                 {
-                    SDL_SetWindowRelativeMouseMode(window, mouseCaptured);
+                    setGameFocus(!imguiUiOpen);
                 }
                 else if (e.type == SDL_EVENT_WINDOW_RESIZED)
                 {
@@ -273,17 +294,18 @@ void Engine::run()
             }
         }
 
-        if (enableImGui)
+        if (enableImGui && imguiUiOpen)
         {
             drawImGui();
         }
 
         if (!minimized && !quit)
         {
-            // ── Camera keyboard movement ──────────────────────────
+            // ── Camera keyboard movement (game focus only) ───────
             // WASD        → forward / back / left / right
             // LShift      → up (+Y)
             // LCtrl       → down (-Y)
+            if (!imguiUiOpen)
             {
                 const float dt = std::chrono::duration<float>(currentTime - lastTime).count();
                 const float speed = 5.0f;

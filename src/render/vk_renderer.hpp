@@ -20,6 +20,8 @@ public:
 			 bool imguiEnabled = true);
 
 	void setTracyContext(VkTracyContext* tracyContextIn);
+	void setImGuiVisible(bool visible) noexcept { imguiVisible = visible; }
+	[[nodiscard]] bool isImGuiVisible() const noexcept { return imguiVisible; }
 	void rebuildSwapchainResources() const;
 	void drawFrame();
 	void waitIdle() const;
@@ -37,6 +39,8 @@ private:
 	Camera& camera;
 	VkTracyContext* tracyContext = nullptr;
 	bool imguiEnabled = true;
+	// Drawn only while the UI toggle is open (I key).
+	bool imguiVisible = false;
 
 	uint32_t semaphoreIndex = 0;
 };
