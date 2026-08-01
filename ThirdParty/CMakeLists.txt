@@ -166,6 +166,12 @@ set(MI_BUILD_STATIC ON CACHE BOOL "" FORCE)
 set(MI_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(MI_OVERRIDE ON CACHE BOOL "" FORCE)
 
+# --- meshoptimizer ---
+set(MESHOPT_BUILD_DEMO OFF CACHE BOOL "" FORCE)
+set(MESHOPT_BUILD_GLTFPACK OFF CACHE BOOL "" FORCE)
+set(MESHOPT_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(MESHOPT_INSTALL OFF CACHE BOOL "" FORCE) # TODO explore this
+
 # ==============================================================================
 # FetchContent Declares — ALL declared before MakeAvailable so CMake can
 # resolve them as a batch and avoid redundant network/disk operations.
@@ -256,12 +262,20 @@ FetchContent_Declare(
         GIT_SHALLOW TRUE
 )
 
+# 14. meshoptimizer (mesh optimization / clustering for GPU-driven rendering)
+FetchContent_Declare(
+        meshoptimizer
+        GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
+        GIT_TAG v1.2
+        GIT_SHALLOW TRUE
+)
+
 # ==============================================================================
 # Populate all dependencies in a single batch call.
 # Tracy is declared and populated separately below (after GIT_SHALLOW/PROGRESS).
 # ==============================================================================
-message(STATUS "Fetching ThirdParty dependencies (glm, SDL3, fmt, spdlog, ImGui, taskflow, rapidjson, KTX, mimalloc, DirectXMath)...")
-FetchContent_MakeAvailable(glm SDL3 fmt spdlog ImGui taskflow rapidjson KTXSoftware mimalloc DirectXMath)
+message(STATUS "Fetching ThirdParty dependencies (glm, SDL3, fmt, spdlog, ImGui, taskflow, rapidjson, KTX, mimalloc, DirectXMath, meshoptimizer)...")
+FetchContent_MakeAvailable(glm SDL3 fmt spdlog ImGui taskflow rapidjson KTXSoftware mimalloc DirectXMath meshoptimizer)
 
 
 
@@ -279,6 +293,14 @@ elseif (TARGET mimalloc-static)
         add_library(ThirdParty::mimalloc ALIAS mimalloc-static)
 else ()
         message(FATAL_ERROR "mimalloc target not found after FetchContent_MakeAvailable(mimalloc).")
+endif ()
+
+if (TARGET meshoptimizer)
+        # Static meshoptimizer is linked into shared engine modules — need PIC.
+        set_target_properties(meshoptimizer PROPERTIES POSITION_INDEPENDENT_CODE ON)
+        add_library(ThirdParty::meshoptimizer ALIAS meshoptimizer)
+else ()
+        message(FATAL_ERROR "meshoptimizer target not found after FetchContent_MakeAvailable(meshoptimizer).")
 endif ()
 
 # ------------------------------------------------------------------------------
@@ -400,6 +422,7 @@ target_link_libraries(ThirdPartyLibs INTERFACE
         fmt::fmt
         imgui
         ThirdParty::mimalloc
+        ThirdParty::meshoptimizer
         Taskflow::Taskflow
 )
 

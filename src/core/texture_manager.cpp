@@ -337,10 +337,12 @@ void TextureManager::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usag
         // Keep host access but avoid CREATE_MAPPED to prevent double map/unmap;
         // we map explicitly where needed.
         allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+        allocInfo.priority = 0.25f;
     }
     else
     {
         allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        allocInfo.priority = 0.75f;
     }
 
     allocator.alocateBuffer(bufferInfo, allocInfo, buffer, bufferMemory, memoryDebugBaseName);
@@ -379,6 +381,12 @@ vk::ImageCreateInfo TextureManager::createImage(uint32_t width, uint32_t height,
     if (properties & vk::MemoryPropertyFlagBits::eHostVisible)
     {
         allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+        allocInfo.priority = 0.25f;
+    }
+    else
+    {
+        // Sampled textures / GPU images: high keep priority under memory pressure.
+        allocInfo.priority = 0.9f;
     }
 
     allocator.alocateImage(imageInfo, allocInfo, image, imageMemory, memoryDebugBaseName);
@@ -407,8 +415,10 @@ void TextureManager::endSingleTimeCommands(vk::raii::CommandBuffer& commandBuffe
     ZoneScopedN("TextureManager::endSingleTimeCommands");
     log_info("endSingleTimeCommands() started", "TextureManager");
     commandBuffer.end();
-    vk::SubmitInfo submitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandBuffer};
-    queue.submit(submitInfo, nullptr);
+    // Prefer synchronization2 submit (avoids WARNING-deprecation-sync2 / legacy QueueSubmit).
+    const vk::CommandBufferSubmitInfo commandBufferInfo{.commandBuffer = *commandBuffer};
+    const vk::SubmitInfo2 submitInfo{.commandBufferInfoCount = 1, .pCommandBufferInfos = &commandBufferInfo};
+    queue.submit2(submitInfo, nullptr);
     queue.waitIdle();
 }
 

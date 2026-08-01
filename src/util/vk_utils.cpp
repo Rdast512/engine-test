@@ -91,13 +91,21 @@ void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPro
         allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
         allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
         allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+        allocInfo.priority = 0.25f; // staging / CPU-visible (NVIDIA memory priority)
     } else {
         allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
         if (properties & vk::MemoryPropertyFlagBits::eDeviceLocal) {
             allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         }
+        allocInfo.priority = 0.75f;
     }
     allocInfo.flags |= extraAllocationFlags;
+    // BestPractices-vkBindBufferMemory-small-dedicated-allocation: do not force
+    // dedicated blocks for small buffers (validation threshold is typically 1 MiB).
+    constexpr vk::DeviceSize kMinDedicatedAllocationBytes = 1024 * 1024;
+    if ((allocInfo.flags & VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT) != 0 && size < kMinDedicatedAllocationBytes) {
+        allocInfo.flags &= ~VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    }
 
     VkBuffer rawBuffer{};
     if (vmaCreateBuffer(allocator, &static_cast<const VkBufferCreateInfo&>(bufferInfo), &allocInfo, &rawBuffer,

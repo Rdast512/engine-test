@@ -533,7 +533,7 @@ void Device::createLogicalDevice()
                         // vk::PhysicalDeviceBlendOperationAdvancedFeaturesEXT
                         {.advancedBlendCoherentOperations = false},
                         // vk::PhysicalDeviceMeshShaderFeaturesEXT
-                        {.taskShader = true, .meshShader = true},
+                        {.taskShader = true, .meshShader = true, .meshShaderQueries = true},
                         // vk::PhysicalDeviceDeviceGeneratedCommandsFeaturesEXT
                         {.deviceGeneratedCommands = true},
                         // vk::PhysicalDeviceMultiDrawFeaturesEXT
