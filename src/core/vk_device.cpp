@@ -579,7 +579,15 @@ void Device::createLogicalDevice()
                         // vk::PhysicalDeviceMaintenance8FeaturesKHR
                         {.maintenance8 = true},
                         // vk::PhysicalDeviceMaintenance9FeaturesKHR
-                        {.maintenance9 = true},
+                        // Keep false while using Khronos Best Practices (VVL #12449, SDK ≤1.4.357).
+                        // BP ValidateImageInQueue does: qf_count = last_usage.queue_family_index + 1
+                        // then qf_props.back(). On first image use last_usage is still
+                        // VK_QUEUE_FAMILY_IGNORED (0xFFFFFFFF) → count wraps to 0 → empty
+                        // vector .back() writes to 0xFFFFFFFFFFFFFFE0 (sizeof(VkQueueFamilyProperties2)
+                        // element -1, pNext at +8). Submit queue family from getDeviceQueue is fine;
+                        // IGNORED is VVL's "never used" sentinel, not an app QFOT barrier mistake.
+                        // Re-enable when VVL skips IGNORED/UNDEFINED before that query.
+                        {.maintenance9 = false},
                         // vk::PhysicalDeviceMaintenance10FeaturesKHR
                         {.maintenance10 = true},
                         // vk::PhysicalDeviceCopyMemoryIndirectFeaturesKHR
