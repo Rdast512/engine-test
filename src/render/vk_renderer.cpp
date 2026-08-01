@@ -30,9 +30,9 @@ void Renderer::rebuildSwapchainResources() const
 void Renderer::drawFrame()
 {
     ZoneScoped;
-    auto& deviceRef = device.getDevice();
-    auto& graphicsQueue = device.getGraphicsQueue();
-    auto& presentQueue = device.getPresentQueue();
+    auto& deviceRef = device.vkdevice;
+    auto& graphicsQueue = device.graphicsQueue;
+    auto& presentQueue = device.presentQueue;
     auto& swapChainKHR = swapChain.swapChain;
     auto& fence = *resourceManager.inFlightFences[currentFrame];
     auto& presentSemaphore = *resourceManager.presentCompleteSemaphore[currentFrame];
@@ -187,14 +187,14 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
         commandBuffers[currentFrame].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain.swapChainExtent));
 
         // After that use a pointer to that function.
-        const auto& resourceHeapInfo = descriptorManager.getResourceHeapInfo();
-        const auto& samplerHeapInfo = descriptorManager.getSamplerHeapInfo();
+        const auto& resourceHeapInfo = descriptorManager.resourceHeapInfo;
+        const auto& samplerHeapInfo = descriptorManager.samplerHeapInfo;
         commandBuffers[currentFrame].bindResourceHeapEXT(resourceHeapInfo);
         commandBuffers[currentFrame].bindSamplerHeapEXT(samplerHeapInfo);
         for (const auto& gameObject : resourceManager.objects) {
             PushData2 pushData{};
             pushData.ObjectUBAddress = gameObject.uboAddresses[currentFrame];
-            pushData.cameraAddress = camera.getCameraBufferAddresses()[currentFrame];
+            pushData.cameraAddress = camera.cameraBufferAddresses[currentFrame];
             pushData.texture = {
                 .resourceIndex = gameObject.textureIndex,
                 .samplerIndex = 0,
@@ -248,4 +248,4 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
     commandBuffers[currentFrame].end();
 }
 
-void Renderer::waitIdle() const { device.getDevice().waitIdle(); }
+void Renderer::waitIdle() const { device.vkdevice.waitIdle(); }

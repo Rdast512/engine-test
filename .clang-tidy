@@ -65,7 +65,7 @@ CheckOptions:
     value: 'free'
 
   # --- Readability (Naming Conventions) ---
-  # Enforces standard C++ naming to reduce cognitive load
+  # camelCase for values/functions; PascalCase for types. No trailing '_' on members.
   - key: readability-identifier-naming.ClassCase
     value: 'CamelCase'
   - key: readability-identifier-naming.StructCase
@@ -78,14 +78,38 @@ CheckOptions:
     value: 'camelBack'
   - key: readability-identifier-naming.MemberCase
     value: 'camelBack'
+  - key: readability-identifier-naming.PrivateMemberCase
+    value: 'camelBack'
+  - key: readability-identifier-naming.ProtectedMemberCase
+    value: 'camelBack'
+  - key: readability-identifier-naming.PublicMemberCase
+    value: 'camelBack'
+  - key: readability-identifier-naming.PrivateMemberPrefix
+    value: ''
   - key: readability-identifier-naming.PrivateMemberSuffix
-    value: '_'
+    value: ''
+  - key: readability-identifier-naming.ProtectedMemberPrefix
+    value: ''
+  - key: readability-identifier-naming.ProtectedMemberSuffix
+    value: ''
+  - key: readability-identifier-naming.LocalVariableCase
+    value: 'camelBack'
+  - key: readability-identifier-naming.LocalConstantCase
+    value: 'camelBack'
+  - key: readability-identifier-naming.ConstantCase
+    value: 'camelBack'
   - key: readability-identifier-naming.EnumConstantCase
     value: 'CamelCase'
   - key: readability-identifier-naming.MacroDefinitionCase
     value: 'UPPER_CASE'
   - key: readability-identifier-naming.NamespaceCase
     value: 'camelBack'
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: 'UPPER_CASE'
+  - key: readability-identifier-naming.StaticConstantCase
+    value: 'camelBack'
+  - key: readability-identifier-naming.IgnoreMainLikeFunctions
+    value: 'true'
 
   # --- Boost ---
   - key: boost-use-to-string.CheckStd

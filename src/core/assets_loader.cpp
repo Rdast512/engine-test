@@ -14,14 +14,14 @@ struct GltfExternalRef {
 };
 
 struct GltfReferenceReport {
-    bool fully_self_contained{true};
-    std::vector<GltfExternalRef> external_refs;
+    bool fullySelfContained{true};
+    std::vector<GltfExternalRef> externalRefs;
 
-    uint32_t total_buffers{0};
-    uint32_t embedded_buffers{0};
-    uint32_t total_images{0};
-    uint32_t embedded_images{0};
-    uint32_t external_image_count{0};
+    uint32_t totalBuffers{0};
+    uint32_t embeddedBuffers{0};
+    uint32_t totalImages{0};
+    uint32_t embeddedImages{0};
+    uint32_t externalImageCount{0};
 };
 
 // Scans every glTF 2.0 element that can carry a URI and classifies the
@@ -30,8 +30,8 @@ struct GltfReferenceReport {
 GltfReferenceReport detectGltfReferences(const tg3_model& model)
 {
     GltfReferenceReport report;
-    report.total_buffers = model.buffers_count;
-    report.total_images  = model.images_count;
+    report.totalBuffers = model.buffers_count;
+    report.totalImages  = model.images_count;
 
     // ── buffers ──────────────────────────────────────────
     //   empty uri  → GLB binary chunk (embedded)
@@ -42,10 +42,10 @@ GltfReferenceReport detectGltfReferences(const tg3_model& model)
         const std::string_view uri{buf.uri.data, buf.uri.len};
 
         if (!uri.empty() && !uri.starts_with("data:")) {
-            report.fully_self_contained = false;
-            report.external_refs.push_back({"buffer", i, uri});
+            report.fullySelfContained = false;
+            report.externalRefs.push_back({"buffer", i, uri});
         } else {
-            ++report.embedded_buffers;
+            ++report.embeddedBuffers;
         }
     }
 
@@ -59,11 +59,11 @@ GltfReferenceReport detectGltfReferences(const tg3_model& model)
         const std::string_view uri{img.uri.data, img.uri.len};
 
         if (img.buffer_view >= 0 || uri.starts_with("data:") || uri.empty()) {
-            ++report.embedded_images;
+            ++report.embeddedImages;
         } else {
-            report.fully_self_contained = false;
-            report.external_refs.push_back({"image", i, uri});
-            ++report.external_image_count;
+            report.fullySelfContained = false;
+            report.externalRefs.push_back({"image", i, uri});
+            ++report.externalImageCount;
         }
     }
 
@@ -352,7 +352,7 @@ bool AssetsLoader::loadGltfModel(const std::string& modelPath, glm::vec3 xyz)
         }
     }
     Object object(currentIndex, indexCount, textureManager.loadTexture(imagePath));
-    object.position = glm::vec3{xyz[0], xyz[1], xyz[2]};
+    object.setPosition(glm::vec3{xyz[0], xyz[1], xyz[2]});
     log_info(std::format("Loaded model current index: {} | index count: {}", currentIndex, indexCount), "AssetLoader");
     objects.push_back(std::move(object));
     currentIndex += indexCount;
@@ -405,7 +405,7 @@ bool AssetsLoader::loadObjModel(const std::string& modelPath, glm::vec3 xyz)
         }
     }
     Object object(currentIndex, indexCount, textureManager.loadTexture(TEXTURE_PATH.string()));
-    object.position = glm::vec3{xyz[0], xyz[1], xyz[2]};
+    object.setPosition(glm::vec3{xyz[0], xyz[1], xyz[2]});
     log_info(std::format("Loaded model current index: {} | index count: {}", currentIndex, indexCount));
     objects.push_back(std::move(object));
     currentIndex += indexCount;

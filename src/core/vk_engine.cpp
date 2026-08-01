@@ -48,10 +48,10 @@ void Engine::initialize()
 
     allocator = std::make_unique<VkAllocator>(*device);
 
-    descriptorManager = std::make_unique<DescriptorManager>(device->getDevice(),
+    descriptorManager = std::make_unique<DescriptorManager>(device->vkdevice,
                                                             allocator->allocator,
-                                                            device->getQueueFamilyIndices(),
-                                                            device->getHardwareCapabilities());
+                                                            device->queueFamilyIndices,
+                                                            device->capabilities);
     descriptorManager->init();
 
     swapChain = std::make_unique<SwapChain>(window, *device);
@@ -65,7 +65,7 @@ void Engine::initialize()
 
     assetsLoader->loadModel(MODEL_PATH.string(),{0.0f, 0.0f, 0.0f});
     resourceManager =
-        std::make_unique<ResourceManager>(*device, *allocator, assetsLoader->getVertices(), assetsLoader->getIndices(), objects);
+        std::make_unique<ResourceManager>(*device, *allocator, assetsLoader->vertices, assetsLoader->indices, objects);
     resourceManager->init();
     resourceManager->createCameraBuffers(*camera);
 
@@ -76,9 +76,9 @@ void Engine::initialize()
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = 1,
         };
-        vk::raii::CommandBuffers tracySetupCommandBuffers(device->getDevice(), tracySetupCommandBufferAllocateInfo);
-        tracyContext->init(device->getInstance(), device->getPhysicalDevice(), device->getDevice(),
-                           device->getGraphicsQueue(), tracySetupCommandBuffers.front(), "Graphics Queue");
+        vk::raii::CommandBuffers tracySetupCommandBuffers(device->vkdevice, tracySetupCommandBufferAllocateInfo);
+        tracyContext->init(device->instance, device->physicalDevice, device->vkdevice,
+                           device->graphicsQueue, tracySetupCommandBuffers.front(), "Graphics Queue");
     }
 
 
@@ -90,7 +90,7 @@ void Engine::initialize()
 
     pipeline = std::make_unique<Pipeline>(*resourceManager,
                                           *descriptorManager,
-                                          device->getDevice(),
+                                          device->vkdevice,
                                           swapChain->swapChainExtent,
                                           swapChain->swapChainImageFormat);
     pipeline->init();
@@ -112,11 +112,11 @@ void Engine::initialize()
         ImGui_ImplSDL3_InitForVulkan(window);
         ImGui_ImplVulkan_InitInfo init_info = {};
         init_info.ApiVersion = VK_API_VERSION_1_4;
-        init_info.Instance = *device->getInstance();
-        init_info.PhysicalDevice = *device->getPhysicalDevice();
-        init_info.Device = *device->getDevice();
-        init_info.QueueFamily = device->getGraphicsQueueFamilyIndex();
-        init_info.Queue = *device->getGraphicsQueue();
+        init_info.Instance = *device->instance;
+        init_info.PhysicalDevice = *device->physicalDevice;
+        init_info.Device = *device->vkdevice;
+        init_info.QueueFamily = device->graphicsIndex;
+        init_info.Queue = *device->graphicsQueue;
         init_info.DescriptorPool = *imguiDescriptorPool;
         const auto imageCount = static_cast<uint32_t>(swapChain->swapChainImages.size());
         init_info.MinImageCount = std::max<uint32_t>(imageCount, 2);
@@ -132,7 +132,7 @@ void Engine::initialize()
         imguiPipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
         init_info.PipelineInfoMain.RenderPass = VK_NULL_HANDLE;
         init_info.PipelineInfoMain.Subpass = 0;
-        init_info.PipelineInfoMain.MSAASamples = static_cast<VkSampleCountFlagBits>(device->getMsaaSamples());
+        init_info.PipelineInfoMain.MSAASamples = static_cast<VkSampleCountFlagBits>(device->msaaSamples);
         init_info.PipelineInfoMain.PipelineRenderingCreateInfo = imguiPipelineRenderingInfo;
         if (!ImGui_ImplVulkan_Init(&init_info))
         {
@@ -146,7 +146,7 @@ void Engine::initialize()
 void Engine::createImGuiDescriptorPool()
 {
     // Backends require separate sampled image + sampler descriptors (not combined); follow ImGui recommendations.
-    auto& vkDevice = device->getDevice();
+    auto& vkDevice = device->vkdevice;
     const uint32_t imguiSampledImageMin = std::max<uint32_t>(IMGUI_IMPL_VULKAN_MINIMUM_SAMPLED_IMAGE_POOL_SIZE, 1000);
     const uint32_t imguiSamplerMin = std::max<uint32_t>(IMGUI_IMPL_VULKAN_MINIMUM_SAMPLER_POOL_SIZE, 1000);
     std::array poolSizes{vk::DescriptorPoolSize{.type = vk::DescriptorType::eSampler, .descriptorCount = imguiSamplerMin},
@@ -184,7 +184,7 @@ void Engine::run()
     lastTime = std::chrono::high_resolution_clock::now();
     fpsTime = lastTime;
     const double targetMs = 1000.0 / 60.0; // 60 FPS
-    auto& deviceRef = device->getDevice();
+    auto& deviceRef = device->vkdevice;
 
     while (!quit)
     {
@@ -451,7 +451,7 @@ void Engine::loadObject()
 
     const std::string assetPath = discoveredAssets[selectedAssetIndex].string();
     log_info("Load Object started", "Engine");
-    device->getDevice().waitIdle();
+    device->vkdevice.waitIdle();
     assetsLoader->loadModel(assetPath, glm::make_vec3(loadedModelPosition));
     resourceManager->recreateObjectsBuffers();
     resourceManager->createUniformBuffer(*(objects.end()-1));
@@ -462,7 +462,7 @@ void Engine::shutdown() { cleanup(); }
 void Engine::cleanup()
 {
     if (!initialized) return;
-    auto& deviceRef = device->getDevice();
+    auto& deviceRef = device->vkdevice;
     deviceRef.waitIdle();
 
     if (tracyContext)

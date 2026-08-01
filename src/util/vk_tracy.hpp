@@ -28,11 +28,11 @@ public:
 	[[nodiscard]] bool active() const noexcept;
 
 #ifdef TRACY_ENABLE
-	[[nodiscard]] TracyVkCtx handle() const noexcept { return context_; }
+	[[nodiscard]] TracyVkCtx handle() const noexcept { return context; }
 #endif
 
 private:
 #ifdef TRACY_ENABLE
-	TracyVkCtx context_ = nullptr;
+	TracyVkCtx context = nullptr;
 #endif
 };

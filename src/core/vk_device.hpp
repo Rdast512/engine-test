@@ -4,9 +4,8 @@
 /**
  * @brief Manages the Vulkan device stack: instance, physical device, logical device, and queues.
  *
- * Device encapsulates the full Vulkan device initialisation sequence. It owns the RAII
- * wrappers for every core Vulkan object and exposes accessor methods consumed by the rest
- * of the engine (swapchain, renderer, resource manager, etc.).
+ * Device owns the RAII wrappers for core Vulkan objects. Stable handles and indices are public
+ * for direct access after init(). Mutable/config values use accessors only when needed.
  *
  * Initialisation order (called via init()):
  *   1. createInstance()       – Vulkan instance + validation layers
@@ -17,6 +16,75 @@
  */
 class Device
 {
+    /** @brief Creates the Vulkan instance with required SDL3 and debug extensions. */
+    void createInstance();
+
+    /** @brief Registers the VK_EXT_debug_utils messenger for validation output (no-op when validation is off). */
+    void setupDebugMessenger();
+
+    /** @brief Creates the Vulkan surface backed by the SDL3 window. */
+    void createSurface();
+
+    /**
+     * @brief Selects the best available GPU using a simple scoring heuristic.
+     *
+     * Discrete GPUs receive +1000 points; the device's maxImageDimension2D is added
+     * on top.  Devices without geometry shader support are excluded outright.
+     */
+    void pickPhysicalDevice();
+
+    /**
+     * @brief Resolves graphics, present, transfer, and compute queue family indices.
+     *
+     * Prefers dedicated families for transfer and compute.  Falls back to a shared
+     * transfer+compute family, and ultimately to the graphics family, when dedicated
+     * ones are not available.
+     *
+     * @param queueFamilyProperties2 Queue family properties returned by the physical device.
+     * @throws std::runtime_error if no graphics or present queue family can be found.
+     */
+    void findQueueFamilies(const std::vector<vk::QueueFamilyProperties2>& queueFamilyProperties2);
+
+    /**
+     * @brief Creates the logical device and retrieves all queue handles.
+     *
+     * Builds the full feature-chain (Vulkan 1.1–1.4 core plus every required EXT/KHR
+     * device feature), populates queueCreateInfos for all distinct queue families, and
+     * assigns debug names to queues and device objects.
+     */
+    void createLogicalDevice();
+
+    /**
+     * @brief Queries and returns the maximum MSAA sample count supported by the GPU.
+     *
+     * Takes the intersection of framebufferColorSampleCounts and
+     * framebufferDepthSampleCounts to ensure both attachment types can use the
+     * returned value.
+     */
+    vk::SampleCountFlagBits getMaxUsableSampleCount();
+
+public:
+    /**
+     * @brief Constructs a Device object.
+     * @param window                SDL3 window used for surface creation; must outlive this object.
+     * @param enableValidationLayers Enable Khronos validation layers and debug messenger output.
+     */
+    Device(SDL_Window* window, bool enableValidationLayers = false);
+    ~Device() = default;
+
+    /**
+     * @brief Runs the full Vulkan device initialisation sequence.
+     *
+     * Must be called once before any other method.  Calls createInstance(),
+     * setupDebugMessenger(), createSurface(), pickPhysicalDevice(), and
+     * createLogicalDevice() in order.
+     */
+    void init();
+
+    // -------------------------------------------------------------------------
+    // Stable handles / indices — direct access (set during init, not mutated)
+    // -------------------------------------------------------------------------
+
     /**
      * @brief Required device extensions enabled on every logical device.
      *
@@ -116,108 +184,4 @@ class Device
         HardwareCapabilities{}; ///< Cached hardware capability support flags (e.g., ray-tracing, mesh shaders).
     DescriptorBindingMode descriptorBindingMode =
         DescriptorBindingMode::LegacySets; ///< Runtime-selected descriptor binding path.
-
-    /** @brief Creates the Vulkan instance with required SDL3 and debug extensions. */
-    void createInstance();
-
-    /** @brief Registers the VK_EXT_debug_utils messenger for validation output (no-op when validation is off). */
-    void setupDebugMessenger();
-
-    /** @brief Creates the Vulkan surface backed by the SDL3 window. */
-    void createSurface();
-
-    /**
-     * @brief Selects the best available GPU using a simple scoring heuristic.
-     *
-     * Discrete GPUs receive +1000 points; the device's maxImageDimension2D is added
-     * on top.  Devices without geometry shader support are excluded outright.
-     */
-    void pickPhysicalDevice();
-
-    /**
-     * @brief Resolves graphics, present, transfer, and compute queue family indices.
-     *
-     * Prefers dedicated families for transfer and compute.  Falls back to a shared
-     * transfer+compute family, and ultimately to the graphics family, when dedicated
-     * ones are not available.
-     *
-     * @param queueFamilyProperties2 Queue family properties returned by the physical device.
-     * @throws std::runtime_error if no graphics or present queue family can be found.
-     */
-    void findQueueFamilies(const std::vector<vk::QueueFamilyProperties2>& queueFamilyProperties2);
-
-    /**
-     * @brief Creates the logical device and retrieves all queue handles.
-     *
-     * Builds the full feature-chain (Vulkan 1.1–1.4 core plus every required EXT/KHR
-     * device feature), populates queueCreateInfos for all distinct queue families, and
-     * assigns debug names to queues and device objects.
-     */
-    void createLogicalDevice();
-
-public:
-    /**
-     * @brief Constructs a Device object.
-     * @param window                SDL3 window used for surface creation; must outlive this object.
-     * @param enableValidationLayers Enable Khronos validation layers and debug messenger output.
-     */
-    Device(SDL_Window* window, bool enableValidationLayers = false);
-    ~Device() = default;
-
-    /**
-     * @brief Runs the full Vulkan device initialisation sequence.
-     *
-     * Must be called once before any other method.  Calls createInstance(),
-     * setupDebugMessenger(), createSurface(), pickPhysicalDevice(), and
-     * createLogicalDevice() in order.
-     */
-    void init();
-
-    // -------------------------------------------------------------------------
-    // Accessors
-    // -------------------------------------------------------------------------
-
-    /// Returns the SDL3 window pointer passed at construction.
-    SDL_Window* getWindow() const { return window; }
-    /// Returns true if the Khronos validation layers were requested at construction.
-    bool isValidationLayersEnabled() const { return enableValidationLayers; }
-
-    const vk::raii::Context& getContext() const { return context; }
-    const vk::raii::Instance& getInstance() const { return instance; }
-    const vk::raii::DebugUtilsMessengerEXT& getDebugMessenger() const { return debugMessenger; }
-    const vk::raii::PhysicalDevice& getPhysicalDevice() const { return physicalDevice; }
-    const vk::raii::SurfaceKHR& getSurface() const { return surface; }
-    const vk::raii::Device& getDevice() const { return vkdevice; }
-    const vk::PhysicalDeviceFeatures& getDeviceFeatures() const { return deviceFeatures; }
-
-    const vk::raii::Queue& getGraphicsQueue() const { return graphicsQueue; }
-    const vk::raii::Queue& getPresentQueue() const { return presentQueue; }
-    const vk::raii::Queue& getTransferQueue() const { return transferQueue; }
-    const vk::raii::Queue& getComputeQueue() const { return computeQueue; }
-    const HardwareCapabilities& getHardwareCapabilities() const { return capabilities; }
-    DescriptorBindingMode getDescriptorBindingMode() const { return descriptorBindingMode; }
-    bool usesDescriptorHeaps() const { return descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps; }
-
-    /// Returns the deduplicated list of queue family indices used by this device.
-    const std::vector<uint32_t>& getQueueFamilyIndices() const { return queueFamilyIndices; }
-
-    /**
-     * @brief Queries and returns the maximum MSAA sample count supported by the GPU.
-     *
-     * Takes the intersection of framebufferColorSampleCounts and
-     * framebufferDepthSampleCounts to ensure both attachment types can use the
-     * returned value.
-     */
-    vk::SampleCountFlagBits getMaxUsableSampleCount();
-    /// Returns the cached MSAA sample count determined during device creation.
-    vk::SampleCountFlagBits getMsaaSamples() const { return msaaSamples; }
-
-    uint32_t getGraphicsQueueFamilyIndex() const { return graphicsIndex; }
-    uint32_t getTransferIndex() const { return transferIndex; }
-    uint32_t getComputeIndex() const { return computeIndex; }
-    uint32_t getGraphicsIndex() const { return graphicsIndex; }
-    uint32_t getPresentIndex() const { return presentIndex; }
-
-    /// Returns the list of required device extension names enabled on the logical device.
-    const std::vector<const char*>& getRequiredDeviceExtensions() const { return requiredDeviceExtension; }
 };

@@ -103,8 +103,8 @@ struct alignas(16) ObjectUB {
 
 struct EngineSettings
 {
-    uint8_t x_resolution;
-    uint8_t y_resolution;
+    uint8_t xResolution;
+    uint8_t yResolution;
     uint8_t mipmapLevel;
     bool hdr;
     bool fullscreen;

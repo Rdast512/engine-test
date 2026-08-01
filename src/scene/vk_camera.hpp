@@ -2,7 +2,6 @@
 #include <array>
 #include <core/types.hpp>
 #include "core/vk_swapchain.hpp"
-#include "vk_camera.hpp"
 #include "tracy/Tracy.hpp"
 
 class Camera
@@ -19,19 +18,31 @@ public:
     // ── Mouse look ────────────────────────────────────────────
     void rotate(float yawDelta, float pitchDelta);
 
-    // ── FOV / projection ──────────────────────────────────────
+    // ── FOV / projection (mutable: accessors) ─────────────────
     // fovVerticalDegrees clamped to [10, 150].
     void setFov(float fovVerticalDegrees);
     void addFov(float deltaDegrees);   // for scroll-wheel
 
     [[nodiscard]] float getFovDegrees() const { return glm::degrees(fov); }
 
+    [[nodiscard]] float getNearPlane() const { return nearPlane; }
+    void setNearPlane(float nearZ)
+    {
+        nearPlane = nearZ;
+        projDirty = true;
+    }
+
+    [[nodiscard]] float getFarPlane() const { return farPlane; }
+    void setFarPlane(float farZ)
+    {
+        farPlane = farZ;
+        projDirty = true;
+    }
+
     // ── GPU upload ────────────────────────────────────────────
     void updateCameraData(uint8_t currentImage);
 
-    [[nodiscard]] const std::array<vk::DeviceAddress, 2>& getCameraBufferAddresses() const noexcept { return cameraBufferAddresses; }
-    CameraData getCameraData(size_t currentImageIndex) const { return cameraData; }
-
+    // ── GPU resources (stable handles: direct access) ─────────
     VmaAllocator allocator = nullptr;
     SwapChain& swapChain;
     CameraData cameraData = {};

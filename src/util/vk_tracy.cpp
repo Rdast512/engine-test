@@ -18,24 +18,24 @@ void VkTracyContext::init(const vk::raii::Instance& instance,
 						 const char* contextName)
 {
 #ifdef TRACY_ENABLE
-	if (context_)
+	if (context)
 	{
 		return;
 	}
 
 #if defined(TRACY_VK_USE_SYMBOL_TABLE)
-	context_ = TracyVkContext(static_cast<VkInstance>(*instance), static_cast<VkPhysicalDevice>(*physicalDevice),
+	context = TracyVkContext(static_cast<VkInstance>(*instance), static_cast<VkPhysicalDevice>(*physicalDevice),
 							  static_cast<VkDevice>(*device), static_cast<VkQueue>(*queue),
 							  static_cast<VkCommandBuffer>(*setupCommandBuffer), nullptr, nullptr);
 #else
-	context_ = TracyVkContext(static_cast<VkPhysicalDevice>(*physicalDevice), static_cast<VkDevice>(*device),
+	context = TracyVkContext(static_cast<VkPhysicalDevice>(*physicalDevice), static_cast<VkDevice>(*device),
 							  static_cast<VkQueue>(*queue), static_cast<VkCommandBuffer>(*setupCommandBuffer));
 #endif
 
-	if (context_ && contextName)
+	if (context && contextName)
 	{
 		const auto len = static_cast<uint16_t>(std::min<size_t>(std::strlen(contextName), UINT16_MAX));
-		TracyVkContextName(context_, contextName, len);
+		TracyVkContextName(context, contextName, len);
 	}
 #else
 	(void)instance;
@@ -50,12 +50,12 @@ void VkTracyContext::init(const vk::raii::Instance& instance,
 void VkTracyContext::collect(const vk::raii::CommandBuffer& commandBuffer) const
 {
 #ifdef TRACY_ENABLE
-	if (!context_)
+	if (!context)
 	{
 		return;
 	}
 
-	TracyVkCollect(context_, static_cast<VkCommandBuffer>(*commandBuffer));
+	TracyVkCollect(context, static_cast<VkCommandBuffer>(*commandBuffer));
 #else
 	(void)commandBuffer;
 #endif
@@ -64,20 +64,20 @@ void VkTracyContext::collect(const vk::raii::CommandBuffer& commandBuffer) const
 void VkTracyContext::shutdown()
 {
 #ifdef TRACY_ENABLE
-	if (!context_)
+	if (!context)
 	{
 		return;
 	}
 
-	TracyVkDestroy(context_);
-	context_ = nullptr;
+	TracyVkDestroy(context);
+	context = nullptr;
 #endif
 }
 
 bool VkTracyContext::active() const noexcept
 {
 #ifdef TRACY_ENABLE
-	return context_ != nullptr;
+	return context != nullptr;
 #else
 	return false;
 #endif

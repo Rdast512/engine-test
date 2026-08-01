@@ -10,11 +10,11 @@
 #include "util/vk_utils.hpp"
 
 ResourceManager::ResourceManager(const Device& deviceWrapper, const VkAllocator& allocator, const std::vector<Vertex>& verticesIn, const std::vector<uint32_t>& indicesIn, std::vector<Object>& objectsIn):
-    deviceWrapper(deviceWrapper), allocator(allocator), physicalDevice(deviceWrapper.getPhysicalDevice()),
-    device(deviceWrapper.getDevice()), queueFamilyIndices(deviceWrapper.getQueueFamilyIndices()),
-    graphicsIndex(deviceWrapper.getGraphicsIndex()), graphicsQueue(deviceWrapper.getGraphicsQueue()),
-    transferQueue(deviceWrapper.getTransferQueue()), transferIndex(deviceWrapper.getTransferIndex()),
-    msaaSamples(deviceWrapper.getMsaaSamples()), vertices(verticesIn), indices(indicesIn), objects(objectsIn), hardwareCapabilities(deviceWrapper.getHardwareCapabilities())
+    deviceWrapper(deviceWrapper), allocator(allocator), physicalDevice(deviceWrapper.physicalDevice),
+    device(deviceWrapper.vkdevice), queueFamilyIndices(deviceWrapper.queueFamilyIndices),
+    graphicsIndex(deviceWrapper.graphicsIndex), graphicsQueue(deviceWrapper.graphicsQueue),
+    transferQueue(deviceWrapper.transferQueue), transferIndex(deviceWrapper.transferIndex),
+    msaaSamples(deviceWrapper.msaaSamples), vertices(verticesIn), indices(indicesIn), objects(objectsIn), hardwareCapabilities(deviceWrapper.capabilities)
 {
     log_info("Initialized", "ResourceManager");
 }
@@ -72,7 +72,9 @@ void ResourceManager::updateUniformBuffers(uint32_t currentImage)
     // Camera and projection matrices (shared by all objects)
     for (auto& gameObject : objects) {
         // Apply continuous rotation to the object
-        gameObject.rotation.y += 0.01f; // Slow rotation around Y axis
+        auto rotation = gameObject.getRotation();
+        rotation.y += 0.01f; // Slow rotation around Y axis
+        gameObject.setRotation(rotation);
 
         // Get the model matrix for this object
         glm::mat4 initialRotation = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));

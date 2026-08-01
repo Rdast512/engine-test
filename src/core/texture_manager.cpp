@@ -5,10 +5,10 @@
 // Construct a TextureManager which holds Vulkan device/queue handles and
 // creates a command pool for short-lived transfer/graphics commands.
 TextureManager::TextureManager(Device& deviceWrapper, const VkAllocator& allocator, DescriptorManager &descriptorManager) :
-    deviceWrapper(deviceWrapper), physicalDevice(deviceWrapper.getPhysicalDevice()), device(deviceWrapper.getDevice()),
-    graphicsQueue(deviceWrapper.getGraphicsQueue()), transferQueue(deviceWrapper.getTransferQueue()),
-    graphicsQueueFamilyIndex(deviceWrapper.getGraphicsIndex()),
-    transferQueueFamilyIndex(deviceWrapper.getTransferIndex()), allocator(allocator), descriptorManager(descriptorManager)
+    deviceWrapper(deviceWrapper), physicalDevice(deviceWrapper.physicalDevice), device(deviceWrapper.vkdevice),
+    graphicsQueue(deviceWrapper.graphicsQueue), transferQueue(deviceWrapper.transferQueue),
+    graphicsQueueFamilyIndex(deviceWrapper.graphicsIndex),
+    transferQueueFamilyIndex(deviceWrapper.transferIndex), allocator(allocator), descriptorManager(descriptorManager)
 {
     log_info("Constructor started", "TextureManager");
     vk::CommandPoolCreateInfo poolInfo{.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,

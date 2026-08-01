@@ -15,28 +15,22 @@ public:
     Scene() = default;
     ~Scene() = default;
 
-    // Move-only (ObjectStorage is move-only).
     Scene(Scene&&) noexcept = default;
     Scene& operator=(Scene&&) noexcept = default;
 
     Scene(const Scene&) = delete;
     Scene& operator=(const Scene&) = delete;
 
-    // --- World origin ---
-    [[nodiscard]] const glm::vec3& getStartPosition() const noexcept { return startPosition_; }
-    void setStartPosition(const glm::vec3& pos) noexcept { startPosition_ = pos; }
+    // --- World origin (mutable: accessors) ---
+    [[nodiscard]] const glm::vec3& getStartPosition() const noexcept { return startPosition; }
+    void setStartPosition(const glm::vec3& pos) noexcept { startPosition = pos; }
 
-    void setBaseAxes(const glm::vec3& right, const glm::vec3& up_dir, const glm::vec3& forward) noexcept;
+    void setBaseAxes(const glm::vec3& right, const glm::vec3& upDir, const glm::vec3& forward) noexcept;
 
-    // --- Owned object storage ---
-    [[nodiscard]] ObjectStorage& getObjectStorage() noexcept { return objectStorage_; }
-    [[nodiscard]] const ObjectStorage& getObjectStorage() const noexcept { return objectStorage_; }
+    // --- Owned storage (direct access) ---
+    // ObjectStorage is not defined yet; placeholder for scene graph work.
+    // ObjectStorage objectStorage;
 
 private:
-    glm::vec3 startPosition_{0.0f};
-
-    // Right, Up, Forward (default = identity / world axes).
-
-
-    ObjectStorage objectStorage_;
+    glm::vec3 startPosition{0.0f};
 };

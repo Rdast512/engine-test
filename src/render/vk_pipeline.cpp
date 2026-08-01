@@ -54,7 +54,8 @@ void Pipeline::createGraphicsPipeline()
     vk::raii::ShaderModule shaderModule = resourceManager.createShaderModule(readFile(shaderPath));
     auto bindingDescription = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
-    const bool useDescriptorHeaps = descriptorManager.usesDescriptorHeaps();
+    const bool useDescriptorHeaps =
+        descriptorManager.descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps;
     vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .pNext = nullptr,
         .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule, .pName = "vertMain"};
     vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .pNext = nullptr,

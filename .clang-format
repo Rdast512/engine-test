@@ -1,3 +1,6 @@
+# Formatting style for engine-test.
+# Identifier naming (camelCase params/members/locals, PascalCase types, no trailing '_')
+# is enforced by .clang-tidy (readability-identifier-naming), not clang-format.
 ---
 Language: Cpp
 BasedOnStyle: LLVM
@@ -25,11 +28,13 @@ BraceWrapping:
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
 BreakBeforeBraces: Custom
+# Prefer: Foo(int bar) : bar(bar) {} — same camelCase name for param and member.
 BreakConstructorInitializers: AfterColon
 BreakConstructorInitializersBeforeComma: false
 ColumnLimit: 120
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
-IncludeCategories: 
+PackConstructorInitializers: BinPack
+IncludeCategories:
   - Regex: '^<.*'
     Priority: 1
   - Regex: '^".*'
@@ -52,4 +57,5 @@ SpacesInConditionalStatement: false
 SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false
 TabWidth: 4
+UseTab: Never
 ...

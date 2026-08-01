@@ -9,10 +9,10 @@
 SwapChain::SwapChain(SDL_Window *window, const Device &device)
     : window(window),
       device(device),
-      physicalDevice(device.getPhysicalDevice()),
-      surface(device.getSurface()),
-      vkDevice(device.getDevice()),
-      queueFamilyIndices(device.getQueueFamilyIndices()) {}
+      physicalDevice(device.physicalDevice),
+      surface(device.surface),
+      vkDevice(device.vkdevice),
+      queueFamilyIndices(device.queueFamilyIndices) {}
 
 void SwapChain::init() {
     ZoneScopedN("SwapChain::init");

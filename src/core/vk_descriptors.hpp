@@ -29,15 +29,7 @@ public:
 
     void init();
 
-
-    [[nodiscard]] auto usesDescriptorHeaps() const -> bool
-    {
-        return descriptorBindingMode == DescriptorBindingMode::DescriptorHeaps;
-    }
-    [[nodiscard]] auto getDescriptorBindingMode() const -> DescriptorBindingMode { return descriptorBindingMode; }
-
-    [[nodiscard]] auto getResourceHeapInfo() const -> const vk::BindHeapInfoEXT& { return resourceHeapInfo; }
-    [[nodiscard]] auto getSamplerHeapInfo() const -> const vk::BindHeapInfoEXT& { return samplerHeapInfo; }
+    // Computed indices (not raw field passthrough)
     [[nodiscard]] auto getTextureDescriptorIndex() const -> uint32_t;
     [[nodiscard]] auto getSamplerDescriptorIndex() const -> uint32_t;
     void writeImageDescriptor(TextureAsset& textureAsset, const vk::ImageViewCreateInfo& imageViewCreateInfo);

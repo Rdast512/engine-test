@@ -23,13 +23,29 @@ public:
 
     void init();
 
-    [[nodiscard]] const vk::raii::Sampler &getTextureSampler() const { return textureSampler; }
-    [[nodiscard]] const vk::ImageViewCreateInfo &gettextureImageViewCreateInfo() const { return textureImageViewCreateInfo; }
-    [[nodiscard]] uint32_t getMipLevels() const { return mipLevels; }
     // Format-detecting texture loader.
     // Inspects the file extension and routes to the KTX or
     // stb (PNG/etc.) pipeline accordingly.
     [[nodiscard]] uint32_t loadTexture(std::string texturePath);
+
+    // Stable handles / cached data — direct access
+    Device &deviceWrapper;
+    const VkAllocator &allocator;
+    DescriptorManager &descriptorManager;
+    const vk::raii::PhysicalDevice &physicalDevice;
+    const vk::raii::Device &device;
+    const vk::raii::Queue &graphicsQueue;
+    const vk::raii::Queue &transferQueue;
+    uint32_t graphicsQueueFamilyIndex;
+    uint32_t transferQueueFamilyIndex;
+
+    std::unordered_map<std::string, TextureAsset> loadedTextures;
+    vk::raii::CommandPool commandPool = nullptr;
+    vk::raii::Buffer stagingBuffer = nullptr;
+    VmaAllocation stagingBufferMemory = nullptr;
+    vk::raii::Sampler textureSampler = nullptr;
+    vk::ImageViewCreateInfo textureImageViewCreateInfo;
+    uint32_t mipLevels = 0;
 
 private:
     void createTextureSampler();
@@ -48,28 +64,8 @@ private:
 
     auto beginSingleTimeCommands(const vk::raii::Queue &queue) -> vk::raii::CommandBuffer;
     void endSingleTimeCommands(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Queue &queue);
-    // void transitionImageLayout(vk::raii::CommandBuffer &commandBuffer, vk::Image image, uint32_t mipLevels,
-    //                            vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
     void copyBufferToImage(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Buffer &buffer,
                            const vk::raii::Image &image, uint32_t width, uint32_t height);
     void generateMipmaps(vk::raii::Image &image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight,
                          uint32_t mipLevels);
-
-    Device &deviceWrapper;
-    const VkAllocator &allocator;
-    DescriptorManager &descriptorManager;
-    const vk::raii::PhysicalDevice &physicalDevice;
-    const vk::raii::Device &device;
-    const vk::raii::Queue &graphicsQueue;
-    const vk::raii::Queue &transferQueue;
-    uint32_t graphicsQueueFamilyIndex;
-    uint32_t transferQueueFamilyIndex;
-
-    std::unordered_map<std::string, TextureAsset> loadedTextures;
-    vk::raii::CommandPool commandPool = nullptr;
-    vk::raii::Buffer stagingBuffer = nullptr;
-    VmaAllocation stagingBufferMemory = nullptr;
-    vk::raii::Sampler textureSampler = nullptr;
-    vk::ImageViewCreateInfo textureImageViewCreateInfo;
-    uint32_t mipLevels = 0;
 };

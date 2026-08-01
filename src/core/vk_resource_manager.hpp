@@ -36,9 +36,6 @@ public:
 
 	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char> &code) const;
 
-	const std::vector<vk::raii::Buffer>& getUniformBuffers() const { return uniformBuffers; }
-	vk::Extent2D getSwapChainExtent() const { return swapChainExtent; }
-
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits samples,
 					 vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
 					 vk::MemoryPropertyFlags properties, vk::raii::Image &image, VmaAllocation &imageMemory,
