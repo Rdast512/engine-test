@@ -100,8 +100,9 @@ void DescriptorManager::writeImageDescriptor(TextureAsset& textureAsset, const v
     auto resources = std::vector<vk::ResourceDescriptorInfoEXT>();
     auto descriptors = std::vector<vk::HostAddressRangeEXT>();
 
+    // Pack sampled-image descriptors with size as array stride (untyped heap indexing).
+    // Spec: imageDescriptorAlignment <= imageDescriptorSize, so consecutive slots stay aligned.
     const vk::DeviceSize currentResOffset = alignUp(textureDescriptorOffset, imageDescriptorAlignment);
-    textureDescriptorOffset = currentResOffset;
     const auto descriptorImageInfo = vk::ImageDescriptorInfoEXT{
         .sType = vk::StructureType::eImageDescriptorInfoEXT,
         .pNext = nullptr,
@@ -126,9 +127,18 @@ void DescriptorManager::writeImageDescriptor(TextureAsset& textureAsset, const v
         device.writeResourceDescriptorsEXT(resources, descriptors);
     }
 
-    log_info(std::format("Descriptor heap image layout imageDescSize={} imageAlign={} imageIndex={}",
-                         imageDescriptorSize, imageDescriptorAlignment, currentResOffset / imageDescriptorAlignment), "DescriptorHeap");
-    textureAsset.descriptorHeapIndex = (currentResOffset / imageDescriptorAlignment);
+    // Advance cursor so the next texture gets a new heap slot (was missing — every
+    // load overwrote slot 0 and both models shared the last texture).
+    textureDescriptorOffset = currentResOffset + imageDescriptorSize;
+    textureDescriptorOffset = alignUp(textureDescriptorOffset, imageDescriptorAlignment);
+
+    const uint32_t heapIndex = static_cast<uint32_t>(currentResOffset / imageDescriptorSize);
+    textureAsset.descriptorHeapIndex = heapIndex;
+
+    log_info(std::format("Descriptor heap image write: offset={} size={} align={} index={} nextOffset={}",
+                         currentResOffset, imageDescriptorSize, imageDescriptorAlignment, heapIndex,
+                         textureDescriptorOffset),
+             "DescriptorHeap");
 }
 
 
