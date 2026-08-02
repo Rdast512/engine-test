@@ -2,59 +2,82 @@
 
 #include "types.hpp"
 
+#include <cstdint>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
 
 // ---------------------------------------------------------------------------
-// Object - a renderable entity with its own transform and per-frame uniform
-//          buffer resources.  Follows RAII: the destructor releases all GPU
-//          allocations automatically through vk::raii wrappers.
+// Dense entity index into ObjectStorage SoA columns. Not a generational handle.
 // ---------------------------------------------------------------------------
-class Object
+using EntityId = uint32_t;
+inline constexpr EntityId kInvalidEntityId = ~EntityId{0};
+
+struct Transform
+{
+    glm::vec3 position{0.0f, 0.0f, 0.0f};
+    glm::vec3 rotation{0.0f, 0.0f, 0.0f}; // radians, XYZ Euler (matches prior Object)
+    glm::vec3 scale{1.0f, 1.0f, 1.0f};
+};
+
+struct MeshDraw
+{
+    uint32_t firstIndex = 0;
+    uint32_t indexCount = 0;
+    uint32_t baseVertex = 0;
+};
+
+struct MaterialRef
+{
+    uint32_t textureIndex = 0;
+    uint32_t materialId = 0;
+};
+
+namespace EntityFlag
+{
+inline constexpr uint32_t None = 0;
+inline constexpr uint32_t Active = 1u << 0;
+inline constexpr uint32_t Dynamic = 1u << 1;
+} // namespace EntityFlag
+
+// ---------------------------------------------------------------------------
+// ObjectStorage — SoA world instances. No Vulkan handles here.
+// Columns are public for direct span-friendly access (DOD).
+// ---------------------------------------------------------------------------
+class ObjectStorage
 {
 public:
-    Object() = default;
+    std::vector<Transform> transforms;
+    std::vector<glm::mat4> modelMatrices;
+    std::vector<glm::mat4> prevModelMatrices;
+    std::vector<MeshDraw> meshDraws;
+    std::vector<MaterialRef> materials;
+    std::vector<uint32_t> flags;
+    std::vector<std::string> names;
 
-    Object(uint32_t currentIndex, uint32_t indexCount, uint32_t createTextureImage)
-        : firstIndex(currentIndex), indexCount(indexCount), textureIndex(createTextureImage) {}
+    [[nodiscard]] EntityId create(const Transform& transform,
+                                  const MeshDraw& meshDraw,
+                                  const MaterialRef& material,
+                                  std::string_view name = {});
 
-    // Frees VMA uniform-buffer allocations via the stored allocator handle.
-    ~Object();
+    [[nodiscard]] uint32_t size() const noexcept { return static_cast<uint32_t>(transforms.size()); }
+    [[nodiscard]] bool empty() const noexcept { return transforms.empty(); }
 
-    // --- Move semantics (required because vk::raii types are move-only) ---
-    Object(Object&& other) noexcept = default;
-    Object& operator=(Object&& other) noexcept = default;
-    Object(const Object&) = delete;
-    Object& operator=(const Object&) = delete;
-
-    // --- Transform (mutable values: accessors) ---
-    [[nodiscard]] const glm::vec3& getPosition() const noexcept { return position; }
-    [[nodiscard]] const glm::vec3& getRotation() const noexcept { return rotation; }
-    [[nodiscard]] const glm::vec3& getScale() const noexcept { return scale; }
-
-    void setPosition(const glm::vec3& pos) noexcept { position = pos; }
-    void setRotation(const glm::vec3& rot) noexcept { rotation = rot; }
-    void setScale(const glm::vec3& scl) noexcept { scale = scl; }
-
-    [[nodiscard]] glm::mat4 getModelMatrix() const;
-
-    // --- GPU resources (stable handles: direct access) ---
-    std::string name;
-
-    std::array<void*, 2> uniformBuffersMapped = {nullptr, nullptr};
-    std::array<vk::raii::Buffer, 2> uniformBuffers = {nullptr, nullptr};
-    std::array<VmaAllocation, 2> uniformBuffersMemory = {nullptr, nullptr};
-    std::array<vk::DeviceAddress, 2> uboAddresses = {0, 0};
-    glm::mat4 modelMatrix{};
-    // VMA allocator handle — set by ResourceManager when uniform buffers are
-    // allocated. Used by the destructor to free VMA-backed resources.
-    VmaAllocator vmaAllocator = nullptr;
-    // draw inderect will replace this data
-    uint32_t firstIndex = 0; // Offset into the global index buffer
-    uint32_t indexCount = 0; // How many indices to draw
-
-    uint32_t textureIndex = 0;
-
-private:
-    glm::vec3 position{1.0f, 1.0f, 3.0f};
-    glm::vec3 rotation{0.0f};
-    glm::vec3 scale{1.0f};
+    void clear() noexcept;
 };
+
+// ---------------------------------------------------------------------------
+// Systems (span-based; safe for future parallel ranges)
+// ---------------------------------------------------------------------------
+
+[[nodiscard]] glm::mat4 computeModelMatrix(const Transform& transform);
+
+// Demo / gameplay spin on Y (radians per call).
+void applyYawSpin(std::span<Transform> transforms, float deltaYawRadians);
+
+// Writes ObjectUB[i] for each active entity; updates prevModelMatrices for next frame.
+// meshPreRotation is applied as: model = trs * meshPreRotation (same order as before).
+void writeObjectUbs(ObjectStorage& storage,
+                    std::span<ObjectUB> mappedUbs,
+                    const glm::mat4& meshPreRotation);

@@ -200,7 +200,11 @@ static std::vector<char> readFile(const std::string& filename)
 }
 
 
-AssetsLoader::AssetsLoader(std::vector<Object> &objectsIn, TextureManager &textureManager) : vertices(), indices(), objects(objectsIn), textureManager(textureManager) { log_info("AssetsLoader initialized", "AssetLoader"); }
+AssetsLoader::AssetsLoader(ObjectStorage& objectStorageIn, TextureManager& textureManagerIn)
+    : vertices(), indices(), objectStorage(objectStorageIn), textureManager(textureManagerIn)
+{
+    log_info("AssetsLoader initialized", "AssetLoader");
+}
 
 
 void AssetsLoader::loadModel(std::string modelPath, glm::vec3 xyz)
@@ -351,10 +355,12 @@ bool AssetsLoader::loadGltfModel(const std::string& modelPath, glm::vec3 xyz)
             imagePath = (modelDir / uri).string();
         }
     }
-    Object object(currentIndex, indexCount, textureManager.loadTexture(imagePath));
-    object.setPosition(glm::vec3{xyz[0], xyz[1], xyz[2]});
-    log_info(std::format("Loaded model current index: {} | index count: {}", currentIndex, indexCount), "AssetLoader");
-    objects.push_back(std::move(object));
+    const Transform transform{.position = glm::vec3{xyz[0], xyz[1], xyz[2]}};
+    const MeshDraw meshDraw{.firstIndex = currentIndex, .indexCount = indexCount, .baseVertex = 0};
+    const MaterialRef material{.textureIndex = textureManager.loadTexture(imagePath), .materialId = 0};
+    const EntityId id = objectStorage.create(transform, meshDraw, material, modelPath);
+    log_info(std::format("Loaded model entity {} | firstIndex: {} | index count: {}", id, currentIndex, indexCount),
+             "AssetLoader");
     currentIndex += indexCount;
 
     log_info(std::format("Model loaded (glTF): {} | vertices: {} | indices: {}",
@@ -404,10 +410,12 @@ bool AssetsLoader::loadObjModel(const std::string& modelPath, glm::vec3 xyz)
             indexCount++;
         }
     }
-    Object object(currentIndex, indexCount, textureManager.loadTexture(TEXTURE_PATH.string()));
-    object.setPosition(glm::vec3{xyz[0], xyz[1], xyz[2]});
-    log_info(std::format("Loaded model current index: {} | index count: {}", currentIndex, indexCount));
-    objects.push_back(std::move(object));
+    const Transform transform{.position = glm::vec3{xyz[0], xyz[1], xyz[2]}};
+    const MeshDraw meshDraw{.firstIndex = currentIndex, .indexCount = indexCount, .baseVertex = 0};
+    const MaterialRef material{.textureIndex = textureManager.loadTexture(TEXTURE_PATH.string()), .materialId = 0};
+    const EntityId id = objectStorage.create(transform, meshDraw, material, modelPath);
+    log_info(std::format("Loaded model entity {} | firstIndex: {} | index count: {}", id, currentIndex, indexCount),
+             "AssetLoader");
     currentIndex += indexCount;
     log_info(std::format("Model loaded (OBJ): {} | vertices: {} | indices: {}",
                          modelPath, vertices.size(), indices.size()), "AssetLoader");

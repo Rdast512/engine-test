@@ -22,6 +22,7 @@ void Renderer::setTracyContext(VkTracyContext* tracyContextIn) { tracyContext = 
 
 void Renderer::rebuildSwapchainResources() const
 {
+    ZoneScopedN("SwapchainRecreate");
     resourceManager.updateSwapChainExtent(swapChain.swapChainExtent);
     resourceManager.updateSwapChainImageFormat(swapChain.swapChainImageFormat);
     resourceManager.setSwapChainImageCount(static_cast<uint32_t>(swapChain.swapChainImages.size()));
@@ -31,7 +32,7 @@ void Renderer::rebuildSwapchainResources() const
 
 void Renderer::drawFrame()
 {
-    ZoneScoped;
+    ZoneScopedN("Renderer::drawFrame");
     auto& deviceRef = device.vkdevice;
     auto& graphicsQueue = device.graphicsQueue;
     auto& presentQueue = device.presentQueue;
@@ -42,7 +43,8 @@ void Renderer::drawFrame()
 
     TracyPlot("Vulkan/SwapchainImagesInUse", static_cast<double>(swapChain.swapChainImages.size()));
     TracyPlot("Vulkan/CommandBuffersInUse", static_cast<double>(resourceManager.commandBuffers.size()));
-    TracyPlot("Vulkan/UniformBuffersInUse", static_cast<double>(resourceManager.uniformBuffers.size()));
+    TracyPlot("Vulkan/InstanceCapacity", static_cast<double>(resourceManager.instanceCapacity));
+    TracyPlot("Vulkan/EntityCount", static_cast<double>(resourceManager.objectStorage.size()));
     TracyPlot("Vulkan/VerticesInUse", static_cast<double>(resourceManager.vertices.size()));
     TracyPlot("Vulkan/IndicesInUse", static_cast<double>(resourceManager.indices.size()));
     TracyPlot("Vulkan/VertexBytesInUse", static_cast<double>(resourceManager.vertices.size() * sizeof(Vertex)));
@@ -64,6 +66,7 @@ void Renderer::drawFrame()
     }
 
     if (result == vk::Result::eErrorOutOfDateKHR) {
+        ZoneScopedN("SwapchainRecreate_Acquire");
         swapChain.recreateSwapChain();
         rebuildSwapchainResources();
         return;
@@ -116,6 +119,7 @@ void Renderer::drawFrame()
     }
 
     if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR) {
+        ZoneScopedN("SwapchainRecreate_Present");
         swapChain.recreateSwapChain();
         rebuildSwapchainResources();
     } else if (result != vk::Result::eSuccess) {
@@ -130,19 +134,22 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
 {
     ZoneScoped;
     auto& commandBuffers = resourceManager.commandBuffers;
+    auto& cmd = commandBuffers[currentFrame];
 
-    const auto indexCount = resourceManager.indices.size();
-    commandBuffers[currentFrame].begin({});
+#ifdef TRACY_ENABLE
+    const bool gpuTrace = tracyContext != nullptr && tracyContext->active();
+    TracyVkCtx const gpuCtx = gpuTrace ? tracyContext->handle() : nullptr;
+#endif
+
+    cmd.begin({});
 
     const vk::ImageSubresourceRange colorRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1};
     {
         ZoneScopedN("TransitionToRender");
 #ifdef TRACY_ENABLE
-        if (tracyContext && tracyContext->active()) {
-            TracyVkZone(tracyContext->handle(), *commandBuffers[currentFrame], "GPU_TransitionToRender");
-        }
+        TracyVkNamedZone(gpuCtx, gpuZoneTransitionToRender, *cmd, "GPU_TransitionToRender", gpuTrace);
 #endif
-        transitionImageLayout(&commandBuffers[currentFrame], swapChain.swapChainImages[imageIndex], 1,
+        transitionImageLayout(&cmd, swapChain.swapChainImages[imageIndex], 1,
                               vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal, colorRange,
                               VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, vk::PipelineStageFlagBits2::eTopOfPipe,
                               vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eNone,
@@ -176,31 +183,38 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
     {
         ZoneScopedN("DrawCalls");
 #ifdef TRACY_ENABLE
-        if (tracyContext && tracyContext->active()) {
-            TracyVkZone(tracyContext->handle(), *commandBuffers[currentFrame], "GPU_DrawCalls");
-        }
+        TracyVkNamedZone(gpuCtx, gpuZoneDrawCalls, *cmd, "GPU_DrawCalls", gpuTrace);
 #endif
-        commandBuffers[currentFrame].beginRendering(renderingInfo);
-        commandBuffers[currentFrame].bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline.graphicsPipeline);
-        commandBuffers[currentFrame].bindVertexBuffers(0, *resourceManager.vertexBuffer, {0});
-        commandBuffers[currentFrame].bindIndexBuffer(*resourceManager.indexBuffer, 0, vk::IndexType::eUint32);
-        commandBuffers[currentFrame].setViewport(
+        cmd.beginRendering(renderingInfo);
+        cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline.graphicsPipeline);
+        cmd.bindVertexBuffers(0, *resourceManager.vertexBuffer, {0});
+        cmd.bindIndexBuffer(*resourceManager.indexBuffer, 0, vk::IndexType::eUint32);
+        cmd.setViewport(
             0,
             vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChain.swapChainExtent.width),
                          static_cast<float>(swapChain.swapChainExtent.height), 0.0f, 1.0f));
-        commandBuffers[currentFrame].setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain.swapChainExtent));
+        cmd.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain.swapChainExtent));
 
-        // After that use a pointer to that function.
         const auto& resourceHeapInfo = descriptorManager.resourceHeapInfo;
         const auto& samplerHeapInfo = descriptorManager.samplerHeapInfo;
-        commandBuffers[currentFrame].bindResourceHeapEXT(resourceHeapInfo);
-        commandBuffers[currentFrame].bindSamplerHeapEXT(samplerHeapInfo);
-        for (const auto& gameObject : resourceManager.objects) {
+        cmd.bindResourceHeapEXT(resourceHeapInfo);
+        cmd.bindSamplerHeapEXT(samplerHeapInfo);
+
+        const auto& storage = resourceManager.objectStorage;
+        const uint32_t entityCount = storage.size();
+
+        for (EntityId id = 0; id < entityCount; ++id)
+        {
+            if ((storage.flags[id] & EntityFlag::Active) == 0)
+            {
+                continue;
+            }
+
             PushData2 pushData{};
-            pushData.ObjectUBAddress = gameObject.uboAddresses[currentFrame];
+            pushData.ObjectUBAddress = resourceManager.instanceUboAddress(currentFrame, id);
             pushData.cameraAddress = camera.cameraBufferAddresses[currentFrame];
             pushData.texture = {
-                .resourceIndex = gameObject.textureIndex,
+                .resourceIndex = storage.materials[id].textureIndex,
                 .samplerIndex = 0,
             };
             pushData.samplerHandle = {
@@ -213,10 +227,10 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
                 .pNext = nullptr,
                 .offset = 0,
                 .data = vk::HostAddressRangeConstEXT{.address = &pushData, .size = sizeof(PushData2)}};
-            commandBuffers[currentFrame].pushDataEXT(pushDataInfo);
+            cmd.pushDataEXT(pushDataInfo);
 
-
-            commandBuffers[currentFrame].drawIndexed(gameObject.indexCount, 1, gameObject.firstIndex, 0, 0);
+            const MeshDraw& draw = storage.meshDraws[id];
+            cmd.drawIndexed(draw.indexCount, 1, draw.firstIndex, static_cast<int32_t>(draw.baseVertex), 0);
         }
     }
 
@@ -224,36 +238,33 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
     if (imguiEnabled && imguiVisible) {
         ZoneScopedN("RenderImGui");
 #ifdef TRACY_ENABLE
-        if (tracyContext && tracyContext->active()) {
-            TracyVkZone(tracyContext->handle(), *commandBuffers[currentFrame], "GPU_ImGui");
-        }
+        TracyVkNamedZone(gpuCtx, gpuZoneImGui, *cmd, "GPU_ImGui", gpuTrace);
 #endif
         if (ImGui::GetDrawData() != nullptr) {
-            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *commandBuffers[currentFrame]);
+            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *cmd);
         }
     }
 #endif
 
-    commandBuffers[currentFrame].endRendering();
+    cmd.endRendering();
     {
         ZoneScopedN("TransitionToPresent");
 #ifdef TRACY_ENABLE
-        if (tracyContext && tracyContext->active()) {
-            TracyVkZone(tracyContext->handle(), *commandBuffers[currentFrame], "GPU_TransitionToPresent");
-        }
+        TracyVkNamedZone(gpuCtx, gpuZoneTransitionToPresent, *cmd, "GPU_TransitionToPresent", gpuTrace);
 #endif
         transitionImageLayout(
-            &commandBuffers[currentFrame], swapChain.swapChainImages[imageIndex], 1,
+            &cmd, swapChain.swapChainImages[imageIndex], 1,
             vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR, colorRange,
             VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, vk::PipelineStageFlagBits2::eColorAttachmentOutput,
             vk::PipelineStageFlagBits2::eBottomOfPipe, vk::AccessFlagBits2::eColorAttachmentWrite, {});
     }
 
     if (tracyContext) {
-        tracyContext->collect(commandBuffers[currentFrame]);
+        ZoneScopedN("TracyVkCollect");
+        tracyContext->collect(cmd);
     }
 
-    commandBuffers[currentFrame].end();
+    cmd.end();
 }
 
 void Renderer::waitIdle() const { device.vkdevice.waitIdle(); }

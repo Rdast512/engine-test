@@ -1,54 +1,75 @@
-#include "../core/object_storage.hpp"
+#include "object_storage.hpp"
 
-#include "logger.hpp"
+#include <glm/gtc/matrix_transform.hpp>
 
+#include <cassert>
 
-// ============================================================================
-// Object
-// ============================================================================
+EntityId ObjectStorage::create(const Transform& transform,
+                               const MeshDraw& meshDraw,
+                               const MaterialRef& material,
+                               std::string_view name)
+{
+    const auto id = static_cast<EntityId>(transforms.size());
+    transforms.push_back(transform);
+    modelMatrices.emplace_back(1.0f);
+    prevModelMatrices.emplace_back(1.0f);
+    meshDraws.push_back(meshDraw);
+    materials.push_back(material);
+    flags.push_back(EntityFlag::Active | EntityFlag::Dynamic);
+    names.emplace_back(name);
+    return id;
+}
 
-glm::mat4 Object::getModelMatrix() const
+void ObjectStorage::clear() noexcept
+{
+    transforms.clear();
+    modelMatrices.clear();
+    prevModelMatrices.clear();
+    meshDraws.clear();
+    materials.clear();
+    flags.clear();
+    names.clear();
+}
+
+glm::mat4 computeModelMatrix(const Transform& transform)
 {
     glm::mat4 model{1.0f};
-    model = glm::translate(model, position);
-    model = glm::rotate(model, rotation.x, glm::vec3{1.0f, 0.0f, 0.0f});
-    model = glm::rotate(model, rotation.y, glm::vec3{0.0f, 1.0f, 0.0f});
-    model = glm::rotate(model, rotation.z, glm::vec3{0.0f, 0.0f, 1.0f});
-    model = glm::scale(model, scale);
+    model = glm::translate(model, transform.position);
+    model = glm::rotate(model, transform.rotation.x, glm::vec3{1.0f, 0.0f, 0.0f});
+    model = glm::rotate(model, transform.rotation.y, glm::vec3{0.0f, 1.0f, 0.0f});
+    model = glm::rotate(model, transform.rotation.z, glm::vec3{0.0f, 0.0f, 1.0f});
+    model = glm::scale(model, transform.scale);
     return model;
 }
 
-Object::~Object()
+void applyYawSpin(std::span<Transform> transforms, float deltaYawRadians)
 {
-    for (uint32_t i = 0; i < uniformBuffersMemory.size(); ++i)
+    for (Transform& t : transforms)
     {
-        // 1. Release every vk::raii::Buffer wrapper unconditionally.
-        //    This nulls the internal dispatcher pointer so the wrapper
-        //    destructor never touches the Device after device.reset().
-        VkBuffer rawBuf = VK_NULL_HANDLE;
-        if (*uniformBuffers[i] != VK_NULL_HANDLE)
-        {
-            rawBuf = uniformBuffers[i].release();
-        }
-
-        // If the buffer handle was already null (moved-from state
-        // after a std::vector reallocation), the VMA allocation was
-        // transferred to the new owner — skip teardown for this slot.
-        if (rawBuf == VK_NULL_HANDLE) continue;
-        if (vmaAllocator == nullptr) continue;
-        if (uniformBuffersMemory[i] == nullptr) continue;
-
-        // 2. Unmap — VMA requires m_MapCount == 0 before destroy.
-        if (uniformBuffersMapped[i] != nullptr)
-        {
-            vmaUnmapMemory(vmaAllocator, uniformBuffersMemory[i]);
-            uniformBuffersMapped[i] = nullptr;
-        }
-
-        // 3. Single vmaDestroyBuffer call — frees both the Vulkan buffer
-        //    and the VMA allocation.
-        vmaDestroyBuffer(vmaAllocator, rawBuf, uniformBuffersMemory[i]);
-        uniformBuffersMemory[i] = nullptr;
+        t.rotation.y += deltaYawRadians;
     }
 }
 
+void writeObjectUbs(ObjectStorage& storage,
+                    std::span<ObjectUB> mappedUbs,
+                    const glm::mat4& meshPreRotation)
+{
+    const uint32_t count = storage.size();
+    assert(mappedUbs.size() >= count);
+
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        if ((storage.flags[i] & EntityFlag::Active) == 0)
+        {
+            continue;
+        }
+
+        const glm::mat4 model = computeModelMatrix(storage.transforms[i]) * meshPreRotation;
+        mappedUbs[i] = ObjectUB{
+            .modelMatrix = model,
+            .prevModelMatrix = storage.prevModelMatrices[i],
+        };
+        storage.prevModelMatrices[i] = model;
+        storage.modelMatrices[i] = model;
+    }
+}

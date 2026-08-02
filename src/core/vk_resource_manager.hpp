@@ -7,15 +7,17 @@
 #include "vk_allocator.hpp"
 #include "vk_device.hpp"
 #include "scene/vk_camera.hpp"
+#include "Constants.h"
 
 // Manages GPU resources (buffers, images, command pools) using Device + Assets data.
+// Instance ObjectUB data lives in a single host-visible buffer per frame slot (SoA-friendly).
 class ResourceManager {
 public:
 	ResourceManager(const Device &deviceWrapper,
 			   const VkAllocator &allocator,
 			   const std::vector<Vertex> &vertices,
 			   const std::vector<uint32_t> &indices,
-			   std::vector<Object> &objects);
+			   ObjectStorage &objectStorage);
 	~ResourceManager();
 
 	void init();
@@ -26,15 +28,18 @@ public:
 	void createDepthResources();
 	void createVertexBuffer();
 	void createIndexBuffer();
-    void createUniformBuffer(Object& obj);
+    // Grow/recreate the per-frame ObjectUB arrays so they fit at least entityCount entries.
+    void ensureInstanceCapacity(uint32_t entityCount);
     void createUniformBuffers();
 	void createColorResources();
-    void createObjectStorage();
     void recreateObjectsBuffers();
     void createCameraBuffers(Camera& camera);
 	void setSwapChainImageCount(uint32_t count) { swapChainImageCount = count; createSyncObjects(); }
 
 	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char> &code) const;
+
+    [[nodiscard]] vk::DeviceAddress instanceUboAddress(uint32_t frameSlot, EntityId entityId) const noexcept;
+
 
 	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits samples,
 					 vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
@@ -64,7 +69,7 @@ static void endCommandBuffer(vk::raii::CommandBuffer &commandBuffer, const vk::r
 	const vk::raii::Queue &graphicsQueue;
 	const vk::raii::Queue &transferQueue;
     const HardwareCapabilities hardwareCapabilities;
-    std::vector<Object> &objects;
+    ObjectStorage &objectStorage;
 	uint32_t graphicsIndex;
 	uint32_t transferIndex;
 	vk::SampleCountFlagBits msaaSamples;
@@ -90,11 +95,18 @@ static void endCommandBuffer(vk::raii::CommandBuffer &commandBuffer, const vk::r
 	VmaAllocation stagingBufferMemory = nullptr;
 	vk::raii::Buffer indexBuffer = nullptr;
 	VmaAllocation indexBufferMemory = nullptr;
-	std::vector<vk::raii::Buffer> uniformBuffers;
-	std::vector<VmaAllocation> uniformBuffersMemory;
-	std::vector<void *> uniformBuffersMapped;
 	vk::raii::Image colorImage = nullptr;
 	VmaAllocation colorImageMemory = nullptr;
 	vk::raii::ImageView colorImageView = nullptr;
-};
 
+    // One ObjectUB[capacity] buffer per frame-in-flight (host-visible).
+    std::array<vk::raii::Buffer, MAX_FRAMES_IN_FLIGHT> instanceUboBuffers = {nullptr, nullptr};
+    std::array<VmaAllocation, MAX_FRAMES_IN_FLIGHT> instanceUboMemory = {nullptr, nullptr};
+    std::array<void*, MAX_FRAMES_IN_FLIGHT> instanceUboMapped = {nullptr, nullptr};
+    std::array<vk::DeviceAddress, MAX_FRAMES_IN_FLIGHT> instanceUboBaseAddresses = {0, 0};
+    // Allocated instance ObjectUB slots per frame buffer (may be > entity count).
+    uint32_t instanceCapacity = 0;
+
+private:
+    void destroyInstanceUboBuffers();
+};

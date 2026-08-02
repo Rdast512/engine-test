@@ -5,13 +5,13 @@
 #include "../render/vk_pipeline.hpp"
 #include "../render/vk_renderer.hpp"
 #include "../util/vk_tracy.hpp"
-#include "object_storage.hpp"
 #include "vk_allocator.hpp"
 #include "vk_descriptors.hpp"
 #include "vk_device.hpp"
 #include "vk_resource_manager.hpp"
 #include "vk_swapchain.hpp"
 #include "scene/vk_camera.hpp"
+#include "scene/vk_scene.hpp"
 
 
 class Engine{
@@ -24,6 +24,7 @@ class Engine{
     std::unique_ptr<Device> device;
     std::unique_ptr<VkAllocator> allocator;
     std::unique_ptr<SwapChain> swapChain;
+    std::unique_ptr<Scene> scene;
     std::unique_ptr<AssetsLoader> assetsLoader;
     std::unique_ptr<ResourceManager> resourceManager;
     std::unique_ptr<VkTracyContext> tracyContext;
@@ -42,7 +43,6 @@ class Engine{
     VkFormat imguiColorFormat = VK_FORMAT_UNDEFINED;
     VkFormat imguiDepthFormat = VK_FORMAT_UNDEFINED;
     VkPipelineRenderingCreateInfoKHR imguiPipelineRenderingInfo{};
-    std::vector<Object> objects;
     std::vector<std::filesystem::path> discoveredAssets;
     int selectedAssetIndex = -1;
     float loadedModelPosition[3] = {0.0f, 0.0f, 0.0f};

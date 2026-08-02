@@ -1,6 +1,8 @@
 #include "vk_resource_manager.hpp"
+#include <algorithm>
 #include <chrono>
 #include <format>
+#include <span>
 #include <glm/gtc/matrix_transform.hpp>
 #include <stdexcept>
 #include "Constants.h"
@@ -9,19 +11,51 @@
 #include "util/vk_tracy.hpp"
 #include "util/vk_utils.hpp"
 
-ResourceManager::ResourceManager(const Device& deviceWrapper, const VkAllocator& allocator, const std::vector<Vertex>& verticesIn, const std::vector<uint32_t>& indicesIn, std::vector<Object>& objectsIn):
-    deviceWrapper(deviceWrapper), allocator(allocator), physicalDevice(deviceWrapper.physicalDevice),
-    device(deviceWrapper.vkdevice), queueFamilyIndices(deviceWrapper.queueFamilyIndices),
-    graphicsIndex(deviceWrapper.graphicsIndex), graphicsQueue(deviceWrapper.graphicsQueue),
-    transferQueue(deviceWrapper.transferQueue), transferIndex(deviceWrapper.transferIndex),
-    msaaSamples(deviceWrapper.msaaSamples), vertices(verticesIn), indices(indicesIn), objects(objectsIn), hardwareCapabilities(deviceWrapper.capabilities)
+ResourceManager::ResourceManager(const Device& deviceWrapper, const VkAllocator& allocator,
+                                 const std::vector<Vertex>& verticesIn, const std::vector<uint32_t>& indicesIn,
+                                 ObjectStorage& objectStorageIn)
+    : deviceWrapper(deviceWrapper),
+      allocator(allocator),
+      physicalDevice(deviceWrapper.physicalDevice),
+      device(deviceWrapper.vkdevice),
+      queueFamilyIndices(deviceWrapper.queueFamilyIndices),
+      graphicsQueue(deviceWrapper.graphicsQueue),
+      transferQueue(deviceWrapper.transferQueue),
+      hardwareCapabilities(deviceWrapper.capabilities),
+      objectStorage(objectStorageIn),
+      graphicsIndex(deviceWrapper.graphicsIndex),
+      transferIndex(deviceWrapper.transferIndex),
+      msaaSamples(deviceWrapper.msaaSamples),
+      vertices(verticesIn),
+      indices(indicesIn)
 {
     log_info("Initialized", "ResourceManager");
+}
+
+void ResourceManager::destroyInstanceUboBuffers()
+{
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    {
+        if (instanceUboMapped[i] != nullptr && instanceUboMemory[i] != nullptr)
+        {
+            vmaUnmapMemory(allocator.allocator, instanceUboMemory[i]);
+            instanceUboMapped[i] = nullptr;
+        }
+        if (instanceUboMemory[i] != nullptr)
+        {
+            VkBuffer raw = instanceUboBuffers[i].release();
+            vmaDestroyBuffer(allocator.allocator, raw, instanceUboMemory[i]);
+            instanceUboMemory[i] = nullptr;
+        }
+        instanceUboBaseAddresses[i] = 0;
+    }
+    instanceCapacity = 0;
 }
 
 ResourceManager::~ResourceManager()
 {
     log_info("Destructor called", "ResourceManager");
+    destroyInstanceUboBuffers();
     {
         if (vertexBufferMemory)  { VkBuffer raw = vertexBuffer.release();  vmaDestroyBuffer(allocator.allocator, raw, vertexBufferMemory); }
         if (indexBufferMemory)   { VkBuffer raw = indexBuffer.release();   vmaDestroyBuffer(allocator.allocator, raw, indexBufferMemory); }
@@ -34,19 +68,11 @@ void ResourceManager::init()
 {
     ZoneScopedN("ResourceManager::init");
     log_info("init() started", "ResourceManager");
-    createObjectStorage();
     createCommandPool();
     createCommandBuffers();
     createUniformBuffers();
     createVertexBuffer();
     createIndexBuffer();
-}
-
-
-void ResourceManager::createObjectStorage()
-{
-    ZoneScopedN("ResourceManager::createObjectStorage");
-    log_info("createObjectStorage() started", "ResourceManager");
 }
 
 void ResourceManager::createSyncObjects()
@@ -69,27 +95,25 @@ void ResourceManager::createSyncObjects()
 void ResourceManager::updateUniformBuffers(uint32_t currentImage)
 {
     ZoneScopedN("ResourceManager::updateUniformBuffer");
-    // Camera and projection matrices (shared by all objects)
-    for (auto& gameObject : objects) {
-        // Apply continuous rotation to the object
-        auto rotation = gameObject.getRotation();
-        rotation.y += 0.01f; // Slow rotation around Y axis
-        gameObject.setRotation(rotation);
-
-        // Get the model matrix for this object
-        glm::mat4 initialRotation = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        glm::mat4 model = gameObject.getModelMatrix() * initialRotation;
-
-
-        ObjectUB const uboData{
-            .modelMatrix = model,
-            .prevModelMatrix = gameObject.modelMatrix,
-        };
-        gameObject.modelMatrix = model; // Update the previous model matrix for the next frame
-
-        // Copy the UBO data to the mapped memory
-        memcpy(gameObject.uniformBuffersMapped[currentImage], &uboData, sizeof(uboData));
+    if (objectStorage.empty())
+    {
+        return;
     }
+
+    ensureInstanceCapacity(objectStorage.size());
+
+    applyYawSpin(objectStorage.transforms, 0.01f);
+
+    const glm::mat4 meshPreRotation =
+        glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+
+    auto* mapped = static_cast<ObjectUB*>(instanceUboMapped[currentImage]);
+    writeObjectUbs(objectStorage, std::span(mapped, objectStorage.size()), meshPreRotation);
+}
+
+vk::DeviceAddress ResourceManager::instanceUboAddress(uint32_t frameSlot, EntityId entityId) const noexcept
+{
+    return instanceUboBaseAddresses[frameSlot] + static_cast<vk::DeviceAddress>(entityId) * sizeof(ObjectUB);
 }
 
 
@@ -280,13 +304,29 @@ void ResourceManager::createCameraBuffers(Camera& camera)
     }
 }
 
-void ResourceManager::createUniformBuffer(Object& obj)
+void ResourceManager::ensureInstanceCapacity(uint32_t entityCount)
 {
-    ZoneScopedN("ResourceManager::createUniformBuffers");
-    log_info("createUniformBuffers() started", "ResourceManager");
-    obj.vmaAllocator = allocator.allocator;
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vk::DeviceSize bufferSize = sizeof(ObjectUB);
+    if (entityCount == 0)
+    {
+        return;
+    }
+    if (entityCount <= instanceCapacity)
+    {
+        return;
+    }
+
+    ZoneScopedN("ResourceManager::ensureInstanceCapacity");
+    // Grow with headroom so interactive loads do not reallocate every time.
+    const uint32_t newCapacity = std::max(entityCount, instanceCapacity == 0 ? entityCount : instanceCapacity * 2);
+    log_info(std::format("Growing instance ObjectUB capacity {} -> {}", instanceCapacity, newCapacity),
+             "ResourceManager");
+
+    destroyInstanceUboBuffers();
+    instanceCapacity = newCapacity;
+
+    const vk::DeviceSize bufferSize = sizeof(ObjectUB) * static_cast<vk::DeviceSize>(instanceCapacity);
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    {
         vk::raii::Buffer buffer({});
         VmaAllocation bufferMem = nullptr;
         createBuffer(bufferSize,
@@ -294,65 +334,22 @@ void ResourceManager::createUniformBuffer(Object& obj)
                          vk::BufferUsageFlagBits::eShaderDeviceAddress,
                      vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
                      bufferMem, allocator.allocator, device, queueFamilyIndices,
-                     std::format("UniformBufferMemory_{}_{}", i, obj.name));
-        obj.uniformBuffers[i] = std::move(buffer);
-        obj.uniformBuffersMemory[i] = bufferMem;
+                     std::format("InstanceObjectUBMemory_{}", i));
+        instanceUboBuffers[i] = std::move(buffer);
+        instanceUboMemory[i] = bufferMem;
         void* data = nullptr;
         vmaMapMemory(allocator.allocator, bufferMem, &data);
-        obj.uniformBuffersMapped[i] = data;
-        obj.uboAddresses[i] = device.getBufferAddress({.buffer = *obj.uniformBuffers[i]});
+        instanceUboMapped[i] = data;
+        instanceUboBaseAddresses[i] = device.getBufferAddress({.buffer = *instanceUboBuffers[i]});
+        setDebugName(device, instanceUboBuffers[i], std::format("InstanceObjectUB_{}", i));
     }
 }
 
-// when recreating swapchain this should be called, otherwise ubos should be created for each obj individually.
 void ResourceManager::createUniformBuffers()
 {
     ZoneScopedN("ResourceManager::createUniformBuffers");
     log_info("createUniformBuffers() started", "ResourceManager");
-    for (auto& object : objects) {
-        object.vmaAllocator = allocator.allocator;
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vk::DeviceSize bufferSize = sizeof(ObjectUB);
-            vk::raii::Buffer buffer({});
-            VmaAllocation bufferMem = nullptr;
-            createBuffer(bufferSize,
-                         vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
-                             vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
-                         bufferMem, allocator.allocator, device, queueFamilyIndices,
-                         std::format("UniformBufferMemory_{}_{}", i, object.name));
-            object.uniformBuffers[i] = std::move(buffer);
-            object.uniformBuffersMemory[i] = bufferMem;
-            void* data = nullptr;
-            vmaMapMemory(allocator.allocator, bufferMem, &data);
-            object.uniformBuffersMapped[i] = data;
-            object.uboAddresses[i] = device.getBufferAddress({.buffer = *object.uniformBuffers[i]});
-            // setDebugName(device, object.uniformBuffers.back(), std::format("UniformBuffer_{}_{}", i, object.name));
-        }
-    }
-    // uniformBuffers.clear();
-    // uniformBuffersMemory.clear();
-    // uniformBuffersMapped.clear();
-    //
-    // for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    // {
-    //     vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
-    //     vk::raii::Buffer buffer({});
-    //     VmaAllocation bufferMem = nullptr;
-    //     createBuffer(bufferSize,
-    //              vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer |
-    //                  vk::BufferUsageFlagBits::eShaderDeviceAddress,
-    //                  vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, buffer,
-    //                  bufferMem, std::format("UniformBufferMemory_{}", i));
-    //     uniformBuffers.emplace_back(std::move(buffer));
-    //     uniformBuffersMemory.emplace_back(bufferMem);
-    //
-    //     void* mappedData = nullptr;
-    //     vmaMapMemory(allocator.allocator, bufferMem, &mappedData);
-    //     uniformBuffersMapped.emplace_back(mappedData);
-    //
-    //     setDebugName(device, uniformBuffers.back(), std::format("UniformBuffer_{}", i));
-    // }
+    ensureInstanceCapacity(std::max(objectStorage.size(), 1u));
 }
 
 void ResourceManager::recreateObjectsBuffers()

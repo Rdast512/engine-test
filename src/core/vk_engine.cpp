@@ -47,7 +47,6 @@ void Engine::initialize()
     log_info("ImGui fully disabled (ENGINE_ENABLE_IMGUI=0) — no context, backends, or GPU resources", "Engine");
 #endif
 
-    objects = std::vector<Object>();
     device = std::make_unique<Device>(window, false);
     device->init();
 
@@ -66,11 +65,12 @@ void Engine::initialize()
     textureManager = std::make_unique<TextureManager>(*device, *allocator, *descriptorManager);
     textureManager->init();
 
-    assetsLoader = std::make_unique<AssetsLoader>(objects, *textureManager);
+    scene = std::make_unique<Scene>();
+    assetsLoader = std::make_unique<AssetsLoader>(scene->objectStorage, *textureManager);
 
-    assetsLoader->loadModel(MODEL_PATH.string(),{0.0f, 0.0f, 0.0f});
-    resourceManager =
-        std::make_unique<ResourceManager>(*device, *allocator, assetsLoader->vertices, assetsLoader->indices, objects);
+    assetsLoader->loadModel(MODEL_PATH.string(), {0.0f, 0.0f, 0.0f});
+    resourceManager = std::make_unique<ResourceManager>(*device, *allocator, assetsLoader->vertices,
+                                                       assetsLoader->indices, scene->objectStorage);
     resourceManager->init();
     resourceManager->createCameraBuffers(*camera);
 
@@ -215,6 +215,8 @@ void Engine::run()
 
     while (!quit)
     {
+        ZoneScopedN("Frame");
+
         auto currentTime = std::chrono::high_resolution_clock::now();
         frameCount++;
 
@@ -222,6 +224,7 @@ void Engine::run()
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - fpsTime);
         if (duration.count() >= 1000)
         {
+            ZoneScopedN("FpsTitleUpdate");
             fps = frameCount * 1000.0f / duration.count();
             frameCount = 0;
             fpsTime = currentTime;
@@ -287,6 +290,7 @@ void Engine::run()
                 }
                 else if (e.type == SDL_EVENT_WINDOW_RESIZED)
                 {
+                    ZoneScopedN("SwapchainRecreate_Resize");
                     if (swapChain && renderer)
                     {
                         swapChain->recreateSwapChain();
@@ -321,6 +325,7 @@ void Engine::run()
             // LCtrl       → down (-Y)
             if (!imguiUiOpen)
             {
+                ZoneScopedN("CameraInput");
                 const float dt = std::chrono::duration<float>(currentTime - lastTime).count();
                 const float speed = 5.0f;
                 const float step = speed * dt;
@@ -336,20 +341,28 @@ void Engine::run()
                 if (keys[SDL_SCANCODE_LCTRL])  camera->moveUp     (-step);
             }
 
-            ZoneScopedN("DrawFrame");
-            renderer->drawFrame();
-            camera->updateCameraData(renderer->currentFrame);
+            // Upload camera for this frame's in-flight slot before recording/submit.
+            {
+                ZoneScopedN("DrawFrame");
+                camera->updateCameraData(renderer->currentFrame);
+                renderer->drawFrame();
+            }
         }
         else
         {
+            ZoneScopedN("MinimizedWait");
             SDL_Delay(100);
         }
 
-        auto frameEndTime = std::chrono::high_resolution_clock::now();
-        auto frameDuration = std::chrono::duration_cast<std::chrono::milliseconds>(frameEndTime - currentTime).count();
-        if (frameDuration < targetMs)
         {
-            SDL_Delay(static_cast<Uint32>(targetMs - frameDuration));
+            ZoneScopedN("FramePacing");
+            auto frameEndTime = std::chrono::high_resolution_clock::now();
+            auto frameDuration =
+                std::chrono::duration_cast<std::chrono::milliseconds>(frameEndTime - currentTime).count();
+            if (frameDuration < targetMs)
+            {
+                SDL_Delay(static_cast<Uint32>(targetMs - frameDuration));
+            }
         }
         lastTime = currentTime;
         FrameMark;
@@ -369,7 +382,7 @@ void Engine::render()
 void Engine::drawImGui()
 {
 #if ENGINE_ENABLE_IMGUI
-    ZoneScopedN("ImGuiNewFrame");
+    ZoneScopedN("ImGuiCPU");
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
@@ -491,7 +504,7 @@ void Engine::loadObject()
     device->vkdevice.waitIdle();
     assetsLoader->loadModel(assetPath, glm::make_vec3(loadedModelPosition));
     resourceManager->recreateObjectsBuffers();
-    resourceManager->createUniformBuffer(*(objects.end()-1));
+    resourceManager->ensureInstanceCapacity(scene->objectStorage.size());
 }
 
 void Engine::shutdown() { cleanup(); }
@@ -520,8 +533,11 @@ void Engine::cleanup()
     }
 #endif
 
-    objects.clear();
-    log_info("Objects cleared", "Engine");
+    if (scene)
+    {
+        scene->objectStorage.clear();
+    }
+    log_info("Object storage cleared", "Engine");
     // Explicitly clear command buffers before destroying other resources
     if (resourceManager)
     {
@@ -535,6 +551,7 @@ void Engine::cleanup()
     textureManager.reset();
     resourceManager.reset(); // before assetsLoader: holds refs to its vertex/index vectors
     assetsLoader.reset();
+    scene.reset();
     camera.reset();
     log_info("Resources cleaned up", "Engine");
     swapChain.reset();

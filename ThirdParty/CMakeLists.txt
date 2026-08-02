@@ -254,14 +254,6 @@ FetchContent_Declare(
         GIT_SHALLOW TRUE
 )
 
-# 13. DirectXMath (header-only, for HLSL-compatible math types in shared headers)
-FetchContent_Declare(
-        DirectXMath
-        GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
-        GIT_TAG jun2026
-        GIT_SHALLOW TRUE
-)
-
 # 14. meshoptimizer (mesh optimization / clustering for GPU-driven rendering)
 FetchContent_Declare(
         meshoptimizer
@@ -275,7 +267,7 @@ FetchContent_Declare(
 # Tracy is declared and populated separately below (after GIT_SHALLOW/PROGRESS).
 # ==============================================================================
 message(STATUS "Fetching ThirdParty dependencies (glm, SDL3, fmt, spdlog, ImGui, taskflow, rapidjson, KTX, mimalloc, DirectXMath, meshoptimizer)...")
-FetchContent_MakeAvailable(glm SDL3 fmt spdlog ImGui taskflow rapidjson KTXSoftware mimalloc DirectXMath meshoptimizer)
+FetchContent_MakeAvailable(glm SDL3 fmt spdlog ImGui taskflow rapidjson KTXSoftware mimalloc meshoptimizer)
 
 
 
