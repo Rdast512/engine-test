@@ -34,6 +34,7 @@ ResourceManager::ResourceManager(const Device& deviceWrapper, const VkAllocator&
 
 void ResourceManager::destroyInstanceUboBuffers()
 {
+    ZoneScopedN("ResourceManager::destroyInstanceUboBuffers");
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         if (instanceUboMapped[i] != nullptr && instanceUboMemory[i] != nullptr)
@@ -54,6 +55,7 @@ void ResourceManager::destroyInstanceUboBuffers()
 
 ResourceManager::~ResourceManager()
 {
+    ZoneScopedN("ResourceManager::~ResourceManager");
     log_info("Destructor called", "ResourceManager");
     destroyInstanceUboBuffers();
     {
@@ -160,6 +162,7 @@ void ResourceManager::createCommandBuffers()
 
 [[nodiscard]] vk::raii::ShaderModule ResourceManager::createShaderModule(const std::vector<char>& code) const
 {
+    ZoneScopedN("ResourceManager::createShaderModule");
     log_info("createShaderModule() started", "ResourceManager");
     vk::ShaderModuleCreateInfo createInfo{.codeSize = code.size() * sizeof(char),
                                           .pCode = reinterpret_cast<const uint32_t*>(code.data())};
@@ -169,6 +172,7 @@ void ResourceManager::createCommandBuffers()
 
 void ResourceManager::copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& dstBuffer, vk::DeviceSize size)
 {
+    ZoneScopedN("ResourceManager::copyBuffer");
     log_info("copyBuffer() started", "ResourceManager");
     transferCommandBuffer[0].begin(vk::CommandBufferBeginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     transferCommandBuffer[0].copyBuffer(srcBuffer, dstBuffer, vk::BufferCopy(0, 0, size));

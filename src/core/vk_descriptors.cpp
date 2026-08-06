@@ -32,6 +32,7 @@ DescriptorManager::DescriptorManager(const vk::raii::Device& device, VmaAllocato
 
 DescriptorManager::~DescriptorManager()
 {
+    ZoneScopedN("DescriptorManager::~DescriptorManager");
     if (mappedResourceHeapPtr != nullptr && resourceHeapMemory != nullptr) {
         vmaUnmapMemory(allocator, resourceHeapMemory);
         mappedResourceHeapPtr = nullptr;
@@ -184,6 +185,7 @@ void DescriptorManager::createHeapDescriptors()
 
 void DescriptorManager::createHeapBuffers(vk::DeviceSize resourceHeapSize, vk::DeviceSize samplerHeapSize)
 {
+    ZoneScopedN("DescriptorManager::createHeapBuffers");
     createBuffer(
         resourceHeapSize,
         vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress |

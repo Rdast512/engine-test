@@ -1,6 +1,7 @@
 #include "assets_loader.hpp"
 #include "../Constants.h"
 #include "../static_headers/logger.hpp"
+#include "../util/vk_tracy.hpp"
 
 #include <meshoptimizer.h>
 
@@ -223,6 +224,7 @@ AssetsLoader::AssetsLoader(ObjectStorage& objectStorageIn, TextureManager& textu
 
 void AssetsLoader::loadModel(std::string modelPath, glm::vec3 xyz)
 {
+    ZoneScopedN("AssetsLoader::loadModel");
     // Normalise to native separators once so every loader receives a
     // clean, OS-consistent path regardless of how it was supplied.
     const std::string path = std::filesystem::path(modelPath).make_preferred().string();
@@ -245,6 +247,7 @@ void AssetsLoader::loadModel(std::string modelPath, glm::vec3 xyz)
 
 MeshletDraw AssetsLoader::buildMeshletsForRange(uint32_t firstIndex, uint32_t indexCount)
 {
+    ZoneScopedN("AssetsLoader::buildMeshletsForRange");
     if (indexCount == 0 || vertices.empty() || firstIndex + indexCount > indices.size()) {
         return {};
     }
@@ -312,6 +315,7 @@ MeshletDraw AssetsLoader::buildMeshletsForRange(uint32_t firstIndex, uint32_t in
 
 bool AssetsLoader::loadGltfModel(const std::string& modelPath, glm::vec3 xyz)
 {
+    ZoneScopedN("AssetsLoader::loadGltfModel");
     // glTF uses forward-slash URIs internally; normalise the base path
     // to avoid mixed separators when the library resolves external .bin
     // references (e.g. "models/AnimatedCube.bin" under "models\" on Windows).
@@ -451,6 +455,7 @@ bool AssetsLoader::loadGltfModel(const std::string& modelPath, glm::vec3 xyz)
 
 bool AssetsLoader::loadObjModel(const std::string& modelPath, glm::vec3 xyz)
 {
+    ZoneScopedN("AssetsLoader::loadObjModel");
     log_info(std::format("Loading OBJ: {}", modelPath), "AssetLoader");
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;

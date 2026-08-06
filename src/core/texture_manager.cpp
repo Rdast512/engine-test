@@ -54,6 +54,7 @@ std::string TextureManager::resolvePath(std::string_view path)
 // resources (images, buffers). Actual VMA cleanup may be handled elsewhere.
 TextureManager::~TextureManager()
 {
+    ZoneScopedN("TextureManager::~TextureManager");
     log_info("Destructor called", "TextureManager");
 
     for (auto& [path, asset] : loadedTextures) {

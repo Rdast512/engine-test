@@ -223,13 +223,12 @@ set(ENGINE_SLANG_CAPABILITIES
 list(JOIN ENGINE_SLANG_CAPABILITIES "+" ENGINE_SLANG_CAPABILITY_STRING)
 message(STATUS "Slang shader capabilities: ${ENGINE_SLANG_CAPABILITY_STRING}")
 
-# Debug / Release slangc flags (generator expressions work for multi- and single-config).
-# Debug (or empty config): -g3 -O0. Release/MinSizeRel: -g0 -O2. RelWithDebInfo: -g2 -O2.
+# Debug / Release slangc flags. Always emit non-empty args via $<IF:...> —
+# bare $<$<CONFIG:...>:-flag> leaves "" placeholders that slangc treats as inputs.
+# Debug (or empty): -g2 -O0. RelWithDebInfo: -g2 -O2. Release/MinSizeRel: -g0 -O2.
 set(ENGINE_SLANG_CONFIG_FLAGS
-  "$<$<OR:$<CONFIG:Debug>,$<CONFIG:>>:-g3;-O0>"
-  "$<$<CONFIG:Release>:-g0;-O2>"
-  "$<$<CONFIG:RelWithDebInfo>:-g2;-O2>"
-  "$<$<CONFIG:MinSizeRel>:-g0;-O2>"
+  "$<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:>>,-g2,$<IF:$<CONFIG:RelWithDebInfo>,-g2,-g0>>"
+  "$<IF:$<OR:$<CONFIG:Debug>,$<CONFIG:>>,-O0,-O2>"
 )
 
 set(COMPILED_SHADERS)
@@ -266,7 +265,6 @@ foreach (SLANG ${SLANG_SHADERS})
             -o ${SPV_OUT}
             DEPENDS ${SLANG}
             COMMENT "Compiling Slang shader ${SLANG_REL_PATH}"
-            COMMAND_EXPAND_LISTS
             VERBATIM
     )
   list(APPEND COMPILED_SHADERS ${SPV_OUT})
