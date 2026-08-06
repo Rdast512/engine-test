@@ -166,6 +166,72 @@ endif ()
 find_program(GLSLC_EXECUTABLE NAMES glslc REQUIRED)
 message(STATUS "Using glslc: ${GLSLC_EXECUTABLE}")
 
+# -----------------------------------------------------------------------------
+# Slang capabilities ↔ Device::requiredDeviceExtension (vk_device.hpp)
+# + Vulkan 1.2–1.4 core shader features used by this engine.
+#
+# Only SPIR-V / shading features that slangc exposes are listed. Non-shader
+# device extensions (swapchain, present, memory budget/priority, multi-draw,
+# DGC, shader object, maintenance*, …) have no Slang capability and are omitted.
+# -----------------------------------------------------------------------------
+# Prefer SPV_* extension caps + spv* feature bits. Avoid stage meta-caps
+# (meshshading / raytracing / rayquery) — they can restrict VS/FS entry points.
+set(ENGINE_SLANG_CAPABILITIES
+  # Baseline target
+  SPIRV_1_6
+  vk_mem_model
+
+  # Vulkan 1.2 core: buffer device address / SSBO-as-pointer (BDA push / ObjectUB)
+  SPV_EXT_physical_storage_buffer
+  GL_EXT_buffer_reference
+
+  # Vulkan 1.2 core: descriptor indexing (non-uniform resource indexing)
+  SPV_EXT_descriptor_indexing
+  spvShaderNonUniform
+
+  # Vulkan 1.3 core: demote to helper invocation
+  SPV_EXT_demote_to_helper_invocation
+
+  # vk::KHRShaderUntypedPointersExtensionName
+  SPV_KHR_untyped_pointers
+
+  # vk::EXTDescriptorHeapExtensionName
+  SPV_EXT_descriptor_heap
+  spvDescriptorHeapEXT
+
+  # vk::EXTMeshShaderExtensionName
+  SPV_EXT_mesh_shader
+  spvMeshShadingEXT
+
+  # vk::KHRAccelerationStructureExtensionName + vk::KHRRayTracingPipelineExtensionName
+  SPV_KHR_ray_tracing
+  spvRayTracingKHR
+
+  # vk::KHRRayQueryExtensionName
+  SPV_KHR_ray_query
+  spvRayQueryKHR
+
+  # vk::EXTRayTracingInvocationReorderExtensionName
+  SPV_EXT_shader_invocation_reorder
+  spvShaderInvocationReorderEXT
+
+  # vk::NVClusterAccelerationStructureExtensionName
+  SPV_NV_cluster_acceleration_structure
+  spvRayTracingClusterAccelerationStructureNV
+)
+# Join with '+' for a single slangc -capability argument.
+list(JOIN ENGINE_SLANG_CAPABILITIES "+" ENGINE_SLANG_CAPABILITY_STRING)
+message(STATUS "Slang shader capabilities: ${ENGINE_SLANG_CAPABILITY_STRING}")
+
+# Debug / Release slangc flags (generator expressions work for multi- and single-config).
+# Debug (or empty config): -g3 -O0. Release/MinSizeRel: -g0 -O2. RelWithDebInfo: -g2 -O2.
+set(ENGINE_SLANG_CONFIG_FLAGS
+  "$<$<OR:$<CONFIG:Debug>,$<CONFIG:>>:-g3;-O0>"
+  "$<$<CONFIG:Release>:-g0;-O2>"
+  "$<$<CONFIG:RelWithDebInfo>:-g2;-O2>"
+  "$<$<CONFIG:MinSizeRel>:-g0;-O2>"
+)
+
 set(COMPILED_SHADERS)
 foreach (SLANG ${SLANG_SHADERS})
   file(RELATIVE_PATH SLANG_REL_PATH "${CMAKE_SOURCE_DIR}/shaders" ${SLANG})
@@ -178,6 +244,13 @@ foreach (SLANG ${SLANG_SHADERS})
   endif ()
   set(SPV_OUT "${SLANG_OUT_DIR}/${SLANG_NAME_WE}.spv")
 
+  # Mesh-only shaders use meshMain; classic graphics shaders use vertMain.
+  if (SLANG_NAME_WE STREQUAL "mesh")
+    set(SLANG_ENTRY_ARGS -entry meshMain -entry fragMain)
+  else ()
+    set(SLANG_ENTRY_ARGS -entry vertMain -entry fragMain)
+  endif ()
+
   add_custom_command(
             OUTPUT ${SPV_OUT}
             COMMAND ${CMAKE_COMMAND} -E make_directory ${SLANG_OUT_DIR}
@@ -185,13 +258,15 @@ foreach (SLANG ${SLANG_SHADERS})
             ${SLANG}
             -target spirv
             -profile sm_6_9
-            -capability SPIRV_1_6+SPV_KHR_untyped_pointers+SPV_EXT_physical_storage_buffer+spvDescriptorHeapEXT+GL_EXT_buffer_reference
-            -capability vk_mem_model
-            -fvk-use-entrypoint-name -g -O0
-            -entry vertMain -entry fragMain
+            -capability ${ENGINE_SLANG_CAPABILITY_STRING}
+            -matrix-layout-column-major
+            -fvk-use-entrypoint-name
+            ${ENGINE_SLANG_CONFIG_FLAGS}
+            ${SLANG_ENTRY_ARGS}
             -o ${SPV_OUT}
             DEPENDS ${SLANG}
             COMMENT "Compiling Slang shader ${SLANG_REL_PATH}"
+            COMMAND_EXPAND_LISTS
             VERBATIM
     )
   list(APPEND COMPILED_SHADERS ${SPV_OUT})

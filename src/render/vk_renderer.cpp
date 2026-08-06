@@ -186,7 +186,12 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
         TracyVkNamedZone(gpuCtx, gpuZoneDrawCalls, *cmd, "GPU_DrawCalls", gpuTrace);
 #endif
         cmd.beginRendering(renderingInfo);
-        cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline.graphicsPipeline);
+        // TODO remove all the old pipeline since target is mesh only
+        if (*pipeline.meshPipeline) {
+            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline.meshPipeline);
+        } else {
+            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline.graphicsPipeline);
+        }
         cmd.bindVertexBuffers(0, *resourceManager.vertexBuffer, {0});
         cmd.bindIndexBuffer(*resourceManager.indexBuffer, 0, vk::IndexType::eUint32);
         cmd.setViewport(
@@ -230,7 +235,12 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
             cmd.pushDataEXT(pushDataInfo);
 
             const MeshDraw& draw = storage.meshDraws[id];
-            cmd.drawIndexed(draw.indexCount, 1, draw.firstIndex, static_cast<int32_t>(draw.baseVertex), 0);
+
+            if (*pipeline.meshPipeline) {
+                cmd.drawMeshTasksEXT(1, 1, 1);
+            } else {
+                cmd.drawIndexed(draw.indexCount, 1, draw.firstIndex, static_cast<int32_t>(draw.baseVertex), 0);
+            }
         }
     }
 

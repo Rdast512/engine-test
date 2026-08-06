@@ -80,7 +80,7 @@ target_link_libraries(VulkanMemoryAllocator INTERFACE Vulkan::Vulkan)
 # ------------------------------------------------------------------------------
 # 1. Slang (Manual Download & Extract)
 # ------------------------------------------------------------------------------
-set(SLANG_TAG "v2026.11")
+set(SLANG_TAG "v2026.14.1")
 string(REGEX REPLACE "^v" "" SLANG_VERSION "${SLANG_TAG}")
 set(SLANG_RELEASE_URL "https://github.com/shader-slang/slang/releases/download")
 
@@ -391,6 +391,20 @@ add_library(ThirdParty::headers ALIAS ThirdPartyHeaders)
 
 # Compile it as a STATIC library
 add_library(ThirdPartyImpl STATIC implementations.cpp)
+
+# Add tiny glTF C source to static ThirdPartyImpl
+# tiny_gltf_v3.c is C code; compile it as C11 and enable stdio-backed fs helpers.
+target_sources(ThirdPartyImpl PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tiny_gltf_v3.c)
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/tiny_gltf_v3.c PROPERTIES LANGUAGE C)
+
+# Ensure C11 is used for C sources and define TINYGLTF3_ENABLE_FS for the C compilation unit.
+target_compile_options(ThirdPartyImpl PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:C>,$<NOT:$<C_COMPILER_ID:MSVC>>>:-std=c11>
+        $<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:MSVC>>:/std:c11>
+)
+target_compile_definitions(ThirdPartyImpl PRIVATE
+        $<$<COMPILE_LANGUAGE:C>:TINYGLTF3_ENABLE_FS>
+)
 
 # IMPORTANT: Because this static lib will be linked into a SHARED library (engine_util.dll),
 # it must be compiled with Position Independent Code (PIC).

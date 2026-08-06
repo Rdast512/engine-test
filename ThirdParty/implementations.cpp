@@ -25,10 +25,11 @@
 // #define TINYGLTF_NO_INCLUDE_RAPIDJSON
 // rapidjson must be included manually when TINYGLTF_NO_INCLUDE_RAPIDJSON is defined
 // (tinygltf's own includes use bare "document.h" without the rapidjson/ prefix)
-#include <rapidjson/document.h>
-#include <rapidjson/prettywriter.h>
-#include <rapidjson/rapidjson.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
+// #include <rapidjson/document.h>
+// #include <rapidjson/prettywriter.h>
+// #include <rapidjson/rapidjson.h>
+// #include <rapidjson/stringbuffer.h>
+// #include <rapidjson/writer.h>
 #include "tiny_gltf_v3.h"
+#include "tinygltf_json_c.h"
 #include "tinygltf_json.h"

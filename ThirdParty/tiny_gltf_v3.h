@@ -1,5 +1,5 @@
 /*
- * tiny_gltf_v3.h - Header-only C glTF 2.0 loader and writer (v3)
+ * tiny_gltf_v3.h - C-first glTF 2.0 loader and writer API (v3)
  *
  * The MIT License (MIT)
  * Copyright (c) 2026 - Present: Syoyo Fujita
@@ -27,7 +27,7 @@
  * Version: v3.0.0-alpha
  *
  * Ground-up C-centric API rewrite of tinygltf.
- * Uses tinygltf_json.h as the sole JSON backend.
+ * The default runtime implementation lives in tiny_gltf_v3.c.
  *
  * Key differences from v2:
  *   - Pure C POD structs (no STL containers in public API)
@@ -37,6 +37,37 @@
  *   - Streaming parse/write via callbacks
  *   - No RTTI, no exceptions required
  *   - C++20 coroutine facade (optional)
+ *
+ * Security considerations (read before processing untrusted glTF):
+ *
+ *   1. External URI loading. When TINYGLTF3_ENABLE_FS is defined and no custom
+ *      tg3_fs_callbacks are supplied, the parser opens external buffer/image
+ *      URIs through the libc default fopen(). The parser rejects URIs that
+ *      contain '..' segments, leading '/' or '\\', Windows drive prefixes
+ *      (e.g. "C:"), or NUL bytes — but it does NOT chroot or canonicalize the
+ *      result. Production callers SHOULD provide a tg3_fs_callbacks with a
+ *      read_file callback that confines reads to a known directory (e.g. via
+ *      openat(AT_FDCWD, path, O_NOFOLLOW) plus a realpath() prefix check) when
+ *      the input glTF is attacker-controlled.
+ *
+ *   2. Index validation. Many glTF fields are integer indices into model
+ *      arrays (accessor.bufferView, primitive.material, scene.nodes[], etc.).
+ *      With opts.validate_indices = 1 (the default) the parser rejects every
+ *      out-of-range index after the structural parse and returns
+ *      TG3_ERR_INVALID_INDEX. Set opts.validate_indices = 0 only when you
+ *      need to round-trip raw or extension data and have your own validator.
+ *
+ *   3. Image decoding. The parser does not decode image bytes by default.
+ *      Set opts.images_as_is = 1 (already the safe default for untrusted
+ *      input) to skip any decoder and store raw bytes only.
+ *
+ *   4. Memory budget. The arena is capped at TINYGLTF3_MAX_MEMORY_BYTES
+ *      (1 GB by default; configurable per-parse via tg3_memory_config).
+ *      The parser returns TG3_ERR_OUT_OF_MEMORY rather than overcommitting.
+ *
+ *   5. Error message lifetime. Error strings on tg3_error_stack are
+ *      arena-allocated and remain valid until tg3_model_free() is called.
+ *      Read or copy them BEFORE freeing the model.
  */
 
 #ifndef TINY_GLTF_V3_H_
@@ -46,7 +77,7 @@
  * Section 2: Configuration Macros
  * ====================================================================== */
 
-/* Build mode: define in ONE C++ translation unit (.cpp) */
+/* Legacy single-translation-unit build mode: define in ONE C or C++ file */
 /* #define TINYGLTF3_IMPLEMENTATION */
 
 /* Opt-in features (OFF by default) */
@@ -85,8 +116,12 @@
 
 /* Assert override */
 #ifndef TINYGLTF3_ASSERT
+#ifndef TINYGLTF3_NO_STDLIB
 #include <assert.h>
 #define TINYGLTF3_ASSERT(x) assert(x)
+#else
+#define TINYGLTF3_ASSERT(x) ((void)(x))
+#endif
 #endif
 
 /* ======================================================================
@@ -96,8 +131,34 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdarg.h>
+#ifndef TINYGLTF3_NO_STDLIB
 #include <string.h>
 #include <stdlib.h>
+#endif
+
+#ifndef TINYGLTF3_MALLOC
+#ifndef TINYGLTF3_NO_STDLIB
+#define TINYGLTF3_MALLOC(sz) malloc(sz)
+#else
+#define TINYGLTF3_MALLOC(sz) NULL
+#endif
+#endif
+
+#ifndef TINYGLTF3_REALLOC
+#ifndef TINYGLTF3_NO_STDLIB
+#define TINYGLTF3_REALLOC(ptr, sz) realloc((ptr), (sz))
+#else
+#define TINYGLTF3_REALLOC(ptr, sz) NULL
+#endif
+#endif
+
+#ifndef TINYGLTF3_FREE
+#ifndef TINYGLTF3_NO_STDLIB
+#define TINYGLTF3_FREE(ptr) free(ptr)
+#else
+#define TINYGLTF3_FREE(ptr) ((void)(ptr))
+#endif
+#endif
 
 /* ======================================================================
  * Section 4: Constants and Enums
@@ -387,6 +448,7 @@ typedef struct tg3_asset {
 /* --- Buffer --- */
 typedef struct tg3_buffer {
     tg3_str       name;
+    uint64_t      byte_length;  /* Declared buffer.byteLength */
     tg3_span_u8   data;
     tg3_str       uri;
     tg3_extras_ext ext;
@@ -910,10 +972,18 @@ typedef struct tg3_parse_options {
     int32_t  images_as_is;              /* 1 = don't decode images */
     int32_t  preserve_image_channels;   /* 1 = keep original channels */
     int32_t  store_original_json;       /* 1 = store raw JSON strings */
+    int32_t  skip_extras_values;        /* 1 = skip materializing extras and
+                                        *     unknown extension value trees */
+    int32_t  borrow_input_buffers;      /* 1 = GLB BIN buffer spans may point
+                                        *     into caller-owned input data */
     int32_t  parse_float32;            /* 1 = parse JSON floats as float32 for speed
                                         *     (breaks strict double-precision conformance
                                         *      but sufficient for glTF data which is
                                         *      typically single-precision anyway) */
+    int32_t  validate_indices;          /* 1 = reject out-of-range index fields
+                                        *     after parse so naive consumers cannot
+                                        *     dereference attacker-controlled indices.
+                                        *     Default: 1. Set to 0 to skip (raw mode). */
     uint64_t max_external_file_size;    /* 0 = no limit */
 } tg3_parse_options;
 
@@ -1219,6 +1289,11 @@ ParseGenerator tg3_parse_coro(
  * ====================================================================== */
 
 #ifdef TINYGLTF3_IMPLEMENTATION
+#define TINYGLTF3_SOURCE_INCLUDED_FROM_HEADER 1
+#include "tiny_gltf_v3.c"
+#undef TINYGLTF3_SOURCE_INCLUDED_FROM_HEADER
+
+#if 0
 
 #if !defined(__cplusplus)
 #error "TINYGLTF3_IMPLEMENTATION requires a C++ translation unit (compile as .cpp)"
@@ -4431,6 +4506,7 @@ TINYGLTF3_API void tg3_writer_destroy(tg3_writer *w) {
     delete w;
 }
 
+#endif /* legacy header-only v3 implementation */
 #endif /* TINYGLTF3_IMPLEMENTATION */
 
 #endif /* TINY_GLTF_V3_H_ */

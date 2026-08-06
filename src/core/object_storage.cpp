@@ -4,16 +4,15 @@
 
 #include <cassert>
 
-EntityId ObjectStorage::create(const Transform& transform,
-                               const MeshDraw& meshDraw,
-                               const MaterialRef& material,
-                               std::string_view name)
+EntityId ObjectStorage::create(const Transform& transform, const MeshDraw& meshDraw, const MeshletDraw& meshletDraw,
+                               const MaterialRef& material, std::string_view name)
 {
     const auto id = static_cast<EntityId>(transforms.size());
     transforms.push_back(transform);
     modelMatrices.emplace_back(1.0f);
     prevModelMatrices.emplace_back(1.0f);
     meshDraws.push_back(meshDraw);
+    meshletDraws.push_back(meshletDraw);
     materials.push_back(material);
     flags.push_back(EntityFlag::Active | EntityFlag::Dynamic);
     names.emplace_back(name);
@@ -26,6 +25,7 @@ void ObjectStorage::clear() noexcept
     modelMatrices.clear();
     prevModelMatrices.clear();
     meshDraws.clear();
+    meshletDraws.clear();
     materials.clear();
     flags.clear();
     names.clear();
@@ -44,23 +44,18 @@ glm::mat4 computeModelMatrix(const Transform& transform)
 
 void applyYawSpin(std::span<Transform> transforms, float deltaYawRadians)
 {
-    for (Transform& t : transforms)
-    {
+    for (Transform& t : transforms) {
         t.rotation.y += deltaYawRadians;
     }
 }
 
-void writeObjectUbs(ObjectStorage& storage,
-                    std::span<ObjectUB> mappedUbs,
-                    const glm::mat4& meshPreRotation)
+void writeObjectUbs(ObjectStorage& storage, std::span<ObjectUB> mappedUbs, const glm::mat4& meshPreRotation)
 {
     const uint32_t count = storage.size();
     assert(mappedUbs.size() >= count);
 
-    for (uint32_t i = 0; i < count; ++i)
-    {
-        if ((storage.flags[i] & EntityFlag::Active) == 0)
-        {
+    for (uint32_t i = 0; i < count; ++i) {
+        if ((storage.flags[i] & EntityFlag::Active) == 0) {
             continue;
         }
 

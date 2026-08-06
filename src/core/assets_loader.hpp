@@ -1,11 +1,10 @@
 #pragma once
-#include "object_storage.hpp"
-#include "types.hpp"
-#include "texture_manager.hpp"
-
-#include <vector>
 #include <string>
 #include <string_view>
+#include <vector>
+#include "object_storage.hpp"
+#include "texture_manager.hpp"
+#include "types.hpp"
 
 
 class AssetsLoader
@@ -23,11 +22,21 @@ public:
     // Mesh data (direct access after load)
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
+
+    // Meshlet data (CPU only for now; GPU upload later)
+    std::vector<MeshletDesc> meshlets;
+    std::vector<uint32_t> meshletVertices;
+    std::vector<uint8_t> meshletTriangles;
+
     ObjectStorage& objectStorage;
     TextureManager& textureManager;
 
 private:
     bool loadGltfModel(const std::string& modelPath, glm::vec3 xyz);
     bool loadObjModel(const std::string& modelPath, glm::vec3 xyz);
+
+    // Builds meshlets for indices[firstIndex, firstIndex + indexCount) into the global meshlet arrays.
+    [[nodiscard]] MeshletDraw buildMeshletsForRange(uint32_t firstIndex, uint32_t indexCount);
+
     uint32_t currentIndex = 0;
 };
