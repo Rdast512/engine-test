@@ -28,6 +28,11 @@ void Renderer::rebuildSwapchainResources() const
     resourceManager.setSwapChainImageCount(static_cast<uint32_t>(swapChain.swapChainImages.size()));
     resourceManager.createColorResources();
     resourceManager.createDepthResources();
+    // Aspect / render-target size changed (resize and out-of-date paths).
+    camera.setFov(camera.getFovDegrees());
+    TracyPlot("Vulkan/SwapchainWidth", static_cast<double>(swapChain.swapChainExtent.width));
+    TracyPlot("Vulkan/SwapchainHeight", static_cast<double>(swapChain.swapChainExtent.height));
+    TracyPlot("Vulkan/SwapchainImagesInUse", static_cast<double>(swapChain.swapChainImages.size()));
 }
 
 void Renderer::drawFrame()
@@ -41,14 +46,8 @@ void Renderer::drawFrame()
     auto& presentSemaphore = *resourceManager.presentCompleteSemaphore[currentFrame];
     auto& commandBuffer = resourceManager.commandBuffers[currentFrame];
 
+    resourceManager.tracyPlotResources();
     TracyPlot("Vulkan/SwapchainImagesInUse", static_cast<double>(swapChain.swapChainImages.size()));
-    TracyPlot("Vulkan/CommandBuffersInUse", static_cast<double>(resourceManager.commandBuffers.size()));
-    TracyPlot("Vulkan/InstanceCapacity", static_cast<double>(resourceManager.instanceCapacity));
-    TracyPlot("Vulkan/EntityCount", static_cast<double>(resourceManager.objectStorage.size()));
-    TracyPlot("Vulkan/VerticesInUse", static_cast<double>(resourceManager.vertices.size()));
-    TracyPlot("Vulkan/IndicesInUse", static_cast<double>(resourceManager.indices.size()));
-    TracyPlot("Vulkan/VertexBytesInUse", static_cast<double>(resourceManager.vertices.size() * sizeof(Vertex)));
-    TracyPlot("Vulkan/IndexBytesInUse", static_cast<double>(resourceManager.indices.size() * sizeof(uint32_t)));
 
     {
         ZoneScopedN("FenceWait");
@@ -126,7 +125,6 @@ void Renderer::drawFrame()
         throw std::runtime_error("failed to present swap chain image!");
     }
 
-    semaphoreIndex = (semaphoreIndex + 1) % resourceManager.presentCompleteSemaphore.size();
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
@@ -186,14 +184,8 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
         TracyVkNamedZone(gpuCtx, gpuZoneDrawCalls, *cmd, "GPU_DrawCalls", gpuTrace);
 #endif
         cmd.beginRendering(renderingInfo);
-        // TODO remove all the old pipeline since target is mesh only
-        // if (*pipeline.meshPipeline) {
-        //     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline.meshPipeline);
-        // } else {
-            cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline.graphicsPipeline);
-        // }
-        cmd.bindVertexBuffers(0, *resourceManager.vertexBuffer, {0});
-        cmd.bindIndexBuffer(*resourceManager.indexBuffer, 0, vk::IndexType::eUint32);
+        cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline.pipeline);
+
         cmd.setViewport(
             0,
             vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChain.swapChainExtent.width),
@@ -215,9 +207,25 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
                 continue;
             }
 
-            PushData2 pushData{};
-            pushData.ObjectUBAddress = resourceManager.instanceUboAddress(currentFrame, id);
+            const MeshletDraw& meshletDraw = storage.meshletDraws[id];
+            if (meshletDraw.meshletCount == 0
+                || resourceManager.vertexBufferAddress == 0
+                || resourceManager.meshletBufferAddress == 0
+                || resourceManager.meshletVertexBufferAddress == 0
+                || resourceManager.meshletTriangleBufferAddress == 0)
+            {
+                continue;
+            }
+
+            MeshPushData pushData{};
             pushData.cameraAddress = camera.cameraBufferAddresses[currentFrame];
+            pushData.objectUbAddress = resourceManager.instanceUboAddress(currentFrame, id);
+            pushData.vertices = resourceManager.vertexBufferAddress;
+            pushData.meshlets = resourceManager.meshletBufferAddress;
+            pushData.meshletVertices = resourceManager.meshletVertexBufferAddress;
+            pushData.meshletTriangles = resourceManager.meshletTriangleBufferAddress;
+            pushData.firstMeshlet = meshletDraw.firstMeshlet;
+            pushData.meshletCount = meshletDraw.meshletCount;
             pushData.texture = {
                 .resourceIndex = storage.materials[id].textureIndex,
                 .samplerIndex = 0,
@@ -227,20 +235,15 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex)
                 .samplerIndex = 0,
             };
 
-            vk::PushDataInfoEXT const pushDataInfo = {
+            const vk::PushDataInfoEXT pushDataInfo = {
                 .sType = vk::StructureType::ePushDataInfoEXT,
                 .pNext = nullptr,
                 .offset = 0,
-                .data = vk::HostAddressRangeConstEXT{.address = &pushData, .size = sizeof(PushData2)}};
+                .data = vk::HostAddressRangeConstEXT{.address = &pushData, .size = sizeof(MeshPushData)}};
             cmd.pushDataEXT(pushDataInfo);
 
-            const MeshDraw& draw = storage.meshDraws[id];
-
-            // if (*pipeline.meshPipeline) {
-            //     cmd.drawMeshTasksEXT(1, 1, 1);
-            // } else {
-                cmd.drawIndexed(draw.indexCount, 1, draw.firstIndex, static_cast<int32_t>(draw.baseVertex), 0);
-            // }
+            // One workgroup per meshlet (matches mesh.slang SV_GroupID usage).
+            cmd.drawMeshTasksEXT(meshletDraw.meshletCount, 1, 1);
         }
     }
 

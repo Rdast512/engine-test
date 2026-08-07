@@ -21,35 +21,6 @@ struct Transform
     glm::vec3 scale{1.0f, 1.0f, 1.0f};
 };
 
-struct MeshDraw
-{
-    uint32_t firstIndex = 0;
-    uint32_t indexCount = 0;
-    uint32_t baseVertex = 0;
-};
-
-// GPU-friendly meshlet header (CPU layout matches planned storage buffer).
-struct alignas(16) MeshletDesc
-{
-    uint32_t vertexOffset = 0; // into meshletVertices
-    uint32_t triangleOffset = 0; // into meshletTriangles (first corner index)
-    uint32_t vertexCount = 0;
-    uint32_t triangleCount = 0;
-    glm::vec4 boundingSphere{0.0f}; // xyz = center, w = radius (object space)
-};
-
-// Per-entity range into the global meshlet arrays.
-struct MeshletDraw
-{
-    uint32_t firstMeshlet = 0;
-    uint32_t meshletCount = 0;
-};
-
-struct MaterialRef
-{
-    uint32_t textureIndex = 0;
-    uint32_t materialId = 0;
-};
 
 namespace EntityFlag
 {
@@ -68,13 +39,12 @@ public:
     std::vector<Transform> transforms;
     std::vector<glm::mat4> modelMatrices;
     std::vector<glm::mat4> prevModelMatrices;
-    std::vector<MeshDraw> meshDraws;
     std::vector<MeshletDraw> meshletDraws;
     std::vector<MaterialRef> materials;
     std::vector<uint32_t> flags;
     std::vector<std::string> names;
 
-    [[nodiscard]] EntityId create(const Transform& transform, const MeshDraw& meshDraw, const MeshletDraw& meshletDraw,
+    [[nodiscard]] EntityId create(const Transform& transform, const MeshletDraw& meshletDraw,
                                   const MaterialRef& material, std::string_view name = {});
 
     [[nodiscard]] uint32_t size() const noexcept { return static_cast<uint32_t>(transforms.size()); }

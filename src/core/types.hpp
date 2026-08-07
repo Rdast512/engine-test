@@ -9,6 +9,8 @@ struct TextureAsset {
 };
 
 
+// Tight packing: pos@0, color@12, texCoord@24, sizeof==32 (glm). Mesh BDA path requires
+// device scalarBlockLayout + slangc -fvk-use-scalar-layout so SPIR-V matches this layout.
 struct Vertex
 {
     glm::vec3 pos;
@@ -19,19 +21,10 @@ struct Vertex
     {
         return pos == other.pos && color == other.color && texCoord == other.texCoord;
     }
-
-    static vk::VertexInputBindingDescription getBindingDescription()
-    {
-        return {0, sizeof(Vertex), vk::VertexInputRate::eVertex};
-    }
-
-    static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions()
-    {
-        return {vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos)),
-                vk::VertexInputAttributeDescription(1, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, color)),
-                vk::VertexInputAttributeDescription(2, 0, vk::Format::eR32G32Sfloat, offsetof(Vertex, texCoord))};
-    }
 };
+static_assert(sizeof(Vertex) == 32, "Vertex must stay 32 B for mesh BDA / scalar layout");
+static_assert(offsetof(Vertex, color) == 12);
+static_assert(offsetof(Vertex, texCoord) == 24);
 
 namespace std
 {
@@ -45,6 +38,31 @@ namespace std
         }
     };
 } // namespace std
+
+
+// GPU-friendly meshlet header (CPU layout matches mesh.slang MeshletDesc / SSBO).
+struct alignas(16) MeshletDesc
+{
+    uint32_t vertexOffset = 0; // into meshletVertices
+    uint32_t triangleOffset = 0; // into meshletTriangles (first corner index)
+    uint32_t vertexCount = 0;
+    uint32_t triangleCount = 0;
+    glm::vec4 boundingSphere{0.0f}; // xyz = center, w = radius (object space)
+};
+static_assert(sizeof(MeshletDesc) == 32, "MeshletDesc must match mesh.slang (4x uint + float4, 32 B)");
+
+// Per-entity range into the global meshlet arrays.
+struct MeshletDraw
+{
+    uint32_t firstMeshlet = 0;
+    uint32_t meshletCount = 0;
+};
+
+struct MaterialRef
+{
+    uint32_t textureIndex = 0;
+    uint32_t materialId = 0;
+};
 
 struct UniformBufferObject
 {

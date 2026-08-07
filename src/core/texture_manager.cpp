@@ -60,6 +60,7 @@ TextureManager::~TextureManager()
     for (auto& [path, asset] : loadedTextures) {
         if (asset.textureImageMemory != nullptr) {
             VkImage raw = asset.textureImage.release();
+            tracyResourceFree(raw, "GPU/Textures");
             vmaDestroyImage(allocator.allocator, raw, asset.textureImageMemory);
             asset.textureImageMemory = nullptr;
         }
@@ -242,6 +243,17 @@ uint32_t TextureManager::loadTexture(std::string texturePath)
                     asset.textureImage, asset.textureImageMemory,
                     "TextureImageMemory");
         setDebugName(device, asset.textureImage, "TextureImage");
+        // Approximate full mip chain (~4/3 of base) in RGBA8.
+        const size_t texBytes =
+            static_cast<size_t>(imageSize) + static_cast<size_t>(imageSize) / 3u;
+        tracyResourceAlloc(static_cast<VkImage>(*asset.textureImage), texBytes, "GPU/Textures");
+#ifdef TRACY_ENABLE
+        {
+            const std::string texMsg =
+                std::format("Texture '{}' {}x{} mips={}", path, texWidth, texHeight, mipLevels);
+            TracyMessage(texMsg.c_str(), texMsg.size());
+        }
+#endif
 
         auto cmdBuffer = beginSingleTimeCommands(graphicsQueue);
         transitionImageLayout(&cmdBuffer, *asset.textureImage, mipLevels,

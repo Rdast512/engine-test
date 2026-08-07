@@ -1,21 +1,30 @@
 #include "object_storage.hpp"
+#include "util/vk_tracy.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <cassert>
+#include <format>
 
-EntityId ObjectStorage::create(const Transform& transform, const MeshDraw& meshDraw, const MeshletDraw& meshletDraw,
+EntityId ObjectStorage::create(const Transform& transform, const MeshletDraw& meshletDraw,
                                const MaterialRef& material, std::string_view name)
 {
     const auto id = static_cast<EntityId>(transforms.size());
     transforms.push_back(transform);
     modelMatrices.emplace_back(1.0f);
     prevModelMatrices.emplace_back(1.0f);
-    meshDraws.push_back(meshDraw);
     meshletDraws.push_back(meshletDraw);
     materials.push_back(material);
     flags.push_back(EntityFlag::Active | EntityFlag::Dynamic);
     names.emplace_back(name);
+
+#ifdef TRACY_ENABLE
+    const std::string msg = std::format(
+        "Entity {} '{}' meshlets=[{}, {}) tex={}", id, name, meshletDraw.firstMeshlet,
+        meshletDraw.firstMeshlet + meshletDraw.meshletCount, material.textureIndex);
+    TracyMessage(msg.c_str(), msg.size());
+#endif
+
     return id;
 }
 
@@ -24,7 +33,6 @@ void ObjectStorage::clear() noexcept
     transforms.clear();
     modelMatrices.clear();
     prevModelMatrices.clear();
-    meshDraws.clear();
     meshletDraws.clear();
     materials.clear();
     flags.clear();

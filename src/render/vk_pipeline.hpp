@@ -15,7 +15,6 @@ public:
     ~Pipeline() = default;
 
     void init();
-    void createGraphicsPipeline();
     void createMeshPipeline();
 
     const vk::raii::Device& device;
@@ -24,7 +23,5 @@ public:
     ResourceManager& resourceManager;
     DescriptorManager& descriptorManager;
     vk::raii::PipelineLayout pipelineLayout = nullptr;
-    vk::raii::Pipeline graphicsPipeline = nullptr;
-    vk::raii::PipelineLayout meshPipelineLayout = nullptr;
-    vk::raii::Pipeline meshPipeline = nullptr;
+    vk::raii::Pipeline pipeline = nullptr;
 };

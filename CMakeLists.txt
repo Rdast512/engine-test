@@ -260,6 +260,9 @@ foreach (SLANG ${SLANG_SHADERS})
             -capability ${ENGINE_SLANG_CAPABILITY_STRING}
             -matrix-layout-column-major
             -fvk-use-entrypoint-name
+            # Match C++/glm tight packing for BDA structs (Vertex float3@0/12/24 = 32 B).
+            # Requires VkPhysicalDeviceVulkan12Features::scalarBlockLayout = true.
+            -fvk-use-scalar-layout
             ${ENGINE_SLANG_CONFIG_FLAGS}
             ${SLANG_ENTRY_ARGS}
             -o ${SPV_OUT}

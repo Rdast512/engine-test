@@ -5,6 +5,33 @@
 #include <cstring>
 
 
+void tracyResourceAlloc(const void* ptr, size_t size, const char* poolName)
+{
+#ifdef TRACY_ENABLE
+	if (ptr == nullptr || size == 0) {
+		return;
+	}
+	TracyAllocN(ptr, size, poolName != nullptr ? poolName : "GPU/Unknown");
+#else
+	(void)ptr;
+	(void)size;
+	(void)poolName;
+#endif
+}
+
+void tracyResourceFree(const void* ptr, const char* poolName)
+{
+#ifdef TRACY_ENABLE
+	if (ptr == nullptr) {
+		return;
+	}
+	TracyFreeN(ptr, poolName != nullptr ? poolName : "GPU/Unknown");
+#else
+	(void)ptr;
+	(void)poolName;
+#endif
+}
+
 VkTracyContext::~VkTracyContext()
 {
 	shutdown();

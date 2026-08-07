@@ -3,7 +3,7 @@
 #include <string_view>
 #include <vulkan/vulkan_raii.hpp>
 #include "../core/types.hpp"
-#include "object_storage.hpp"
+    #include "object_storage.hpp"
 #include "vk_allocator.hpp"
 #include "vk_device.hpp"
 #include "scene/vk_camera.hpp"
@@ -11,12 +11,15 @@
 
 // Manages GPU resources (buffers, images, command pools) using Device + Assets data.
 // Instance ObjectUB data lives in a single host-visible buffer per frame slot (SoA-friendly).
+// Geometry is mesh-shader only: vertex SSBO + meshlet tables via BDA (no index buffer).
 class ResourceManager {
 public:
 	ResourceManager(const Device &deviceWrapper,
 			   const VkAllocator &allocator,
 			   const std::vector<Vertex> &vertices,
-			   const std::vector<uint32_t> &indices,
+			   const std::vector<MeshletDesc>& meshlets,
+			   const std::vector<uint32_t>& meshletVertices,
+			   const std::vector<uint8_t>& meshletTriangles,
 			   ObjectStorage &objectStorage);
 	~ResourceManager();
 
@@ -27,7 +30,7 @@ public:
 	void createCommandBuffers();
 	void createDepthResources();
 	void createVertexBuffer();
-	void createIndexBuffer();
+    void createMeshBuffers();
     // Grow/recreate the per-frame ObjectUB arrays so they fit at least entityCount entries.
     void ensureInstanceCapacity(uint32_t entityCount);
     void createUniformBuffers();
@@ -35,6 +38,9 @@ public:
     void recreateObjectsBuffers();
     void createCameraBuffers(Camera& camera);
 	void setSwapChainImageCount(uint32_t count) { swapChainImageCount = count; createSyncObjects(); }
+
+	// Per-frame Tracy plots for geometry / mesh / entity resource usage.
+	void tracyPlotResources() const;
 
 	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char> &code) const;
 
@@ -75,10 +81,13 @@ static void endCommandBuffer(vk::raii::CommandBuffer &commandBuffer, const vk::r
 	vk::SampleCountFlagBits msaaSamples;
 	vk::Extent2D swapChainExtent{};
 	const std::vector<Vertex> &vertices;
-	const std::vector<uint32_t> &indices;
+    const std::vector<MeshletDesc> &meshlets;
+    const std::vector<uint32_t> &meshletVertices;
+    const std::vector<uint8_t> &meshletTriangles;
 	uint32_t swapChainImageCount = 0;
 	vk::Format swapChainImageFormat = vk::Format::eUndefined;
 
+	// Acquire: one per frame-in-flight. Present signal: one per swapchain image.
 	std::vector<vk::raii::Semaphore> presentCompleteSemaphore;
 	std::vector<vk::raii::Semaphore> renderFinishedSemaphore;
 	std::vector<vk::raii::Fence> inFlightFences;
@@ -93,11 +102,27 @@ static void endCommandBuffer(vk::raii::CommandBuffer &commandBuffer, const vk::r
 	VmaAllocation vertexBufferMemory = nullptr;
 	vk::raii::Buffer stagingBuffer = nullptr;
 	VmaAllocation stagingBufferMemory = nullptr;
-	vk::raii::Buffer indexBuffer = nullptr;
-	VmaAllocation indexBufferMemory = nullptr;
 	vk::raii::Image colorImage = nullptr;
 	VmaAllocation colorImageMemory = nullptr;
 	vk::raii::ImageView colorImageView = nullptr;
+
+    // Update frequency	                | Buffering	            | Addresses
+    // Every frame (CPU write)          | MAX_FRAMES_IN_FLIGHT	| array of that size
+    // Once / rare (load, level swap)	| single device-local	| one DeviceAddress
+    // Meshlet GPU buffers (device-local, read by mesh shaders via BDA)
+    vk::raii::Buffer meshletBuffer = nullptr;           // MeshletDesc[]
+    VmaAllocation    meshletBufferMemory = nullptr;
+    vk::raii::Buffer meshletVertexBuffer = nullptr;     // uint32_t[] remap
+    VmaAllocation    meshletVertexBufferMemory = nullptr;
+    vk::raii::Buffer meshletTriangleBuffer = nullptr;   // uint8_t[] local corners
+    VmaAllocation    meshletTriangleBufferMemory = nullptr;
+
+    // Cached device addresses (fill after create, like cameraBufferAddresses)
+    vk::DeviceAddress vertexBufferAddress = 0;
+    vk::DeviceAddress meshletBufferAddress = 0;
+    vk::DeviceAddress meshletVertexBufferAddress = 0;
+    vk::DeviceAddress meshletTriangleBufferAddress = 0;
+
 
     // One ObjectUB[capacity] buffer per frame-in-flight (host-visible).
     std::array<vk::raii::Buffer, MAX_FRAMES_IN_FLIGHT> instanceUboBuffers = {nullptr, nullptr};
@@ -109,4 +134,12 @@ static void endCommandBuffer(vk::raii::CommandBuffer &commandBuffer, const vk::r
 
 private:
     void destroyInstanceUboBuffers();
+    // Track last-known sizes for Tracy free/realloc pairing.
+    vk::DeviceSize trackedVertexBytes = 0;
+    vk::DeviceSize trackedMeshletBytes = 0;
+    vk::DeviceSize trackedMeshletVertexBytes = 0;
+    vk::DeviceSize trackedMeshletTriangleBytes = 0;
+    vk::DeviceSize trackedColorBytes = 0;
+    vk::DeviceSize trackedDepthBytes = 0;
+    std::array<vk::DeviceSize, MAX_FRAMES_IN_FLIGHT> trackedInstanceUboBytes = {0, 0};
 };

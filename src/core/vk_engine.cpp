@@ -9,6 +9,9 @@
     #include "imgui_impl_vulkan.h"
 #endif
 
+#include <algorithm>
+#include <format>
+
 
 Engine::~Engine() { cleanup(); }
 
@@ -67,8 +70,9 @@ void Engine::initialize()
     assetsLoader->loadModel(MODEL_PATH.string(), initialAssetPos);
     // Aim free-fly camera at the only startup model so the scene is visible immediately.
     camera->focusOn(initialAssetPos);
-    resourceManager = std::make_unique<ResourceManager>(*device, *allocator, assetsLoader->vertices,
-                                                        assetsLoader->indices, scene->objectStorage);
+    resourceManager = std::make_unique<ResourceManager>(
+        *device, *allocator, assetsLoader->vertices, assetsLoader->meshlets, assetsLoader->meshletVertices,
+        assetsLoader->meshletTriangles, scene->objectStorage);
     resourceManager->init();
     resourceManager->createCameraBuffers(*camera);
 
@@ -261,13 +265,9 @@ void Engine::run()
                 } else if (e.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
                     windowFocused = false;
                 } else if (e.type == SDL_EVENT_WINDOW_RESIZED) {
-                    ZoneScopedN("SwapchainRecreate_Resize");
                     if (swapChain && renderer) {
-                        swapChain->recreateSwapChain();
-                        renderer->rebuildSwapchainResources();
+                        recreateSwapchain();
                     }
-                    // Aspect ratio changed — force projection rebuild next frame.
-                    camera->setFov(camera->getFovDegrees());
                 } else if (e.type == SDL_EVENT_WINDOW_MINIMIZED) {
                     minimized = true;
                 } else if (e.type == SDL_EVENT_WINDOW_RESTORED) {
@@ -443,6 +443,32 @@ void Engine::scanFolder()
     log_info("ImGui scanFolder found assets", "Engine");
 }
 
+void Engine::recreateSwapchain()
+{
+    ZoneScopedN("Engine::recreateSwapchain");
+    if (!swapChain || !renderer || !resourceManager) {
+        return;
+    }
+
+    swapChain->recreateSwapChain();
+    renderer->rebuildSwapchainResources();
+
+#if ENGINE_ENABLE_IMGUI
+    if (enableImGui) {
+        const auto imageCount = static_cast<uint32_t>(swapChain->swapChainImages.size());
+        ImGui_ImplVulkan_SetMinImageCount(std::max<uint32_t>(imageCount, 2));
+        imguiColorFormat = static_cast<VkFormat>(swapChain->swapChainImageFormat);
+    }
+#endif
+
+#ifdef TRACY_ENABLE
+    TracyMessageL("Swapchain recreated");
+    TracyPlot("Vulkan/SwapchainWidth", static_cast<double>(swapChain->swapChainExtent.width));
+    TracyPlot("Vulkan/SwapchainHeight", static_cast<double>(swapChain->swapChainExtent.height));
+    TracyPlot("Vulkan/SwapchainImagesInUse", static_cast<double>(swapChain->swapChainImages.size()));
+#endif
+}
+
 void Engine::loadObject()
 {
     ZoneScopedN("Engine::loadObject");
@@ -453,6 +479,12 @@ void Engine::loadObject()
 
     const std::string assetPath = discoveredAssets[selectedAssetIndex].string();
     log_info("Load Object started", "Engine");
+#ifdef TRACY_ENABLE
+    {
+        const std::string msg = std::format("LoadObject {}", assetPath);
+        TracyMessage(msg.c_str(), msg.size());
+    }
+#endif
     device->vkdevice.waitIdle();
     assetsLoader->loadModel(assetPath, glm::make_vec3(loadedModelPosition));
     resourceManager->recreateObjectsBuffers();

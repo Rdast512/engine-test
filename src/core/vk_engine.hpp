@@ -50,6 +50,8 @@ class Engine{
     void createImGuiDescriptorPool();
     void drawImGui();
     void loadObject();
+    // Full host-side swapchain recreate (waitIdle inside swapchain, color/depth/sync, ImGui).
+    void recreateSwapchain();
 
 public:
     ~Engine();

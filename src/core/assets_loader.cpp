@@ -23,63 +23,7 @@ namespace
         std::string_view uri;
     };
 
-    struct GltfReferenceReport
-    {
-        bool fullySelfContained{true};
-        std::vector<GltfExternalRef> externalRefs;
 
-        uint32_t totalBuffers{0};
-        uint32_t embeddedBuffers{0};
-        uint32_t totalImages{0};
-        uint32_t embeddedImages{0};
-        uint32_t externalImageCount{0};
-    };
-
-    // Scans every glTF 2.0 element that can carry a URI and classifies the
-    // asset as fully self-contained (all data embedded) or as having external
-    // file references (e.g. separate .bin / .png files).
-    GltfReferenceReport detectGltfReferences(const tg3_model& model)
-    {
-        GltfReferenceReport report;
-        report.totalBuffers = model.buffers_count;
-        report.totalImages = model.images_count;
-
-        // ── buffers ──────────────────────────────────────────
-        //   empty uri  → GLB binary chunk (embedded)
-        //   "data:"    → base64 inline (embedded)
-        //   anything else → external .bin file reference
-        for (uint32_t i = 0; i < model.buffers_count; ++i) {
-            const tg3_buffer& buf = model.buffers[i];
-            const std::string_view uri{buf.uri.data, buf.uri.len};
-
-            if (!uri.empty() && !uri.starts_with("data:")) {
-                report.fullySelfContained = false;
-                report.externalRefs.push_back({"buffer", i, uri});
-            } else {
-                ++report.embeddedBuffers;
-            }
-        }
-
-        // ── images ───────────────────────────────────────────
-        //   bufferView >= 0 → embedded raw pixel data
-        //   "data:"         → base64 inline
-        //   empty uri       → GLB-embedded (interpreted by the runtime)
-        //   anything else   → external image file (png, jpg, …)
-        for (uint32_t i = 0; i < model.images_count; ++i) {
-            const tg3_image& img = model.images[i];
-            const std::string_view uri{img.uri.data, img.uri.len};
-
-            if (img.buffer_view >= 0 || uri.starts_with("data:") || uri.empty()) {
-                ++report.embeddedImages;
-            } else {
-                report.fullySelfContained = false;
-                report.externalRefs.push_back({"image", i, uri});
-                ++report.externalImageCount;
-            }
-        }
-
-        return report;
-    }
 
     // ── glTF accessor helpers ───────────────────────────────────
 
@@ -435,12 +379,11 @@ bool AssetsLoader::loadGltfModel(const std::string& modelPath, glm::vec3 xyz)
         }
     }
     const Transform transform{.position = glm::vec3{xyz[0], xyz[1], xyz[2]}};
-    const MeshDraw meshDraw{.firstIndex = currentIndex, .indexCount = indexCount, .baseVertex = 0};
     const MeshletDraw meshletDraw = buildMeshletsForRange(currentIndex, indexCount);
     const MaterialRef material{.textureIndex = textureManager.loadTexture(imagePath), .materialId = 0};
-    const EntityId id = objectStorage.create(transform, meshDraw, meshletDraw, material, modelPath);
-    log_info(std::format("Loaded model entity {} | firstIndex: {} | index count: {} | meshlets: {} (first {})", id,
-                         currentIndex, indexCount, meshletDraw.meshletCount, meshletDraw.firstMeshlet),
+    const EntityId id = objectStorage.create(transform, meshletDraw, material, modelPath);
+    log_info(std::format("Loaded model entity {} | index range [{}, {}) | meshlets: {} (first {})", id, currentIndex,
+                         currentIndex + indexCount, meshletDraw.meshletCount, meshletDraw.firstMeshlet),
              "AssetLoader");
     currentIndex += indexCount;
 
@@ -492,12 +435,11 @@ bool AssetsLoader::loadObjModel(const std::string& modelPath, glm::vec3 xyz)
         }
     }
     const Transform transform{.position = glm::vec3{xyz[0], xyz[1], xyz[2]}};
-    const MeshDraw meshDraw{.firstIndex = currentIndex, .indexCount = indexCount, .baseVertex = 0};
     const MeshletDraw meshletDraw = buildMeshletsForRange(currentIndex, indexCount);
     const MaterialRef material{.textureIndex = textureManager.loadTexture(TEXTURE_PATH.string()), .materialId = 0};
-    const EntityId id = objectStorage.create(transform, meshDraw, meshletDraw, material, modelPath);
-    log_info(std::format("Loaded model entity {} | firstIndex: {} | index count: {} | meshlets: {} (first {})", id,
-                         currentIndex, indexCount, meshletDraw.meshletCount, meshletDraw.firstMeshlet),
+    const EntityId id = objectStorage.create(transform, meshletDraw, material, modelPath);
+    log_info(std::format("Loaded model entity {} | index range [{}, {}) | meshlets: {} (first {})", id, currentIndex,
+                         currentIndex + indexCount, meshletDraw.meshletCount, meshletDraw.firstMeshlet),
              "AssetLoader");
     currentIndex += indexCount;
     log_info(std::format("Model loaded (OBJ): {} | vertices: {} | indices: {} | total meshlets: {}", modelPath,

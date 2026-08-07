@@ -1,4 +1,5 @@
 #include "vk_camera.hpp"
+#include "util/vk_tracy.hpp"
 
 #include <glm/gtc/constants.hpp>
 
@@ -50,6 +51,7 @@ Camera::~Camera()
         VkBuffer rawBuf = VK_NULL_HANDLE;
         if (*cameraBuffers[i] != VK_NULL_HANDLE) {
             rawBuf = cameraBuffers[i].release();
+            tracyResourceFree(rawBuf, "GPU/CameraUBO");
         }
 
         vmaDestroyBuffer(allocator, rawBuf, cameraBuffersMemory[i]);

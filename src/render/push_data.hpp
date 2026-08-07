@@ -10,17 +10,15 @@ struct alignas(8) SlangHandle {
     uint32_t samplerIndex;
 };
 
-// Must perfectly match the PushData struct in Slang.
-struct PushData {
-    vk::DeviceAddress uboAddress;
-    SlangHandle texture;
-    SlangHandle samplerHandle;
-};
-
-struct PushData2
-{
+struct MeshPushData {
     vk::DeviceAddress cameraAddress;
-    vk::DeviceAddress ObjectUBAddress;
+    vk::DeviceAddress objectUbAddress;
+    vk::DeviceAddress vertices;
+    vk::DeviceAddress meshlets;
+    vk::DeviceAddress meshletVertices;
+    vk::DeviceAddress meshletTriangles;
+    uint32_t firstMeshlet;
+    uint32_t meshletCount;
     SlangHandle texture;
     SlangHandle samplerHandle;
 };
@@ -28,10 +26,17 @@ struct PushData2
 static_assert(sizeof(SlangHandle) == sizeof(uint32_t) * 2,
               "Descriptor handle push layout must be uint2");
 static_assert(sizeof(SlangHandle) == 8);
-static_assert(alignof(PushData) % 4 == 0, "PushData alignment must be a multiple of 4");
-static_assert(sizeof(PushData) % 4 == 0, "PushData size must be a multiple of 4");
-static_assert(std::is_trivially_copyable_v<PushData>);
-static_assert(offsetof(PushData, uboAddress) == 0);
-static_assert(offsetof(PushData, texture) == 8);
-static_assert(offsetof(PushData, samplerHandle) == 16);
-static_assert(sizeof(PushData) == 24);
+
+// MeshPushData must match shaders/base/mesh.slang MeshPushData (72 bytes).
+static_assert(std::is_trivially_copyable_v<MeshPushData>);
+static_assert(offsetof(MeshPushData, cameraAddress) == 0);
+static_assert(offsetof(MeshPushData, objectUbAddress) == 8);
+static_assert(offsetof(MeshPushData, vertices) == 16);
+static_assert(offsetof(MeshPushData, meshlets) == 24);
+static_assert(offsetof(MeshPushData, meshletVertices) == 32);
+static_assert(offsetof(MeshPushData, meshletTriangles) == 40);
+static_assert(offsetof(MeshPushData, firstMeshlet) == 48);
+static_assert(offsetof(MeshPushData, meshletCount) == 52);
+static_assert(offsetof(MeshPushData, texture) == 56);
+static_assert(offsetof(MeshPushData, samplerHandle) == 64);
+static_assert(sizeof(MeshPushData) == 72);

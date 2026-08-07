@@ -1,15 +1,20 @@
 #pragma once
 
+#include <cstddef>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_raii.hpp>
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyVulkan.hpp>
 
+// Named GPU/host resource tracking for Tracy's Memory view. No-ops without TRACY_ENABLE.
+// Keys must match between alloc and free (use raw VkBuffer / VkImage / VmaAllocation pointer).
+void tracyResourceAlloc(const void* ptr, size_t size, const char* poolName);
+void tracyResourceFree(const void* ptr, const char* poolName);
 
 class VkTracyContext
 {
 public:
-    VkTracyContext() = default;
+	VkTracyContext() = default;
 	~VkTracyContext();
 
 	VkTracyContext(const VkTracyContext&) = delete;

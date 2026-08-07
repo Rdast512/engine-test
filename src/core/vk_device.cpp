@@ -501,14 +501,20 @@ void Device::createLogicalDevice()
                         // vk::PhysicalDeviceVulkan11Features
                         {.shaderDrawParameters = true},
                         // vk::PhysicalDeviceVulkan12Features
+                        // Designators must follow the struct field order (ISO C++).
                         {
                             .drawIndirectCount = true,
+                            // mesh.slang: uint8_t* meshletTriangles via PhysicalStorageBuffer
+                            .storageBuffer8BitAccess = true,
+                            .shaderInt8 = true,
                             .descriptorIndexing = true,
                             .shaderSampledImageArrayNonUniformIndexing = true,
                             .shaderStorageBufferArrayNonUniformIndexing = true,
                             .descriptorBindingPartiallyBound = true,
                             .descriptorBindingVariableDescriptorCount = true,
                             .runtimeDescriptorArray = true,
+                            // Vertex float3@0/12 packing with slang -fvk-use-scalar-layout
+                            .scalarBlockLayout = true,
                             .bufferDeviceAddress = true,
                             .vulkanMemoryModel = true,
                             .vulkanMemoryModelDeviceScope = true,

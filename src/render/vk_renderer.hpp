@@ -42,5 +42,4 @@ private:
 	// Drawn only while the UI toggle is open (I key).
 	bool imguiVisible = false;
 
-	uint32_t semaphoreIndex = 0;
 };
